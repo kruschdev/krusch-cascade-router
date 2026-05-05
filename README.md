@@ -51,7 +51,7 @@ graph TD;
 ## 📦 Installation
 
 ```bash
-npm install krusch-cascade-router
+npm install @kruschdev/krusch-cascade-router
 ```
 
 > **Note**: Requires Node.js 18+ for native fetch and `AbortSignal` support.
@@ -61,7 +61,7 @@ npm install krusch-cascade-router
 ## 🚀 Quick Start Guide
 
 ```javascript
-import { CascadeRouter } from 'krusch-cascade-router';
+import { CascadeRouter } from '@kruschdev/krusch-cascade-router';
 
 // 1. Initialize the router with your edge and cloud models
 const router = new CascadeRouter({
