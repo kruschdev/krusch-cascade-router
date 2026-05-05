@@ -4,5 +4,6 @@ export {
   RouterConfig, 
   ModelConfig, 
   CascadeResponse,
-  ChatOptions
+  ChatOptions,
+  TelemetryEvent
 } from './cascade.js';

@@ -7,6 +7,8 @@ export interface ModelConfig {
   provider?: 'openai' | 'gemini';
 }
 
+export type TelemetryEvent = 'route_fast' | 'route_heavy' | 'cascade_triggered';
+
 export interface RouterConfig {
   fastModel: ModelConfig;
   heavyModel: ModelConfig;
@@ -14,6 +16,7 @@ export interface RouterConfig {
   tokensToEvaluate?: number; // Default 5
   classifier?: ClassifierOptions;
   fetch?: typeof fetch;
+  onEvent?: (event: TelemetryEvent, metadata?: Record<string, any>) => void;
 }
 
 export interface CascadeResponse {
@@ -53,6 +56,7 @@ export class CascadeRouter {
 
     if (isComplex) {
       // Bypass fast model entirely
+      this.config.onEvent?.('route_heavy', { reason: 'classifier_heuristic' });
       const text = await this.fetchHeavyModel(formattedMessages, options);
       return { text, routedTo: 'heavy', aborted: false };
     }
@@ -62,12 +66,15 @@ export class CascadeRouter {
       const fastResult = await this.streamAndEvaluateFastModel(formattedMessages, options);
       if (fastResult.aborted) {
         console.warn('[CascadeRouter] Fast model confidence too low. Falling back to heavy model.');
+        this.config.onEvent?.('route_heavy', { reason: 'cascade_fallback' });
         const heavyText = await this.fetchHeavyModel(formattedMessages, options);
         return { text: heavyText, routedTo: 'heavy', aborted: true };
       }
+      this.config.onEvent?.('route_fast', { reason: 'high_confidence' });
       return { text: fastResult.text, routedTo: 'fast', aborted: false };
     } catch (err) {
       console.warn(`[CascadeRouter] Fast model failed: ${(err as Error).message}. Falling back.`);
+      this.config.onEvent?.('route_heavy', { reason: 'fast_model_error', error: (err as Error).message });
       const heavyText = await this.fetchHeavyModel(formattedMessages, options);
       return { text: heavyText, routedTo: 'heavy', aborted: true };
     }
@@ -166,6 +173,7 @@ export class CascadeRouter {
                   const avgProb = accumulatedProb / tokenCount;
                   if (avgProb < (this.config.cascadeThreshold || 0.85)) {
                     // Abort! Confidence too low.
+                    this.config.onEvent?.('cascade_triggered', { tokenCount, avgProb, threshold: this.config.cascadeThreshold || 0.85 });
                     controller.abort();
                     return { text: '', aborted: true };
                   }

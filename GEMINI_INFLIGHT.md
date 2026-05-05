@@ -7,7 +7,7 @@
 - Available Edge Worker: `qwen2.5:3b` (kruschgame)
 
 ## Currently Modifying
-- N/A (Implementation complete)
+- Telemetry & Callbacks implementation (Completed)
 
 ## Fragile / Don't Touch
 - N/A
@@ -23,6 +23,7 @@
 - Implemented `customRules` support for the `isComplexPrompt` classifier, allowing developers to inject custom Regex rules.
 - Renamed the project from `cascade-router` to `krusch-router`.
 - Initialized the open-source repository and pushed the initial commit to `git@github.com:kruschdev/krusch-router.git`.
+- Implemented Telemetry & Callbacks (`route_fast`, `route_heavy`, `cascade_triggered`).
 
 ## Open Questions
 - None currently.
@@ -34,4 +35,5 @@
 - N/A
 
 ## Next Steps
-- [ ] Determine next feature for `krusch-router` (e.g. dynamic thresholding, telemetry callbacks) or transition to a different homelab project.
+- [ ] Commit and push changes for Telemetry & Callbacks.
+- [ ] Transition to a different homelab project or implement dynamic thresholding.
