@@ -1,10 +1,7 @@
 {
-  "name": "@kruschdev/krusch-cascade-router",
+  "name": "krusch-cascade-router",
   "version": "1.0.0",
   "description": "Latency-aware LLM router that dynamically cascades between edge and cloud models via logprob inspection.",
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
-  },
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",

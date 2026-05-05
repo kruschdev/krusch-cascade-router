@@ -7,9 +7,9 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/krusch-cascade-router"><img src="https://img.shields.io/npm/v/krusch-cascade-router.svg?style=flat-square" alt="NPM Version"></a>
-  <a href="https://github.com/kruschdev/krusch-cascade-router/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/krusch-cascade-router.svg?style=flat-square" alt="License"></a>
-  <img src="https://img.shields.io/node/v/krusch-cascade-router.svg?style=flat-square" alt="Node Version">
+  <a href="https://www.npmjs.com/package/krusch-cascade-router"><img src="https://img.shields.io/github/package-json/v/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="NPM Version"></a>
+  <a href="https://github.com/kruschdev/krusch-cascade-router/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="License"></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
 </p>
 
 ---
@@ -51,7 +51,7 @@ graph TD;
 ## 📦 Installation
 
 ```bash
-npm install @kruschdev/krusch-cascade-router
+npm install krusch-cascade-router
 ```
 
 > **Note**: Requires Node.js 18+ for native fetch and `AbortSignal` support.
@@ -61,7 +61,7 @@ npm install @kruschdev/krusch-cascade-router
 ## 🚀 Quick Start Guide
 
 ```javascript
-import { CascadeRouter } from '@kruschdev/krusch-cascade-router';
+import { CascadeRouter } from 'krusch-cascade-router';
 
 // 1. Initialize the router with your edge and cloud models
 const router = new CascadeRouter({
