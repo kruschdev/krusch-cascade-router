@@ -34,7 +34,7 @@ A lightweight, framework-agnostic npm package designed for agentic developers bu
 ## 5. API Design Sketch
 
 ```javascript
-import { CascadeRouter } from 'krusch-router';
+import { CascadeRouter } from 'krusch-cascade-router';
 
 const router = new CascadeRouter({
   fastModel: { url: 'http://localhost:11434/v1', model: 'qwen2.5' },

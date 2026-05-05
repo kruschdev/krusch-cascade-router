@@ -3,7 +3,7 @@
 A lightweight, framework-agnostic npm package designed for agentic developers building with local AI. 
 
 **"LLM routing an LLM is a trap."**
-Using a massive third LLM to decide which LLM to route a query to adds severe TTFT (Time To First Token) latency and API costs. `krusch-router` solves this by combining a fast predictive heuristic classifier (<50ms latency) with a reactive logprob-based speculative cascade.
+Using a massive third LLM to decide which LLM to route a query to adds severe TTFT (Time To First Token) latency and API costs. `krusch-cascade-router` solves this by combining a fast predictive heuristic classifier (<50ms latency) with a reactive logprob-based speculative cascade.
 
 ## How it works
 
@@ -13,13 +13,13 @@ Using a massive third LLM to decide which LLM to route a query to adds severe TT
 ## Installation
 
 ```bash
-npm install krusch-router
+npm install krusch-cascade-router
 ```
 
 ## Usage
 
 ```javascript
-import { CascadeRouter } from 'krusch-router';
+import { CascadeRouter } from 'krusch-cascade-router';
 
 const router = new CascadeRouter({
   fastModel: { url: 'http://localhost:11434/v1/chat/completions', model: 'qwen2.5' },
