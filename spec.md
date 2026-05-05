@@ -52,7 +52,7 @@ const response = await router.chat("Write a complex architectural plan...");
 
 ## 7. Acceptance Criteria
 
-- [ ] Package compiles and runs cleanly.
-- [ ] Predictive classifier accurately routes simple vs complex text in <50ms.
+- [x] Package compiles and runs cleanly.
+- [x] Predictive classifier accurately routes simple vs complex text in <50ms.
 - [ ] Speculative cascade successfully aborts a low-confidence stream and returns the fallback model's response.
-- [ ] Comprehensive README.md explaining the "LLM routing an LLM is a trap" philosophy.
+- [x] Comprehensive README.md explaining the "LLM routing an LLM is a trap" philosophy.

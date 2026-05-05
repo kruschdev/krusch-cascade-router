@@ -65,7 +65,6 @@ export class CascadeRouter {
     try {
       const fastResult = await this.streamAndEvaluateFastModel(formattedMessages, options);
       if (fastResult.aborted) {
-        console.warn('[CascadeRouter] Fast model confidence too low. Falling back to heavy model.');
         this.config.onEvent?.('route_heavy', { reason: 'cascade_fallback' });
         const heavyText = await this.fetchHeavyModel(formattedMessages, options);
         return { text: heavyText, routedTo: 'heavy', aborted: true };
@@ -73,7 +72,6 @@ export class CascadeRouter {
       this.config.onEvent?.('route_fast', { reason: 'high_confidence' });
       return { text: fastResult.text, routedTo: 'fast', aborted: false };
     } catch (err) {
-      console.warn(`[CascadeRouter] Fast model failed: ${(err as Error).message}. Falling back.`);
       this.config.onEvent?.('route_heavy', { reason: 'fast_model_error', error: (err as Error).message });
       const heavyText = await this.fetchHeavyModel(formattedMessages, options);
       return { text: heavyText, routedTo: 'heavy', aborted: true };
@@ -108,7 +106,7 @@ export class CascadeRouter {
     
     // Link external abort signal to our internal controller
     if (options?.signal) {
-      options.signal.addEventListener('abort', () => controller.abort());
+      options.signal.addEventListener('abort', () => controller.abort(), { once: true });
       if (options.signal.aborted) controller.abort();
     }
 
@@ -182,7 +180,7 @@ export class CascadeRouter {
             }
           }
         } catch (e) {
-          // Ignore JSON parse errors for incomplete chunks (handled by buffering)
+          if (!(e instanceof SyntaxError)) throw e;
         }
       }
     }
@@ -193,7 +191,7 @@ export class CascadeRouter {
            const data = JSON.parse(buffer.trim().slice(6));
            const delta = data.choices?.[0]?.delta?.content || '';
            if (delta) fullText += delta;
-       } catch (e) {}
+       } catch (e) { if (!(e instanceof SyntaxError)) throw e; }
     }
 
     return { text: fullText, aborted: false };
@@ -239,6 +237,9 @@ export class CascadeRouter {
     const apiKey = heavyModel.apiKey;
     if (!apiKey) throw new Error('Gemini requires an API key');
 
+    // NOTE: Google's REST API uses the key as a query parameter. This means the API key
+    // may appear in server logs, proxy logs, and error reporting. For higher security,
+    // consider using the Google Cloud client libraries with service account auth instead.
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${heavyModel.model}:generateContent?key=${apiKey}`;
 
     const systemPrompt = messages.find(m => m.role === 'system')?.content;

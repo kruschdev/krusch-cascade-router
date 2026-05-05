@@ -1,4 +1,4 @@
-# Cascade Router
+# krusch-cascade-router
 
 A lightweight, framework-agnostic npm package designed for agentic developers building with local AI. 
 

@@ -2,10 +2,27 @@
   "name": "krusch-cascade-router",
   "version": "1.0.0",
   "description": "Latency-aware LLM router that dynamically cascades between edge and cloud models via logprob inspection.",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts --format cjs,esm --watch",
@@ -19,8 +36,16 @@
     "agentic",
     "local-ai"
   ],
-  "author": "Antigravity",
+  "author": "kruschdev",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kruschdev/krusch-cascade-router.git"
+  },
+  "homepage": "https://github.com/kruschdev/krusch-cascade-router#readme",
+  "bugs": {
+    "url": "https://github.com/kruschdev/krusch-cascade-router/issues"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsup": "^8.0.0",
