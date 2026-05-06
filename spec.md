@@ -54,5 +54,5 @@ const response = await router.chat("Write a complex architectural plan...");
 
 - [x] Package compiles and runs cleanly.
 - [x] Predictive classifier accurately routes simple vs complex text in <50ms.
-- [ ] Speculative cascade successfully aborts a low-confidence stream and returns the fallback model's response.
+- [x] Speculative cascade successfully aborts a low-confidence stream and returns the fallback model's response.
 - [x] Comprehensive README.md explaining the "LLM routing an LLM is a trap" philosophy.
