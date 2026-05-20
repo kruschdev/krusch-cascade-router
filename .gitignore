@@ -1,2 +1,7 @@
 node_modules/
 dist/
+GEMINI_INFLIGHT.md
+spec.md
+.agent/
+logs/
+

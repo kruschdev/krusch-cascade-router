@@ -28,7 +28,7 @@ export function isComplexPrompt(messages: Message[] | string, options?: Classifi
     /```[a-z]*/i,             // Contains code blocks
     /<\/?([a-z][a-z0-9]*)\b[^>]*>/i, // Contains XML/HTML tags
     /\{[\s\S]*"[\s\S]*\}/,    // Contains JSON-like structures
-    /\b(analyze|evaluate|architect|synthesize|speculate|refactor)\b/i // Complex cognitive verbs
+    /\b(analyze|evaluate|architect|synthesize|speculate|refactor|debug|test|benchmark)\b/i // Complex cognitive verbs
   ];
 
   if (options?.customRules) {

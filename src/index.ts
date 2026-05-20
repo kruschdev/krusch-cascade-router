@@ -5,5 +5,7 @@ export {
   ModelConfig, 
   CascadeResponse,
   ChatOptions,
-  TelemetryEvent
+  TelemetryEvent,
+  CascadeTriggeredError
 } from './cascade.js';
+

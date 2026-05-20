@@ -47,7 +47,8 @@ function createMockFetch({ fastTokens, fastLogprobs, heavyText, fastShouldFail }
               return { done: false, value: encoded };
             }
             return { done: true, value: undefined };
-          }
+          },
+          releaseLock: () => {}
         })
       };
 
@@ -250,3 +251,233 @@ test('CascadeRouter - Gemini throws without API key', async () => {
     { message: 'Gemini requires an API key' }
   );
 });
+
+test('CascadeRouter - AbortSignal listeners are cleanly removed on stream success', async () => {
+  let added = 0;
+  let removed = 0;
+  const controller = new AbortController();
+  const signal = controller.signal;
+  const originalAdd = signal.addEventListener;
+  const originalRemove = signal.removeEventListener;
+  
+  signal.addEventListener = function(type, ...args) {
+    if (type === 'abort') added++;
+    return originalAdd.apply(this, [type, ...args]);
+  };
+  signal.removeEventListener = function(type, ...args) {
+    if (type === 'abort') removed++;
+    return originalRemove.apply(this, [type, ...args]);
+  };
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    cascadeThreshold: 0.85,
+    tokensToEvaluate: 3,
+    fetch: createMockFetch({
+      fastTokens: ['Hello', ', ', 'world', '!'],
+      fastLogprobs: [0.95, 0.92, 0.90, 0.93],
+      heavyText: 'Should not see this',
+      fastShouldFail: false
+    })
+  });
+
+  const result = await router.chat('Hello there', undefined, { signal });
+  assert.equal(result.routedTo, 'fast');
+  assert.equal(added, 1, 'Should register exactly 1 abort listener');
+  assert.equal(removed, 1, 'Should clean up the abort listener on success');
+});
+
+test('CascadeRouter - AbortSignal listeners are cleanly removed on stream() success', async () => {
+  let added = 0;
+  let removed = 0;
+  const controller = new AbortController();
+  const signal = controller.signal;
+  const originalAdd = signal.addEventListener;
+  const originalRemove = signal.removeEventListener;
+  
+  signal.addEventListener = function(type, ...args) {
+    if (type === 'abort') added++;
+    return originalAdd.apply(this, [type, ...args]);
+  };
+  signal.removeEventListener = function(type, ...args) {
+    if (type === 'abort') removed++;
+    return originalRemove.apply(this, [type, ...args]);
+  };
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    cascadeThreshold: 0.85,
+    tokensToEvaluate: 3,
+    fetch: createMockFetch({
+      fastTokens: ['Hello', ', ', 'world', '!'],
+      fastLogprobs: [0.95, 0.92, 0.90, 0.93],
+      heavyText: 'Should not see this',
+      fastShouldFail: false
+    })
+  });
+
+  const chunks = [];
+  for await (const chunk of router.stream('Hello there', undefined, { signal })) {
+    chunks.push(chunk);
+  }
+  assert.equal(chunks.join(''), 'Hello, world!');
+  assert.equal(added, 1, 'Should register exactly 1 abort listener during stream()');
+  assert.equal(removed, 1, 'Should clean up the abort listener on stream() success');
+});
+
+test('CascadeRouter - stream() High Confidence Path works with buffering', async () => {
+  const events = [];
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    cascadeThreshold: 0.85,
+    tokensToEvaluate: 3,
+    fetch: createMockFetch({
+      fastTokens: ['Hello', ', ', 'world', '!'],
+      fastLogprobs: [0.95, 0.92, 0.90, 0.93],
+      heavyText: 'Should not see this',
+      fastShouldFail: false
+    }),
+    onEvent: (event, meta) => events.push({ event, meta })
+  });
+
+  const chunks = [];
+  for await (const chunk of router.stream('Hello there')) {
+    chunks.push(chunk);
+  }
+  assert.equal(chunks.join(''), 'Hello, world!');
+  assert.deepEqual(chunks, ['Hello', ', ', 'world', '!']);
+  assert.ok(events.some(e => e.event === 'route_fast'));
+});
+
+test('CascadeRouter - stream() Low Confidence Cascade Path triggers fallback to heavy streaming', async () => {
+  const events = [];
+  
+  const mockFetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    const encoder = new TextEncoder();
+    
+    if (body.model === 'qwen-fast') {
+      const chunks = [
+        {
+          choices: [{
+            delta: { content: 'Um' },
+            logprobs: { content: [{ logprob: Math.log(0.4) }] }
+          }]
+        },
+        {
+          choices: [{
+            delta: { content: '...' },
+            logprobs: { content: [{ logprob: Math.log(0.3) }] }
+          }]
+        },
+        {
+          choices: [{
+            delta: { content: 'maybe' },
+            logprobs: { content: [{ logprob: Math.log(0.2) }] }
+          }]
+        }
+      ].map(chunk => `data: ${JSON.stringify(chunk)}\n\n`);
+      chunks.push('data: [DONE]\n\n');
+      
+      let read = false;
+      const body_stream = {
+        getReader: () => ({
+          read: async () => {
+            if (!read) {
+              read = true;
+              return { done: false, value: encoder.encode(chunks.join('')) };
+            }
+            return { done: true, value: undefined };
+          },
+          releaseLock: () => {}
+        })
+      };
+      return { ok: true, status: 200, body: body_stream };
+    } else if (body.model === 'gpt-heavy') {
+      const chunks = [
+        { choices: [{ delta: { content: 'Heavy ' } }] },
+        { choices: [{ delta: { content: 'stream ' } }] },
+        { choices: [{ delta: { content: 'output' } }] }
+      ].map(chunk => `data: ${JSON.stringify(chunk)}\n\n`);
+      chunks.push('data: [DONE]\n\n');
+      
+      let read = false;
+      const body_stream = {
+        getReader: () => ({
+          read: async () => {
+            if (!read) {
+              read = true;
+              return { done: false, value: encoder.encode(chunks.join('')) };
+            }
+            return { done: true, value: undefined };
+          },
+          releaseLock: () => {}
+        })
+      };
+      return { ok: true, status: 200, body: body_stream };
+    }
+    return { ok: false, status: 400 };
+  };
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen-fast' },
+    heavyModel: { model: 'gpt-heavy', apiKey: 'test-key' },
+    cascadeThreshold: 0.85,
+    tokensToEvaluate: 3,
+    fetch: mockFetch,
+    onEvent: (event, meta) => events.push({ event, meta })
+  });
+
+  const chunks = [];
+  for await (const chunk of router.stream('Hello there')) {
+    chunks.push(chunk);
+  }
+  
+  assert.equal(chunks.join(''), 'Heavy stream output');
+  assert.ok(events.some(e => e.event === 'cascade_triggered'));
+  assert.ok(events.some(e => e.event === 'route_heavy' && e.meta.reason === 'cascade_fallback'));
+});
+
+test('CascadeRouter - stream() Gemini streaming parser works', async () => {
+  const mockFetch = async (url, opts) => {
+    const encoder = new TextEncoder();
+    
+    const geminiPayload = `[
+      {"candidates":[{"content":{"parts":[{"text":"Gemi"}]}}]},
+      {"candidates":[{"content":{"parts":[{"text":"ni "}]}}]},
+      {"candidates":[{"content":{"parts":[{"text":"stream!"}]}}]}
+    ]`;
+    
+    let read = false;
+    const body_stream = {
+      getReader: () => ({
+        read: async () => {
+          if (!read) {
+            read = true;
+            return { done: false, value: encoder.encode(geminiPayload) };
+          }
+          return { done: true, value: undefined };
+        },
+        releaseLock: () => {}
+      })
+    };
+    return { ok: true, status: 200, body: body_stream };
+  };
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5' },
+    heavyModel: { model: 'gemini-2.5-pro', apiKey: 'test-key', provider: 'gemini' },
+    fetch: mockFetch
+  });
+
+  const chunks = [];
+  for await (const chunk of router.stream('Please analyze this system.')) {
+    chunks.push(chunk);
+  }
+  
+  assert.equal(chunks.join(''), 'Gemini stream!');
+});
+
