@@ -10,3 +10,7 @@ benchmark/RouterArena/
 benchmark/
 scratch/
 
+benchmark/venv/
+*.pyc
+__pycache__/
+
