@@ -481,3 +481,208 @@ test('CascadeRouter - stream() Gemini streaming parser works', async () => {
   assert.equal(chunks.join(''), 'Gemini stream!');
 });
 
+test('CascadeRouter - JeanSREGate - Injects SRE suggestions into chat()', async () => {
+  let capturedBody;
+  let sreCalled = false;
+
+  const mockFetch = async (url, opts) => {
+    if (url.includes('localhost:3005') || url.includes('custom-sre-url')) {
+      sreCalled = true;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ reply: 'WARNING: CPU at 99C!' })
+      };
+    }
+
+    capturedBody = JSON.parse(opts.body);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: 'SRE acknowledged' } }]
+      })
+    };
+  };
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    jeanSREGate: {
+      enabled: true,
+      sreUrl: 'http://custom-sre-url/chat',
+      projectContext: 'pocketlawyer'
+    },
+    fetch: mockFetch
+  });
+
+  const result = await router.chat('Fix this');
+  
+  assert.equal(sreCalled, true, 'Should have queried Jean SRE');
+  assert.equal(result.routedTo, 'heavy');
+  assert.equal(result.text, 'SRE acknowledged');
+
+  const lastMessage = capturedBody.messages[capturedBody.messages.length - 1];
+  assert.equal(lastMessage.role, 'system');
+  assert.ok(lastMessage.content.includes('WARNING: CPU at 99C!'));
+  assert.ok(lastMessage.content.includes('INSTRUCTION: Jean SRE has detected these fleet/system anomalies'));
+});
+
+test('CascadeRouter - JeanSREGate - Injects SRE suggestions into stream()', async () => {
+  let capturedBody;
+  let sreCalled = false;
+
+  const mockFetch = async (url, opts) => {
+    if (url.includes('localhost:3005') || url.includes('custom-sre-url')) {
+      sreCalled = true;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ reply: 'WARNING: Docker loop!' })
+      };
+    }
+
+    capturedBody = JSON.parse(opts.body);
+    const encoder = new TextEncoder();
+    const chunks = [
+      { choices: [{ delta: { content: 'Stream ok' } }] }
+    ].map(chunk => `data: ${JSON.stringify(chunk)}\n\n`);
+    chunks.push('data: [DONE]\n\n');
+
+    let read = false;
+    const body_stream = {
+      getReader: () => ({
+        read: async () => {
+          if (!read) {
+            read = true;
+            return { done: false, value: encoder.encode(chunks.join('')) };
+          }
+          return { done: true, value: undefined };
+        },
+        releaseLock: () => {}
+      })
+    };
+    return { ok: true, status: 200, body: body_stream };
+  };
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    jeanSREGate: {
+      enabled: true,
+      sreUrl: 'http://custom-sre-url/chat',
+    },
+    fetch: mockFetch
+  });
+
+  const chunks = [];
+  for await (const chunk of router.stream('Hello')) {
+    chunks.push(chunk);
+  }
+
+  assert.equal(sreCalled, true, 'Should have queried Jean SRE');
+  assert.equal(chunks.join(''), 'Stream ok');
+
+  const lastMessage = capturedBody.messages[capturedBody.messages.length - 1];
+  assert.equal(lastMessage.role, 'system');
+  assert.ok(lastMessage.content.includes('WARNING: Docker loop!'));
+});
+
+test('CascadeRouter - JeanSREGate - Gracefully degrades if SRE is offline', async () => {
+  let capturedBody;
+  let sreCalled = false;
+
+  const mockFetch = async (url, opts) => {
+    if (url.includes('localhost:3005') || url.includes('custom-sre-url')) {
+      sreCalled = true;
+      throw new Error('ECONNREFUSED');
+    }
+
+    capturedBody = JSON.parse(opts.body);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: 'Succeeded without SRE' } }]
+      })
+    };
+  };
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    jeanSREGate: {
+      enabled: true,
+      sreUrl: 'http://custom-sre-url/chat'
+    },
+    fetch: mockFetch
+  });
+
+  const result = await router.chat('Fix this');
+  
+  assert.equal(sreCalled, true, 'Should have attempted SRE query');
+  assert.equal(result.text, 'Succeeded without SRE');
+  
+  const lastMessage = capturedBody.messages[capturedBody.messages.length - 1];
+  assert.equal(lastMessage.role, 'user');
+  assert.equal(lastMessage.content, 'Fix this');
+});
+
+test('CascadeRouter - speedPriority: low - Routes to backgroundModel', async () => {
+  const events = [];
+  let fetchedUrl = '';
+  
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5', url: 'http://fast-url/v1/chat/completions' },
+    backgroundModel: { model: 'qwen2.5-background', url: 'http://background-url/v1/chat/completions' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    fetch: async (url, opts) => {
+      fetchedUrl = url;
+      return createMockFetch({
+        fastTokens: ['Hello', ' background'],
+        fastLogprobs: [0.95, 0.96],
+        heavyText: 'Should not see this',
+        fastShouldFail: false
+      })(url, opts);
+    },
+    onEvent: (event, meta) => events.push({ event, meta })
+  });
+
+  const result = await router.chat('Hello there', undefined, { speedPriority: 'low' });
+  assert.equal(result.routedTo, 'fast');
+  assert.equal(fetchedUrl, 'http://background-url/v1/chat/completions');
+  assert.equal(result.text, 'Hello background');
+  
+  const routeEvent = events.find(e => e.event === 'route_fast');
+  assert.ok(routeEvent);
+  assert.equal(routeEvent.meta.model, 'qwen2.5-background');
+  assert.equal(routeEvent.meta.speedPriority, 'low');
+});
+
+test('CascadeRouter - urgency: low - stream() routes to backgroundModel', async () => {
+  let fetchedUrl = '';
+  
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5', url: 'http://fast-url/v1/chat/completions' },
+    backgroundModel: { model: 'qwen2.5-background', url: 'http://background-url/v1/chat/completions' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    fetch: async (url, opts) => {
+      fetchedUrl = url;
+      return createMockFetch({
+        fastTokens: ['Hello', ' background'],
+        fastLogprobs: [0.95, 0.96],
+        heavyText: 'Should not see this',
+        fastShouldFail: false
+      })(url, opts);
+    }
+  });
+
+  const chunks = [];
+  for await (const chunk of router.stream('Hello there', undefined, { urgency: 'low' })) {
+    chunks.push(chunk);
+  }
+  assert.equal(chunks.join(''), 'Hello background');
+  assert.equal(fetchedUrl, 'http://background-url/v1/chat/completions');
+});
+
+

@@ -9,14 +9,23 @@ export interface ModelConfig {
 
 export type TelemetryEvent = 'route_fast' | 'route_heavy' | 'cascade_triggered';
 
+export interface JeanSREGateConfig {
+  enabled: boolean;
+  sreUrl?: string;
+  conversationId?: string;
+  projectContext?: string;
+}
+
 export interface RouterConfig {
   fastModel: ModelConfig;
   heavyModel: ModelConfig;
+  backgroundModel?: ModelConfig;
   cascadeThreshold?: number; // Default 0.85 (Linear probability)
   tokensToEvaluate?: number; // Default 5
   classifier?: ClassifierOptions;
   fetch?: typeof fetch;
   onEvent?: (event: TelemetryEvent, metadata?: Record<string, any>) => void;
+  jeanSREGate?: JeanSREGateConfig;
 }
 
 export interface CascadeResponse {
@@ -27,6 +36,8 @@ export interface CascadeResponse {
 
 export interface ChatOptions {
   signal?: AbortSignal;
+  speedPriority?: 'high' | 'medium' | 'low';
+  urgency?: 'high' | 'medium' | 'low';
 }
 
 export class CascadeTriggeredError extends Error {
@@ -58,6 +69,17 @@ export class CascadeRouter {
   async chat(messages: Message[] | string, systemPrompt?: string, options?: ChatOptions): Promise<CascadeResponse> {
     const formattedMessages = this.formatMessages(messages, systemPrompt);
 
+    // Fetch SRE suggestions if gate is enabled
+    if (this.config.jeanSREGate?.enabled) {
+      const sreSuggestions = await this.fetchJeanSuggestions(this.config.jeanSREGate.projectContext);
+      if (sreSuggestions) {
+        formattedMessages.push({
+          role: 'system',
+          content: `[JEAN SRE TELEMETRY & RECOMMENDATIONS]\n${sreSuggestions}\n\nINSTRUCTION: Jean SRE has detected these fleet/system anomalies or suggestions. As the agent-in-the-loop, you MUST present these to the human user for review, analyze their risks/benefits, and wait for the user's explicit approval before proposing or executing any commands or modifications.`
+        });
+      }
+    }
+
     // 1. Predictive Classifier
     const isComplex = isComplexPrompt(formattedMessages, this.config.classifier);
 
@@ -76,7 +98,10 @@ export class CascadeRouter {
         const heavyText = await this.fetchHeavyModel(formattedMessages, options);
         return { text: heavyText, routedTo: 'heavy', aborted: true };
       }
-      this.config.onEvent?.('route_fast', { reason: 'high_confidence' });
+      const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
+        ? this.config.backgroundModel
+        : this.config.fastModel;
+      this.config.onEvent?.('route_fast', { reason: 'high_confidence', model: modelToUse.model, speedPriority: options?.speedPriority || 'normal' });
       return { text: fastResult.text, routedTo: 'fast', aborted: false };
     } catch (err) {
       this.config.onEvent?.('route_heavy', { reason: 'fast_model_error', error: (err as Error).message });
@@ -92,6 +117,17 @@ export class CascadeRouter {
    */
   async *stream(messages: Message[] | string, systemPrompt?: string, options?: ChatOptions): AsyncGenerator<string, void, unknown> {
     const formattedMessages = this.formatMessages(messages, systemPrompt);
+
+    // Fetch SRE suggestions if gate is enabled
+    if (this.config.jeanSREGate?.enabled) {
+      const sreSuggestions = await this.fetchJeanSuggestions(this.config.jeanSREGate.projectContext);
+      if (sreSuggestions) {
+        formattedMessages.push({
+          role: 'system',
+          content: `[JEAN SRE TELEMETRY & RECOMMENDATIONS]\n${sreSuggestions}\n\nINSTRUCTION: Jean SRE has detected these fleet/system anomalies or suggestions. As the agent-in-the-loop, you MUST present these to the human user for review, analyze their risks/benefits, and wait for the user's explicit approval before proposing or executing any commands or modifications.`
+        });
+      }
+    }
 
     // 1. Predictive Classifier
     const isComplex = isComplexPrompt(formattedMessages, this.config.classifier);
@@ -133,11 +169,13 @@ export class CascadeRouter {
    * If confidence is lower than threshold, aborts and returns { aborted: true }.
    */
   private async streamAndEvaluateFastModel(messages: Message[], options?: ChatOptions): Promise<{ text: string, aborted: boolean }> {
-    const { fastModel } = this.config;
-    const url = fastModel.url || 'http://localhost:11434/v1/chat/completions';
+    const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
+      ? this.config.backgroundModel
+      : this.config.fastModel;
+    const url = modelToUse.url || 'http://localhost:11434/v1/chat/completions';
     
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (fastModel.apiKey) headers['Authorization'] = `Bearer ${fastModel.apiKey}`;
+    if (modelToUse.apiKey) headers['Authorization'] = `Bearer ${modelToUse.apiKey}`;
 
     const controller = new AbortController();
     
@@ -154,7 +192,7 @@ export class CascadeRouter {
         headers,
         signal: controller.signal,
         body: JSON.stringify({
-          model: fastModel.model,
+          model: modelToUse.model,
           messages,
           stream: true,
           logprobs: true // Request logprobs (OpenAI format)
@@ -319,11 +357,13 @@ export class CascadeRouter {
   }
 
   private async *streamAndEvaluateFastModelGen(messages: Message[], options?: ChatOptions): AsyncGenerator<string, void, unknown> {
-    const { fastModel } = this.config;
-    const url = fastModel.url || 'http://localhost:11434/v1/chat/completions';
+    const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
+      ? this.config.backgroundModel
+      : this.config.fastModel;
+    const url = modelToUse.url || 'http://localhost:11434/v1/chat/completions';
     
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (fastModel.apiKey) headers['Authorization'] = `Bearer ${fastModel.apiKey}`;
+    if (modelToUse.apiKey) headers['Authorization'] = `Bearer ${modelToUse.apiKey}`;
 
     const controller = new AbortController();
     const onAbort = () => controller.abort();
@@ -339,7 +379,7 @@ export class CascadeRouter {
         headers,
         signal: controller.signal,
         body: JSON.stringify({
-          model: fastModel.model,
+          model: modelToUse.model,
           messages,
           stream: true,
           logprobs: true
@@ -615,6 +655,30 @@ export class CascadeRouter {
       }
     } finally {
       reader.releaseLock();
+    }
+  }
+
+  private async fetchJeanSuggestions(project?: string): Promise<string | null> {
+    const gate = this.config.jeanSREGate;
+    if (!gate || !gate.enabled) return null;
+
+    const url = gate.sreUrl || 'http://localhost:3005/chat';
+    const conversationId = gate.conversationId || 'a123e456-789b-12d3-a456-426614174000';
+    const query = "Provide a concise list of any current fleet warnings, database anomalies, CPU thermal alerts, or Docker container issues that require human-agent review.";
+    const message = project ? `[Project Isolation Context: ${project}] ${query}` : query;
+
+    try {
+      const response = await this.fetchFn(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, message, noTools: false })
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.reply || null;
+    } catch (err) {
+      // Gracefully degrade if SRE endpoint is down or unreachable
+      return null;
     }
   }
 }

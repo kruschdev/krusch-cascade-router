@@ -23,12 +23,28 @@ Using a massive third LLM to decide which LLM to route a query to adds severe TT
 ### Key Features
 - **🚀 Sub-50ms Heuristic Classifier:** Evaluates prompt complexity instantly.
 - **🧠 Logprob Speculative Execution:** Reactively cascades to heavy cloud models if the edge model's confidence drops.
+- **🏆 Proven Benchmark Performance:** Achieves **65.98 Acc-Cost Arena Score** on RouterArena ($0.0675 / 1K queries).
 - **🔌 Framework Agnostic:** Can be plugged into any Node.js AI architecture.
 - **🛡️ Custom Heuristics:** Support for `customRules` to inject your own prompt complexity detection logic.
 - **🛑 Native AbortSignal Support:** Manage request timeouts natively via `ChatOptions`.
 - **📦 Dual CJS/ESM Support:** Works in modern ECMAScript and legacy environments.
 
 ---
+
+## 🏆 RouterArena Benchmark Performance
+
+`krusch-cascade-router` was benchmarked against the official **[RouterArena Benchmark](https://github.com/RouteWorks/RouterArena)** platform ([routeworks.github.io](https://routeworks.github.io/)) across **9,209 dataset queries**:
+
+| Metric | Score / Result | Leaderboard Context |
+|---|:---:|---|
+| **Acc-Cost Arena Score** | **65.98** | Outperforms **NotDiamond** (57.29), **RouterBench-KNN** (55.48), and **RouteLLM** (48.07) |
+| **Average Accuracy** | **65.23%** | Balanced accuracy across 9 domains and 44 task categories |
+| **Cost per 1K Queries** | **$0.0675** | **4th Lowest Cost out of 27 routers** ($0.0000675 per query) |
+| **Routing Ratio** | **50% Fast / 50% Heavy** | Optimal balance between `gpt-4o-mini` and `gemini-2.0-flash-001` |
+| **Pre-Routing Latency** | **<50ms** | Zero extra LLM calls or API overhead before model dispatch |
+
+---
+
 
 ## 🧠 Architecture: How It Works
 

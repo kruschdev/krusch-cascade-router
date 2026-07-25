@@ -5,3 +5,8 @@ spec.md
 .agent/
 logs/
 
+benchmark/RouterArena/
+
+benchmark/
+scratch/
+
