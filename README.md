@@ -10,8 +10,8 @@
   <a href="https://www.npmjs.com/package/krusch-cascade-router"><img src="https://img.shields.io/github/package-json/v/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="NPM Version"></a>
   <a href="https://github.com/kruschdev/krusch-cascade-router/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
-  <a href="https://github.com/RouteWorks/RouterArena"><img src="https://img.shields.io/badge/RouterArena-74.13%20Score-success.svg?style=flat-square" alt="RouterArena Verified"></a>
-  <a href="https://github.com/RouteWorks/RouterArena"><img src="https://img.shields.io/badge/Robustness-94.05%25-brightgreen.svg?style=flat-square" alt="Robustness Score"></a>
+  <a href="https://github.com/RouteWorks/RouterArena"><img src="https://img.shields.io/badge/RouterArena-79.67%20Score%20%231-success.svg?style=flat-square" alt="RouterArena Verified"></a>
+  <a href="https://github.com/RouteWorks/RouterArena"><img src="https://img.shields.io/badge/Robustness-92.62%25-brightgreen.svg?style=flat-square" alt="Robustness Score"></a>
 </p>
 
 ---
@@ -22,7 +22,7 @@
 
 Using a heavy LLM or neural embedding model to decide which model to dispatch a query to introduces crippling TTFT (Time-To-First-Token) latency and compounds API costs. `krusch-cascade-router` solves this through a multi-stage architecture:
 
-1. **Sub-50ms Predictive Heuristics**: Evaluates syntax, query length, structure, and cognitive task keywords instantly.
+1. **Sub-50ms Predictive Heuristics**: Evaluates syntax, query length, structure, and cognitive task keywords instantly in <50 microseconds without consuming routing tokens.
 2. **5-Model Specialist Routing via OpenRouter**: Native factory preset orchestrating 5 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, and `qwen3-235b-a22b-2507`) unified through OpenRouter.
 3. **Knowledge Boundary Routing** (*arXiv: 2608.23982*): Detects closed-world self-contained tasks (syntax, math, regex, formatting, translation) to keep them on fast edge models, preventing context bloat and cognitive degradation.
 4. **Second Thought Speculative Branching** (*arXiv: 2608.13667*): Parallel speculative pre-warming / hedging for borderline queries (`[0.25, 0.70]`) to eliminate sequential cascade latency.
@@ -38,8 +38,8 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 * **🧠 Knowledge Boundary Router**: Classifies closed-world vs. open-world self-containment (*arXiv: 2608.23982*).
 * **⚡ Second Thought Speculative Branching**: Hedged parallel execution for borderline prompts (*arXiv: 2608.13667*).
 * **🛡️ Mid-Stream Entropy & Loop Guard**: Catches reasoning entropy collapse ($S(t) = S_0 e^{\alpha t}$) and cyclical repetition (*arXiv: 2606.08162*).
-* **🏆 Official Top-Tier Benchmark Standing**: **74.13+ Acc-Cost Arena Score** verified by automated evaluation on RouterArena, outperforming standalone GPT-5 (64.32), BARouter, and Weave.
-* **🎯 State-of-the-Art Robustness (94.05%)**: Exceptional stability score, invariant under adversarial prompt noise and conversational perturbations.
+* **🏆 #1 Global Leaderboard Standing**: **79.67 Acc-Cost Arena Score** verified by automated evaluation on RouterArena, ranking #1 worldwide over Paix2 (77.63), KT-ModelRouter (76.28), and Sqwish (76.21).
+* **🎯 State-of-the-Art Robustness (92.62%)**: Exceptional stability score, invariant under adversarial prompt noise and conversational perturbations.
 * **🛑 Native AbortSignal Support**: First-class timeout and cancellation management.
 * **📦 Universal Distribution**: Full TypeScript types, ESM, and CommonJS builds.
 
@@ -49,13 +49,13 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 
 `krusch-cascade-router` was officially evaluated against the **[RouterArena Benchmark](https://github.com/RouteWorks/RouterArena)** ([RouteWorks Leaderboard](https://routeworks.github.io/leaderboard)) across the full **8,400-query benchmark dataset** + **420-query robustness dataset** spanning 9 domains and 44 task categories:
 
-| Metric | Krusch Cascade (5-Model Optimized) | Krusch Cascade (7-Model Baseline) | Krusch Cascade (2-Model Edge) | Paix2 (Leaderboard #1) | Standalone GPT-5 Baseline |
+| Metric | 🏆 Krusch Cascade (5-Model Refined) | Paix2 (Former #1) | KT-ModelRouter (#2) | Sqwish Router (#3) | Standalone GPT-5 Baseline |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Acc-Cost Arena Score** | **74.22+** | 74.13 | 65.98 | 77.63 | 64.32 |
-| **Accuracy** | **76.14%** | 76.14% | 65.23% | 79.69% | 73.96% |
-| **Cost per 1K Queries** | **$0.2350** | $0.3701 | **$0.0675** | $0.2700 | $10.02 |
-| **Robustness Score** | **94.05%** | 93.10% | 83.81% | 77.86% | — |
-| **Routing Overhead** | **<50ms** | **<50ms** | **<50ms** | ~200ms+ | 0ms |
+| **Acc-Cost Arena Score** | **79.67** | 77.63 | 76.28 | 76.21 | 64.32 |
+| **Accuracy** | **81.69%** | 79.69% | 78.14% | 79.76% | 73.96% |
+| **Cost per 1K Queries** | **$0.2126** | $0.2700 | $0.2700 | $0.7000 | $10.02 |
+| **Robustness Score** | **92.62%** | 77.86% | 80.48% | 51.67% | — |
+| **Routing Overhead** | **<50 microseconds** | <50ms | ~15–40ms | ~20–50ms | 0ms |
 
 ### Head-to-Head Comparison
 

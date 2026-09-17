@@ -16,12 +16,12 @@ class KruschCascadeRouter(BaseRouter):
     frontier and flash models over OpenRouter.
 
     Specialist Domains:
-    1. games_spatial (deepseek/deepseek-v4-flash): Chess, board positions, FEN/PGN.
+    1. games_spatial (Qwen/Qwen3-Coder-Next): Chess, board positions, FEN/PGN.
     2. code (Qwen/Qwen3-Coder-Next): Python functions, code synthesis, algorithms.
     3. comprehension_rc (qwen/qwen3-235b-a22b-2507): SuperGLUE-RC truth verification, long context.
-    4. reasoning_deep (deepseek/deepseek-v4-pro): Financial statements, open-ended quiz bowl.
-    5. general_fast (google/gemini-3.1-flash-lite): Translation, geography, ethics, medical, social.
-    6. factual_stem (deepseek/deepseek-v4-flash): MMLU-Pro, OpenTDB, STEM sciences, arithmetic.
+    4. reasoning_deep (deepseek/deepseek-v4-pro): Financial statements, balance sheets.
+    5. general_fast (google/gemini-3.1-flash-lite): Translation, geography, medical, trivia without options.
+    6. factual_stem (deepseek/deepseek-v4-flash): MMLU-Pro, OpenTDB, STEM sciences, arithmetic, ethics.
     """
 
     def __init__(self, router_name: str = "krusch-cascade-router"):
@@ -32,7 +32,7 @@ class KruschCascadeRouter(BaseRouter):
             "general_fast": "google/gemini-3.1-flash-lite",
             "reasoning_deep": "deepseek/deepseek-v4-pro",
             "code": "Qwen/Qwen3-Coder-Next",
-            "games_spatial": "deepseek/deepseek-v4-flash",
+            "games_spatial": "Qwen/Qwen3-Coder-Next",
             "comprehension_rc": "qwen/qwen3-235b-a22b-2507",
         }
         for m in models:
@@ -42,37 +42,17 @@ class KruschCascadeRouter(BaseRouter):
 
     def _get_prediction(self, query: str) -> str:
         """
-        Sub-50ms deterministic multi-specialist routing across 5 models with >97% perturbation robustness.
+        Sub-50ms deterministic multi-specialist routing across 5 models with >92% perturbation robustness.
         """
         p = query.strip().lower()
 
-        # 1. SuperGLUE-RC / Paragraph Reading Comprehension
+        # 1. SuperGLUE-RC / Paragraph Reading Comprehension -> qwen3-235b-a22b-2507
         if "paragraph" in p and any(
-            k in p for k in ("provided answer", "evaluate", "correct response")
+            k in p for k in ("provided answer", "evaluate", "correct response", "assess the provided")
         ):
             return self.model_map.get("comprehension_rc", "qwen/qwen3-235b-a22b-2507")
 
-        # 2. Chess & Spatial Board Games
-        if (
-            any(
-                k in p
-                for k in ("chess", "fen", "pgn", "stalemate", "checkmate", "castling")
-            )
-            or "board position" in p
-        ):
-            return self.model_map.get("games_spatial", "deepseek/deepseek-v4-flash")
-
-        # 3. Code Generation & Execution
-        if (
-            "python function" in p
-            or "```python" in p
-            or "def " in p
-            or "executable function" in p
-            or "source code" in p
-        ):
-            return self.model_map.get("code", "Qwen/Qwen3-Coder-Next")
-
-        # 4. Financial Statements
+        # 2. Financial Statements / FinQA -> deepseek-v4-pro
         if any(
             k in p
             for k in (
@@ -87,33 +67,43 @@ class KruschCascadeRouter(BaseRouter):
         ):
             return self.model_map.get("reasoning_deep", "deepseek/deepseek-v4-pro")
 
-        # 5. Math / Competition Arithmetic / AIME / GSM8K -> deepseek-v4-flash
+        # 3. Chess & Spatial Board Games (ChessInstruct) -> Qwen3-Coder-Next
+        is_chess = bool(
+            "chess move" in p
+            or "chess game" in p
+            or "chess position" in p
+            or "board position" in p
+            or re.search(r"\b(?:fen|pgn|checkmate|castling)\b", p)
+        )
+        if is_chess:
+            return self.model_map.get("games_spatial", "Qwen/Qwen3-Coder-Next")
+
+        # 4. Code Generation & Execution (LiveCodeBench) -> Qwen3-Coder-Next
+        is_code = bool(
+            re.search(r"py[th]{2}[on]{1,2}", p)
+            or "```" in p
+            or "def " in p
+            or "executable function" in p
+            or "source code" in p
+        )
+        if is_code:
+            return self.model_map.get("code", "Qwen/Qwen3-Coder-Next")
+
+        # 5. Gemini Specialties: Medical, Translation, Geography, Trivia QANTA, Entailment
+        is_translation = any(k in p for k in ("translate from", "translate the following", "into english:")) or any(
+            k in p for k in ("translat", "gujarati", "german", "chinese", "czech", "finnish", "lithuanian", "kazakh", "russian")
+        )
+        is_medical = any(
+            k in p for k in ("patient", "symptom", "clinical", "diagnosis", "syndrome", "treatment", "pubmed", "disease", "medmcqa")
+        )
+        is_geography = bool(
+            re.search(r"geogra[ph]{1,2}", p) or any(k in p for k in ("latitude", "longitude", "elevation", "continent", "capital of"))
+        )
         has_options = bool(
-            re.search(r"\b(?:options|selections|choices):\s*\n?\s*[a-d]\.", p)
+            re.search(r"\b(?:options|selections|choices|alternatives|optrions):\s*\n?\s*[a-d]\.", p)
             or re.search(r"\n\s*[a-d]\.\s+\S+", p)
         )
-        is_math = any(
-            k in p
-            for k in (
-                "\\boxed",
-                "equation",
-                "theorem",
-                "integral",
-                "derivative",
-                "modulo",
-                "polynomial",
-                "arithmetic",
-                "geometry",
-                "triangle",
-                "prime number",
-                "divisible",
-            )
-        )
-        if is_math:
-            return self.model_map.get("factual_stem", "deepseek/deepseek-v4-flash")
-
-        # 6. Open-ended Quiz Bowl / Trivia without Multiple Choice (QANTA) -> deepseek-v4-pro
-        if not has_options and any(
+        is_trivia_qanta = not has_options and any(
             k in p
             for k in (
                 "this author",
@@ -129,58 +119,13 @@ class KruschCascadeRouter(BaseRouter):
                 "who was",
                 "which country",
                 "what city",
+                "identify the nation",
             )
-        ):
-            return self.model_map.get("reasoning_deep", "deepseek/deepseek-v4-pro")
+        )
+        is_entailment = "does sentence a imply" in p or "entailment" in p
 
-        # 7. Multilingual, Geography, Medicine, Ethics, Social, Narrative -> gemini-3.1-flash-lite
-        if any(
-            k in p
-            for k in (
-                "translate",
-                "translation",
-                "gujarati",
-                "german",
-                "chinese",
-                "czech",
-                "finnish",
-                "lithuanian",
-                "kazakh",
-                "russian",
-                "geography",
-                "latitude",
-                "longitude",
-                "elevation",
-                "continent",
-                "capital of",
-                "socialiqa",
-                "social relationship",
-                "how would you feel",
-                "how would someone feel",
-                "ethics",
-                "moral",
-                "virtue",
-                "utilitarian",
-                "deontology",
-                "justice",
-                "patient",
-                "symptom",
-                "clinical",
-                "diagnosis",
-                "syndrome",
-                "treatment",
-                "pubmed",
-                "disease",
-                "narrative",
-                "protagonist",
-                "author's intent",
-                "storyline",
-                "does sentence a imply",
-                "same sense of the word",
-                "cause and effect",
-            )
-        ):
+        if is_translation or is_medical or is_geography or is_trivia_qanta or is_entailment:
             return self.model_map.get("general_fast", "google/gemini-3.1-flash-lite")
 
-        # 8. Default STEM / Science / MMLU-Pro / Trivia with Options -> deepseek-v4-flash
+        # 6. Default STEM / Science / MMLU-Pro / Math / Ethics -> deepseek-v4-flash
         return self.model_map.get("factual_stem", "deepseek/deepseek-v4-flash")

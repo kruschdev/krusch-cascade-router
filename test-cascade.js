@@ -909,13 +909,13 @@ test('classifySpecialistRole - Accurate Domain Classification for 5 Specialist M
     'games_spatial'
   );
 
-  // 2. Code Generation -> Qwen3-Coder-Next
+  // 2. Code Generation & Execution -> Qwen3-Coder-Next
   assert.equal(
     classifySpecialistRole('Generate an executable Python function to calculate the Fibonacci series:\ndef fib(n):'),
     'code'
   );
 
-  // 3. Code Execution with Stdin -> Qwen3-Coder-Next (Lever 1: replaces grok)
+  // 3. Code Execution with Stdin / Complex Logic -> Qwen3-Coder-Next (code)
   assert.equal(
     classifySpecialistRole('Generate an executable Python function that takes stdin as input and prints the result.'),
     'code'
@@ -933,19 +933,19 @@ test('classifySpecialistRole - Accurate Domain Classification for 5 Specialist M
     'reasoning_deep'
   );
 
-  // 6. Open-ended Quiz Bowl without Options (QANTA) -> deepseek-v4-pro
+  // 6. Open-ended Quiz Bowl without Options (QANTA) -> gemini-3.1-flash-lite (general_fast)
   assert.equal(
     classifySpecialistRole('Please read the following question and provide the correct answer.\n\nContext: None\n\nQuestion: This author wrote The Sound and the Fury and As I Lay Dying, set in Yoknapatawpha County.'),
-    'reasoning_deep'
+    'general_fast'
   );
 
-  // 7. General Fast / Multilingual / Geo / Medicine / Ethics -> gemini-3.1-flash-lite
+  // 7. General Fast / Multilingual / Geo / Medicine / Trivia -> gemini-3.1-flash-lite
   assert.equal(classifySpecialistRole('Translate this Gujarati paragraph into English.'), 'general_fast');
   assert.equal(classifySpecialistRole('What is the capital of Kazakhstan, its latitude, and neighboring countries?'), 'general_fast');
   assert.equal(classifySpecialistRole('Patient presents with acute chest pain and dyspnea. Clinical diagnosis indicates myocardial infarction.'), 'general_fast');
-  assert.equal(classifySpecialistRole('From a utilitarian ethics perspective, analyze whether the moral dilemma permits action.'), 'general_fast');
 
-  // 8. Factual STEM / MMLU / Science with Options -> deepseek-v4-flash
+  // 8. Factual STEM / MMLU / Ethics / Science with Options -> deepseek-v4-flash
+  assert.equal(classifySpecialistRole('From a utilitarian ethics perspective, analyze whether the moral dilemma permits action.'), 'factual_stem');
   assert.equal(
     classifySpecialistRole('Which of the following compounds has the highest boiling point?\nOptions:\nA. Water\nB. Methane\nC. Ethanol'),
     'factual_stem'
@@ -988,11 +988,11 @@ test('createMultiSpecialistRouter - Preconfigures 5 Specialist Models via OpenRo
     onEvent: (event, meta) => events.push({ event, meta })
   });
 
-  // 1. Test Chess query routes to deepseek-v4-flash (Lever 2: replaces gemini-3-flash-preview)
+  // 1. Test Chess query routes to Qwen/Qwen3-Coder-Next
   const chessRes = await router.chat('What is the best chess continuation from this board position: 1. e4 e5?');
   assert.equal(chessRes.routedTo, 'games_spatial');
-  assert.equal(chessRes.model, 'deepseek/deepseek-v4-flash');
-  assert.equal(interceptedCalls[0].model, 'deepseek/deepseek-v4-flash');
+  assert.equal(chessRes.model, 'Qwen/Qwen3-Coder-Next');
+  assert.equal(interceptedCalls[0].model, 'Qwen/Qwen3-Coder-Next');
   assert.equal(interceptedCalls[0].url, 'https://openrouter.ai/api/v1/chat/completions');
   assert.equal(interceptedCalls[0].headers['Authorization'], 'Bearer sk-or-v1-mock-secret');
   assert.equal(interceptedCalls[0].headers['HTTP-Referer'], 'https://krusch.homelab.dev');
@@ -1017,6 +1017,8 @@ test('createMultiSpecialistRouter - Preconfigures 5 Specialist Models via OpenRo
   // Check telemetry events
   const routeSpecialistEvents = events.filter(e => e.event === 'route_specialist');
   assert.equal(routeSpecialistEvents.length, 4);
+  assert.equal(router.config.specialistModels.games_spatial.model, 'Qwen/Qwen3-Coder-Next');
+  assert.equal(router.config.specialistModels.comprehension_rc.model, 'qwen/qwen3-235b-a22b-2507');
 });
 
 test('createMultiSpecialistRouter - Cascades to reasoning_deep on specialist failure', async () => {
@@ -1028,7 +1030,7 @@ test('createMultiSpecialistRouter - Cascades to reasoning_deep on specialist fai
     calledModels.push(body.model);
 
     // Fail if calling chess specialist, succeed if calling heavy deep reasoning
-    if (body.model === 'deepseek/deepseek-v4-flash') {
+    if (body.model === 'Qwen/Qwen3-Coder-Next') {
       return {
         ok: false,
         status: 502,
@@ -1056,7 +1058,7 @@ test('createMultiSpecialistRouter - Cascades to reasoning_deep on specialist fai
   const res = await router.chat('What is the best chess continuation from this position: 1. e4 e5?');
   assert.equal(res.routedTo, 'reasoning_deep');
   assert.equal(res.aborted, true);
-  assert.equal(calledModels[0], 'deepseek/deepseek-v4-flash');
+  assert.equal(calledModels[0], 'Qwen/Qwen3-Coder-Next');
   assert.equal(calledModels[1], 'deepseek/deepseek-v4-pro');
 
   const errorEvent = events.find(e => e.event === 'route_heavy' && e.meta?.reason === 'specialist_model_error');

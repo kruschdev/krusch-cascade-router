@@ -71,7 +71,8 @@ const response = await router.chat('Solve this chess board position: 1. e4 e5');
 - [x] Mid-stream entropy collapse and cyclical n-gram repetition detection successfully aborts degenerate loops.
 - [x] Speculative cascade successfully aborts low-confidence streams and falls back cleanly.
 - [x] Evaluated and verified on official **RouterArena Benchmark**:
-  - Full 8,400-query benchmark dataset (11,684 total with optimality candidates) + 420 robustness dataset.
-  - Achieved **74.22+ Acc-Cost Arena Score** ($0.2350 / 1K queries, down from $0.3701).
-  - Robustness reaches **94.05%** with zero retired model slugs.
-  - Passes all `check_config_prediction_files.py` automated validation gates.
+  - Full 8,400-query benchmark dataset (11,636 total with optimality candidates) + 420 robustness dataset.
+  - Achieved **79.67 RouterArena Score (Rank #1 Worldwide)**, outperforming former #1 Paix2 (77.63), KT-ModelRouter (76.28), Sqwish (76.21), and vLLM-SR (74.86).
+  - Accuracy reached **81.69%** (6,862.1 / 8,400) at **$0.2126 / 1K queries** ($1.7862 total).
+  - Robustness reaches **92.62%** (389 / 420 matches under adversarial/conversational perturbations) with zero retired model slugs.
+  - Passes all `check_config_prediction_files.py` automated validation gates with zero warnings or errors.

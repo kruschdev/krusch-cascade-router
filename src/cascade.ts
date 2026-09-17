@@ -125,7 +125,7 @@ export function createMultiSpecialistRouter(options?: MultiSpecialistRouterOptio
     code: { model: 'Qwen/Qwen3-Coder-Next', inputCost: 0.07, outputCost: 0.30 },
     reasoning_fast: { model: 'Qwen/Qwen3-Coder-Next', inputCost: 0.07, outputCost: 0.30 },
     reasoning_deep: { model: 'deepseek/deepseek-v4-pro', inputCost: 0.435, outputCost: 0.87 },
-    games_spatial: { model: 'deepseek/deepseek-v4-flash', inputCost: 0.14, outputCost: 0.28 },
+    games_spatial: { model: 'Qwen/Qwen3-Coder-Next', inputCost: 0.07, outputCost: 0.30 },
     comprehension_rc: { model: 'qwen/qwen3-235b-a22b-2507', inputCost: 0.071, outputCost: 0.10 }
   };
 

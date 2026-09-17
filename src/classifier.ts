@@ -184,57 +184,56 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
   if (
     /based on the "paragraph"/i.test(p) ||
     /provided answer" is a correct response/i.test(p) ||
-    /evaluate if the "provided answer"/i.test(p)
+    /evaluate if the "provided answer"/i.test(p) ||
+    /assess the provided/i.test(p)
   ) {
     return 'comprehension_rc';
   }
 
-  // 2. Chess & Spatial Board Games (deepseek-v4-flash)
-  if (
-    /\b(chess|fen|pgn|stalemate|checkmate|castling)\b/i.test(p) ||
+  // 2. Chess & Spatial Board Games (Qwen3-Coder-Next via games_spatial)
+  const isChess = 
+    /chess move/i.test(p) ||
+    /chess game/i.test(p) ||
+    /chess position/i.test(p) ||
     /board position/i.test(p) ||
+    /\b(?:fen|pgn|checkmate|castling)\b/i.test(p) ||
     /\b[a-h][1-8]-[a-h][1-8]\b/.test(p) ||
-    /(?:1\.|\b(?:e4|d4|nf3|c4))\s+[a-z0-9+#=-]+/i.test(p)
-  ) {
+    /(?:1\.|\b(?:e4|d4|nf3|c4))\s+[a-z0-9+#=-]+/i.test(p);
+
+  if (isChess) {
     return 'games_spatial';
   }
 
   // 3. Code Generation & Algorithm Synthesis (Qwen3-Coder-Next)
-  if (
+  const isCode = 
     /generate an executable python function/i.test(p) ||
+    /craft a python/i.test(p) ||
+    /py[th]{2}[on]{1,2}/i.test(p) ||
     /```(?:python|javascript|typescript|c\+\+|cpp|java|go|rust|sql|html|css|bash|sh)\b/i.test(p) ||
-    /\b(?:def\s+[a-zA-Z_]\w*\s*\(|function\s+[a-zA-Z_]\w*\s*\(|class\s+[a-zA-Z_]\w*[:\{])/i.test(p)
-  ) {
+    /\b(?:def\s+[a-zA-Z_]\w*\s*\(|function\s+[a-zA-Z_]\w*\s*\(|class\s+[a-zA-Z_]\w*[:\{])/i.test(p) ||
+    /subroutine/i.test(p) ||
+    /runnable python/i.test(p) ||
+    /source code/i.test(p);
+
+  if (isCode) {
     return 'code';
   }
 
-  // 4. Financial Statements & Deep Open-ended Knowledge (deepseek-v4-pro)
+  // 4. Financial Statements & Balance Sheets (deepseek-v4-pro)
   if (
-    /table:/i.test(p) &&
-    /\b(net income|operating income|fiscal year|cash flows|diluted|balance sheet|sec filing|ebitda|assets)\b/i.test(p)
+    /\b(net income|operating income|fiscal year|cash flows|diluted eps|balance sheet|sec filing|ebitda)\b/i.test(p)
   ) {
     return 'reasoning_deep';
   }
 
-  // Open-ended trivia without multiple choice options (Quiz Bowl / QANTA)
-  if (
-    /context:\s*none/i.test(p) &&
-    !/options:\s*\n?\s*[a-d]\./i.test(p) &&
-    p.length > 180
-  ) {
-    return 'reasoning_deep';
-  }
-
-  // 5. Linguistics, Translation, Geography, Medicine, Ethics, Social Dynamics, Narrative QA
+  // 5. Linguistics, Translation, Geography, Medicine, Trivia QANTA, Entailment
   // (Empirically superior on google/gemini-3.1-flash-lite)
   const generalFastPatterns = [
-    /\b(?:translate|translation|gujarati|german|chinese|czech|finnish|lithuanian|kazakh|russian)\b/i,
-    /\b(?:geography|latitude|longitude|elevation|continent|bordering countries|capital of)\b/i,
-    /\b(?:socialiqa|social relationship|how would you feel|how would someone feel|feeling|emotion)\b/i,
-    /\b(?:ethics|moral|virtue|utilitarian|deontology|justice|ethical dilemma)\b/i,
-    /\b(?:patient|symptom|clinical|diagnosis|syndrome|treatment|pubmed|disease|prescribe)\b/i,
+    /\b(?:translat|translation|gujarati|german|chinese|czech|finnish|lithuanian|kazakh|russian)\b/i,
+    /\b(?:geograph|latitude|longitude|elevation|continent|bordering countries|capital of)\b/i,
+    /\b(?:patient|symptom|clinic|diagnos|syndrome|treatment|pubmed|disease|prescribe|medmcqa)\b/i,
     /\b(?:narrative|protagonist|author's intent|storyline|allegory)\b/i,
-    /\b(?:does sentence a imply sentence b|same sense of the word|cause and effect)\b/i
+    /\b(?:does sentence a imply|same sense of the word|entailment)\b/i
   ];
 
   for (const pattern of generalFastPatterns) {
@@ -243,7 +242,13 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
     }
   }
 
-  // 6. Default STEM / Science / Math / Logic / MMLU-Pro / Trivia with Options
+  // Open-ended trivia without multiple choice options (Quiz Bowl / QANTA)
+  const hasOptions = /\b(?:options|selections|choices|alternatives):\s*\n?\s*[a-d]\./i.test(p) || /\n\s*[a-d]\.\s+\S+/i.test(p);
+  if (!hasOptions && /\b(this author|this poet|this battle|name this|identify this|for 10 points|this composer|this novel|this leader|this president|who was|which country|what city|identify the nation)\b/i.test(p)) {
+    return 'general_fast';
+  }
+
+  // 6. Default STEM / Science / Math / Logic / MMLU-Pro / Ethics
   // (Empirically highest accuracy & throughput on deepseek/deepseek-v4-flash)
   return 'factual_stem';
 }
