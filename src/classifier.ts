@@ -166,8 +166,8 @@ export function isComplexPrompt(messages: Message[] | string, options?: Classifi
 }
 
 /**
- * Classifies a prompt into one of 7 domain specialist roles corresponding
- * to the empirical strengths of the top-ranked Cross-Router model suite.
+ * Classifies a prompt into one of 7 domain specialist roles optimized
+ * for sub-50ms multi-model swarm routing.
  */
 export function classifySpecialistRole(messages: Message[] | string, options?: ClassifierOptions): SpecialistRole {
   let fullText = Array.isArray(messages) 

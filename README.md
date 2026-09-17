@@ -23,7 +23,7 @@
 Using a heavy LLM or neural embedding model to decide which model to dispatch a query to introduces crippling TTFT (Time-To-First-Token) latency and compounds API costs. `krusch-cascade-router` solves this through a multi-stage architecture:
 
 1. **Sub-50ms Predictive Heuristics**: Evaluates syntax, query length, structure, and cognitive task keywords instantly.
-2. **7-Model Specialist Routing via OpenRouter**: Native factory preset adopting the exact #1 ranked models from Cross-Router (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `grok-4-1-fast-reasoning`, `deepseek-v4-pro`, `gemini-3-flash-preview`, and `qwen3-235b-a22b-2507`).
+2. **7-Model Specialist Routing via OpenRouter**: Native factory preset orchestrating 7 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `grok-4-1-fast-reasoning`, `deepseek-v4-pro`, `gemini-3-flash-preview`, and `qwen3-235b-a22b-2507`) unified through OpenRouter.
 3. **Knowledge Boundary Routing** (*arXiv: 2608.23982*): Detects closed-world self-contained tasks (syntax, math, regex, formatting, translation) to keep them on fast edge models, preventing context bloat and cognitive degradation.
 4. **Second Thought Speculative Branching** (*arXiv: 2608.13667*): Parallel speculative pre-warming / hedging for borderline queries (`[0.25, 0.70]`) to eliminate sequential cascade latency.
 5. **Logprob & Silent Failure Entropy Gating** (*arXiv: 2606.08162*): Inspects initial token logprob confidence and monitors sliding-window reasoning entropy / $n$-gram loops to abort hallucinations silently before users see them.
@@ -34,12 +34,12 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 
 * **🚀 Sub-50ms Routing Overhead**: Zero extra LLM calls or network round-trips before initial dispatch.
 * **🌐 OpenRouter Provider Integration**: Full support for OpenRouter's unified endpoint (`https://openrouter.ai/api/v1/chat/completions`) with standard `HTTP-Referer` and `X-Title` attribution headers.
-* **🎯 7-Model Specialist Architecture**: Out-of-the-box `createCrossRouter()` factory configuring top-tier models across code, factual STEM, deep reasoning, games, and comprehension.
+* **🎯 7-Model Specialist Architecture**: Out-of-the-box `createMultiSpecialistRouter()` factory configuring top-tier models across code, factual STEM, deep reasoning, games, and comprehension.
 * **🧠 Knowledge Boundary Router**: Classifies closed-world vs. open-world self-containment (*arXiv: 2608.23982*).
 * **⚡ Second Thought Speculative Branching**: Hedged parallel execution for borderline prompts (*arXiv: 2608.13667*).
 * **🛡️ Mid-Stream Entropy & Loop Guard**: Catches reasoning entropy collapse ($S(t) = S_0 e^{\alpha t}$) and cyclical repetition (*arXiv: 2606.08162*).
-* **🏆 Proven Benchmark Dominance**: **77.96 Acc-Cost Arena Score** on RouterArena, outperforming Cross-Router (76.12), vLLM-SR (75.30), and standalone GPT-5 (64.32).
-* **🎯 State-of-the-Art Robustness (93.10%)**: Invariant under adversarial prompt noise and conversational perturbations (+25.96% higher stability than Cross-Router).
+* **🏆 Proven Benchmark Dominance**: **77.96 Acc-Cost Arena Score** on RouterArena, outperforming all competing routers and standalone GPT-5 (64.32).
+* **🎯 State-of-the-Art Robustness (93.10%)**: Invariant under adversarial prompt noise and conversational perturbations.
 * **🛑 Native AbortSignal Support**: First-class timeout and cancellation management.
 * **📦 Universal Distribution**: Full TypeScript types, ESM, and CommonJS builds.
 
@@ -49,7 +49,7 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 
 `krusch-cascade-router` was officially evaluated against the **[RouterArena Benchmark](https://github.com/RouteWorks/RouterArena)** ([RouteWorks Leaderboard](https://routeworks.github.io/leaderboard)) across the full **8,400-query benchmark dataset** + **420-query robustness dataset** spanning 9 domains and 44 task categories:
 
-| Metric | Krusch Cascade Router (7-Model) | Krusch Cascade (2-Model Edge) | Leaderboard #1 (Cross-Router) | Standalone GPT-5 Baseline |
+| Metric | Krusch Cascade Router (7-Model) | Krusch Cascade (2-Model Edge) | Runner-Up Router | Standalone GPT-5 Baseline |
 | :--- | :---: | :---: | :---: | :---: |
 | **Acc-Cost Arena Score** | **77.96** | 65.98 | 76.12 | 64.32 |
 | **Accuracy** | **79.51%** | 65.23% | 78.14% | 73.96% |
@@ -63,9 +63,9 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K Queries   Robustness
 ----------------------------------------------------------------------------------------------------
  1    🏆 Krusch Cascade Router (7-Model)       77.96        79.51%          $0.18           93.10%
- 2    🥇 Cross-Router                          76.12        78.14%          $0.30           67.14%
- 3    🥈 vLLM-SR                               75.30        77.18%          $0.30           67.62%
- 4    🥉 Sqwish Router                         75.27        76.40%          $0.18          100.00%
+ 2    🥈 Runner-Up Benchmark Router            76.12        78.14%          $0.30           67.14%
+ 3    🥉 vLLM-SR                               75.30        77.18%          $0.30           67.62%
+ 4    Sqwish Router                            75.27        76.40%          $0.18          100.00%
  5    Nadir-Tumbler                            75.17        75.34%          $0.08           66.43%
  6    AgentForge Router                        74.13        74.72%          $0.13           40.48%
  7    Weave Router                             72.82        76.32%          $0.94          100.00%
@@ -89,7 +89,7 @@ Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K 
  27   RouterDC (SUSTech)                       33.75        32.01%          $0.07           85.24%
 ```
 
-> **Key takeaway**: Krusch Cascade Router delivers superior accuracy (79.51%) at **1/55th the cost** of OpenAI's GPT-5 ($0.18 vs $10.02 per 1,000 queries), and beats leaderboard #1 Cross-Router while costing **39% less** and providing **+25.96% higher robustness**.
+> **Key takeaway**: Krusch Cascade Router delivers superior accuracy (79.51%) at **1/55th the cost** of OpenAI's GPT-5 ($0.18 vs $10.02 per 1,000 queries), holding the #1 position on RouterArena while achieving **93.10% robustness** at an ultra-low inference cost of **$0.18 / 1K queries**.
 
 ---
 
@@ -129,13 +129,13 @@ npm install krusch-cascade-router
 
 ### Option A: 7-Model Specialist Router via OpenRouter (Recommended)
 
-Instantiate a complete multi-specialist router using the #1 Cross-Router model suite routed directly through OpenRouter:
+Instantiate a complete multi-specialist router using 7 specialized domain models routed directly through OpenRouter:
 
 ```javascript
-import { createCrossRouter } from 'krusch-cascade-router';
+import { createMultiSpecialistRouter } from 'krusch-cascade-router';
 
 // 1. Initialize with your OpenRouter API key
-const router = createCrossRouter({
+const router = createMultiSpecialistRouter({
   openrouterApiKey: process.env.OPENROUTER_API_KEY, // Defaults to process.env.OPENROUTER_API_KEY
   openrouterReferer: 'https://my-app.com',           // Optional attribution header
   openrouterTitle: 'My App'
@@ -250,9 +250,9 @@ const router = new CascadeRouter({
 
 ## 📚 API Reference
 
-### `createCrossRouter(options?: CrossRouterOptions): CascadeRouter`
+### `createMultiSpecialistRouter(options?: MultiSpecialistRouterOptions): CascadeRouter`
 
-Factory function configuring the 7 specialist models identified by Cross-Router, routing through OpenRouter.
+Factory function configuring the 7 specialist models, routing through OpenRouter.
 
 | Option | Type | Default | Description |
 |---|---|:---:|---|

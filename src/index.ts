@@ -20,6 +20,8 @@ export {
   RouterMetrics,
   TelemetryEvent,
   CascadeTriggeredError,
+  MultiSpecialistRouterOptions,
+  createMultiSpecialistRouter,
   CrossRouterOptions,
   createCrossRouter
 } from './cascade.js';

@@ -36,8 +36,7 @@
     "agentic",
     "local-ai",
     "openrouter",
-    "routerarena",
-    "cross-router"
+    "routerarena"
   ],
   "author": "kruschdev",
   "license": "MIT",

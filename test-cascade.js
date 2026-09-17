@@ -900,7 +900,7 @@ test('Knowledge Boundary and Continuous Complexity Scoring', async () => {
   assert.ok(complexScore >= 0.65, `Complex score ${complexScore} should be >= 0.65`);
 });
 
-test('classifySpecialistRole - Accurate Domain Classification for Cross-Router 7 Models', async () => {
+test('classifySpecialistRole - Accurate Domain Classification for 7 Specialist Models', async () => {
   const { classifySpecialistRole } = await import('./dist/index.js');
 
   // 1. Games & Spatial (Chess) -> gemini-3-flash-preview
@@ -952,8 +952,8 @@ test('classifySpecialistRole - Accurate Domain Classification for Cross-Router 7
   );
 });
 
-test('createCrossRouter - Preconfigures 7 Specialist Models via OpenRouter', async () => {
-  const { createCrossRouter } = await import('./dist/index.js');
+test('createMultiSpecialistRouter - Preconfigures 7 Specialist Models via OpenRouter', async () => {
+  const { createMultiSpecialistRouter } = await import('./dist/index.js');
 
   const interceptedCalls = [];
   const mockFetch = async (url, opts) => {
@@ -980,7 +980,7 @@ test('createCrossRouter - Preconfigures 7 Specialist Models via OpenRouter', asy
   };
 
   const events = [];
-  const router = createCrossRouter({
+  const router = createMultiSpecialistRouter({
     openrouterApiKey: 'sk-or-v1-mock-secret',
     siteUrl: 'https://krusch.homelab.dev',
     appName: 'Krusch Swarm Router',
@@ -1019,8 +1019,8 @@ test('createCrossRouter - Preconfigures 7 Specialist Models via OpenRouter', asy
   assert.equal(routeSpecialistEvents.length, 4);
 });
 
-test('createCrossRouter - Cascades to reasoning_deep on specialist failure', async () => {
-  const { createCrossRouter } = await import('./dist/index.js');
+test('createMultiSpecialistRouter - Cascades to reasoning_deep on specialist failure', async () => {
+  const { createMultiSpecialistRouter } = await import('./dist/index.js');
 
   const calledModels = [];
   const mockFetch = async (url, opts) => {
@@ -1047,7 +1047,7 @@ test('createCrossRouter - Cascades to reasoning_deep on specialist failure', asy
   };
 
   const events = [];
-  const router = createCrossRouter({
+  const router = createMultiSpecialistRouter({
     openrouterApiKey: 'sk-or-fallback-test',
     fetch: mockFetch,
     onEvent: (event, meta) => events.push({ event, meta })

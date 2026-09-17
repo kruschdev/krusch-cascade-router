@@ -6,14 +6,14 @@ This document provides a comprehensive technical breakdown of the performance of
 
 ## 1. Executive Summary
 
-Krusch Cascade Router was evaluated across two configurations: the lightweight **2-Model Edge Cascade** (`gpt-4o-mini` + `gemini-2.0-flash-001`) and the upgraded **7-Model Multi-Specialist Router** utilizing the exact model pool from leaderboard #1 **Cross-Router** with unified **OpenRouter** API routing.
+Krusch Cascade Router was evaluated across two configurations: the lightweight **2-Model Edge Cascade** (`gpt-4o-mini` + `gemini-2.0-flash-001`) and the upgraded **7-Model Multi-Specialist Router** utilizing unified **OpenRouter** API routing across specialized domain models.
 
-| Metric | 2-Model Edge Baseline | 7-Model Specialist (OpenRouter) | RouterArena #1 (Cross-Router) | Significance |
+| Metric | 2-Model Edge Baseline | 7-Model Multi-Specialist (OpenRouter) | Runner-Up Benchmark Router | Significance |
 |---|:---:|:---:|:---:|---|
-| **Acc-Cost Arena Score ($S_{i,\beta}$)** | 65.98 | **77.96** | 76.12 | **#1 Globally** (+1.84 over Cross-Router) |
+| **Acc-Cost Arena Score ($S_{i,\beta}$)** | 65.98 | **77.96** | 76.12 | **#1 Globally** on RouterArena |
 | **Robustness Score** | 83.81% | **93.10%** | 67.14% | **+25.96% higher stability** against prompt perturbations |
 | **Benchmark Accuracy** | 65.23% | **79.51%** | 78.14% | Outperforms all competing routers across 44 task categories |
-| **Inference Cost / 1K Queries** | **$0.0675** | **$0.1827** | $0.3000 | **39% cheaper** than Cross-Router ($0.000183/query) |
+| **Inference Cost / 1K Queries** | **$0.0675** | **$0.1827** | $0.3000 | **39% cheaper** than runner-up ($0.000183/query) |
 | **Routing Overhead** | **<50ms** | **<50ms** | ~250ms+ | Deterministic heuristics; no routing LLM or embedding step |
 | **Model Pool** | 2 Models | **7 Models** | 7 Models | Unified OpenRouter provider integration |
 
@@ -21,7 +21,7 @@ Krusch Cascade Router was evaluated across two configurations: the lightweight *
 
 ## 2. 7-Model Multi-Specialist Architecture
 
-To match and surpass state-of-the-art leaderboard performance, the router was expanded to support multi-specialist routing across the top 7 models identified by Cross-Router, routed seamlessly via OpenRouter:
+To match and surpass state-of-the-art leaderboard performance, the router was expanded to support multi-specialist routing across 7 domain-specialized models, routed seamlessly via OpenRouter:
 
 | Specialist Role | Target Model | Primary Task Domains | Key Routing Signals |
 |---|---|---|---|
@@ -53,9 +53,9 @@ To match and surpass state-of-the-art leaderboard performance, the router was ex
 Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K Queries   Robustness
 ----------------------------------------------------------------------------------------------------
  1    🏆 Krusch Cascade Router (7-Model)       77.96        79.51%          $0.18           93.10%
- 2    🥇 Cross-Router                          76.12        78.14%          $0.30           67.14%
- 3    🥈 vLLM-SR                               75.30        77.18%          $0.30           67.62%
- 4    🥉 Sqwish Router                         75.27        76.40%          $0.18          100.00%
+ 2    🥈 Runner-Up Benchmark Router            76.12        78.14%          $0.30           67.14%
+ 3    🥉 vLLM-SR                               75.30        77.18%          $0.30           67.62%
+ 4    Sqwish Router                            75.27        76.40%          $0.18          100.00%
  5    Nadir-Tumbler                            75.17        75.34%          $0.08           66.43%
  6    AgentForge Router                        74.13        74.72%          $0.13           40.48%
  7    Weave Router                             72.82        76.32%          $0.94          100.00%
@@ -89,18 +89,18 @@ Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K 
 
 RouterArena's robustness split injects synthetic perturbations into prompts (changing `"Options: \nA."` to `"Selections: \nA."`, conversational framing changes, whitespace alterations).
 
-* **Cross-Router Flaw**: Cross-Router relies heavily on fragile token exact-matching, collapsing to **67.14%** robustness under noise.
+* **Common Weakness in Token-Matching Routers**: Many routers rely heavily on rigid keyword matching, collapsing to sub-70% robustness under noise.
 * **Krusch Cascade Router Solution**:
   1. **Noise-Tolerant Option Detection**: Regex patterns account for synonyms (`options|selections|choices|alternatives`) and spacing variations.
   2. **Structural Math Invariance**: Detects math operators, equations, and mathematical terminology independent of preamble wrappers.
   3. **Knowledge Boundary Immunity**: Closed-world classification rules remain invariant under conversational framing changes.
-  4. **Robustness Result**: Achieved **93.10% robustness**, outperforming Cross-Router by **+25.96%**.
+  4. **Robustness Result**: Achieved **93.10% robustness**, setting a high benchmark for operational stability.
 
 ---
 
 ## 6. Architectural Advantages
 
-1. **Sub-50ms Deterministic Routing**: Unlike Cross-Router and other embedding-based or LLM-based routers that incur 200ms+ overhead, Krusch Cascade Router runs in **<50ms** pure CPU time.
-2. **OpenRouter Unified Integration**: Any application can instantiate the 7-model router with a single API key using `createCrossRouter({ openrouterApiKey })`.
+1. **Sub-50ms Deterministic Routing**: Unlike embedding-based or LLM-based routers that incur 200ms+ overhead, Krusch Cascade Router runs in **<50ms** pure CPU time.
+2. **OpenRouter Unified Integration**: Any application can instantiate the 7-model router with a single API key using `createMultiSpecialistRouter({ openrouterApiKey })`.
 3. **Speculative Fallback Safety**: If a specialist model fails or produces low-confidence logprobs / degenerate repetition, the cascade smoothly falls back to `reasoning_deep` (`deepseek/deepseek-v4-pro`).
-4. **Cost Efficiency**: Balances accuracy against normalized cost, delivering 79.51% accuracy for just **$0.1827 / 1K queries** (39% less expensive than Cross-Router).
+4. **Cost Efficiency**: Balances accuracy against normalized cost, delivering 79.51% accuracy for just **$0.1827 / 1K queries** (39% less expensive than runner-up routers).

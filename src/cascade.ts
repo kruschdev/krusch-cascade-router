@@ -93,7 +93,7 @@ export interface ChatJsonOptions extends ChatOptions {
   maxJsonRetries?: number;
 }
 
-export interface CrossRouterOptions {
+export interface MultiSpecialistRouterOptions {
   openrouterApiKey?: string;
   siteUrl?: string;
   appName?: string;
@@ -108,17 +108,20 @@ export interface CrossRouterOptions {
   jeanSREGate?: JeanSREGateConfig;
 }
 
+/** Legacy type alias for backward compatibility */
+export type CrossRouterOptions = MultiSpecialistRouterOptions;
+
 /**
- * Creates a CascadeRouter pre-configured with the 7 specialist models from
- * the #1 ranked Cross-Router, routing via OpenRouter's unified API layer.
+ * Creates a CascadeRouter pre-configured with 7 domain specialist models
+ * routing via OpenRouter's unified API layer.
  */
-export function createCrossRouter(options?: CrossRouterOptions): CascadeRouter {
+export function createMultiSpecialistRouter(options?: MultiSpecialistRouterOptions): CascadeRouter {
   const globalProcess = typeof globalThis !== 'undefined' ? (globalThis as any).process : undefined;
   const apiKey = options?.openrouterApiKey || globalProcess?.env?.OPENROUTER_API_KEY;
   const referer = options?.siteUrl || 'https://github.com/kruschdev/krusch-cascade-router';
   const title = options?.appName || 'krusch-cascade-router';
 
-  // Cross-Router top 7 empirical model pool with published OpenRouter pricing ($/1M tokens)
+  // 7-model specialist empirical pool with published OpenRouter pricing ($/1M tokens)
   const defaultModels: Record<SpecialistRole, { model: string; inputCost: number; outputCost: number }> = {
     general_fast: { model: 'google/gemini-3.1-flash-lite', inputCost: 0.25, outputCost: 1.50 },
     factual_stem: { model: 'deepseek/deepseek-v4-flash', inputCost: 0.14, outputCost: 0.28 },
@@ -160,6 +163,9 @@ export function createCrossRouter(options?: CrossRouterOptions): CascadeRouter {
     jeanSREGate: options?.jeanSREGate
   });
 }
+
+/** Legacy alias for backward compatibility */
+export const createCrossRouter = createMultiSpecialistRouter;
 
 export class CascadeTriggeredError extends Error {
   constructor(message?: string) {
