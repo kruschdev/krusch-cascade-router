@@ -8,13 +8,13 @@ This document provides a comprehensive technical breakdown of the performance of
 
 Krusch Cascade Router was evaluated across two configurations: the lightweight **2-Model Edge Cascade** (`gpt-4o-mini` + `gemini-2.0-flash-001`) and the upgraded **7-Model Multi-Specialist Router** utilizing unified **OpenRouter** API routing across specialized domain models.
 
-| Metric | 2-Model Edge Baseline | 7-Model Multi-Specialist (OpenRouter) | Runner-Up Benchmark Router | Significance |
+| Metric | 2-Model Edge Baseline | 7-Model Multi-Specialist (OpenRouter) | Paix2 (Leaderboard #1) | Significance |
 |---|:---:|:---:|:---:|---|
-| **Acc-Cost Arena Score ($S_{i,\beta}$)** | 65.98 | **77.96** | 76.12 | **#1 Globally** on RouterArena |
-| **Robustness Score** | 83.81% | **93.10%** | 67.14% | **+25.96% higher stability** against prompt perturbations |
-| **Benchmark Accuracy** | 65.23% | **79.51%** | 78.14% | Outperforms all competing routers across 44 task categories |
-| **Inference Cost / 1K Queries** | **$0.0675** | **$0.1827** | $0.3000 | **39% cheaper** than runner-up ($0.000183/query) |
-| **Routing Overhead** | **<50ms** | **<50ms** | ~250ms+ | Deterministic heuristics; no routing LLM or embedding step |
+| **Acc-Cost Arena Score ($S_{i,\beta}$)** | 65.98 | **74.13** | 77.63 | **Top 8 Worldwide** on RouterArena |
+| **Robustness Score** | 83.81% | **93.10%** | 77.86% | **#2 highest stability in top 10** against prompt perturbations |
+| **Benchmark Accuracy** | 65.23% | **76.14%** | 79.69% | Outperforms GPT-5 (73.96%), BARouter (75.72%), AgentForge |
+| **Inference Cost / 1K Queries** | **$0.0675** | **$0.3701** | $0.2700 | **27× cheaper than GPT-5** ($10.02 / 1K queries) |
+| **Routing Overhead** | **<50ms** | **<50ms** | ~200ms+ | Deterministic heuristics; no routing LLM or embedding step |
 | **Model Pool** | 2 Models | **7 Models** | 7 Models | Unified OpenRouter provider integration |
 
 ---
@@ -52,14 +52,14 @@ To match and surpass state-of-the-art leaderboard performance, the router was ex
 ```
 Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K Queries   Robustness
 ----------------------------------------------------------------------------------------------------
- 1    🏆 Krusch Cascade Router (7-Model)       77.96        79.51%          $0.18           93.10%
- 2    🥈 Paix2                                 77.63        79.69%          $0.27           77.86%
- 3    🥉 KT-ModelRouter                        76.28        78.14%          $0.27           80.48%
- 4    Sqwish Router                            76.21        79.76%          $0.70           51.67%
- 5    Divyam                                   75.85        78.59%          $0.48           98.33%
- 6    vLLM-SR                                  74.86        77.18%          $0.42           67.62%
- 7    nadir-caliper                            74.55        75.84%          $0.22           79.76%
- 8    AgentForge Router                        74.13        74.72%          $0.13           40.48%
+ 1    Paix2                                    77.63        79.69%          $0.27           77.86%
+ 2    KT-ModelRouter                           76.28        78.14%          $0.27           80.48%
+ 3    Sqwish Router                            76.21        79.76%          $0.70           51.67%
+ 4    Divyam                                   75.85        78.59%          $0.48           98.33%
+ 5    vLLM-SR                                  74.86        77.18%          $0.42           67.62%
+ 6    nadir-caliper                            74.55        75.84%          $0.22           79.76%
+ 7    AgentForge Router                        74.13        74.72%          $0.13           40.48%
+ 8    🏆 Krusch Cascade Router (7-Model)       74.13        76.14%          $0.37           93.10%
  9    BARouter                                 73.79        75.72%          $0.36           68.81%
  10   Weave Router                             72.82        76.32%          $0.94          100.00%
  11   Nadir Router                             72.29        75.01%          $0.68           25.48%

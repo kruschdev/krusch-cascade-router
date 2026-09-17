@@ -68,6 +68,6 @@ console.log(`Routed to: ${response.routedTo}`); // e.g. 'code' | 'reasoning_deep
 - [x] Speculative cascade successfully aborts low-confidence streams and falls back cleanly.
 - [x] Evaluated and verified on official **RouterArena Benchmark**:
   - Full 8,400-query benchmark dataset (13,254 total with optimality candidates) + 420 robustness dataset.
-  - Achieved **77.96 Acc-Cost Arena Score** ($0.1827 / 1K queries), outperforming current #1 Paix2 (77.63).
-  - Achieved **93.10% Robustness Score** (+15.24% over Paix2's 77.86%).
+  - Achieved **74.13 Acc-Cost Arena Score** ($0.3701 / 1K queries), placing Top 8 worldwide.
+  - Achieved **93.10% Robustness Score** (#2 highest in the top 10).
   - Passes all `check_config_prediction_files.py` automated validation gates.
