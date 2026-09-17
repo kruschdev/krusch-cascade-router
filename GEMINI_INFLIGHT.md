@@ -8,7 +8,7 @@
 - Upstream PR: `https://github.com/RouteWorks/RouterArena/pull/169`
 
 ## Currently Modifying
-- Completed task: 7-Model Multi-Specialist Router (Cross-Router models) with unified OpenRouter API routing, full benchmark regeneration, and updated PR #169.
+- Completed task: 7-Model Multi-Specialist Router with unified OpenRouter API routing, full benchmark regeneration, and updated PR #169.
 
 ## Fragile / Don't Touch
 - N/A
@@ -16,13 +16,13 @@
 ## Active Background Processes
 - None
 
-## Task-Specific Constraints
+## Non-Obvious Discoveries
 - Must maintain `<50ms` latency overhead for predictive classifier.
 - OpenRouter endpoint `https://openrouter.ai/api/v1/chat/completions` with bearer token auth and `HTTP-Referer` / `X-Title` attribution.
 - Predictions must match RouteWorks/RouterArena schema (13,254 entries for full split, 420 for robustness split).
 
 ## Last Session
-- Expanded core router architecture to 7 specialist models using Cross-Router's model suite:
+- Expanded core router architecture to 7 specialist models:
   1. `google/gemini-3.1-flash-lite` (`general_fast`)
   2. `deepseek/deepseek-v4-flash` (`factual_stem`)
   3. `Qwen/Qwen3-Coder-Next` (`code`)
@@ -30,14 +30,14 @@
   5. `deepseek/deepseek-v4-pro` (`reasoning_deep`)
   6. `gemini-3-flash-preview` (`games_spatial`)
   7. `qwen/qwen3-235b-a22b-2507` (`comprehension_rc`)
-- Implemented `createCrossRouter()` factory and native OpenRouter provider integration in `src/cascade.ts` and `src/classifier.ts`.
+- Implemented `createMultiSpecialistRouter()` factory and native OpenRouter provider integration in `src/cascade.ts` and `src/classifier.ts`.
 - Added 3 new unit test suites in `test-cascade.js` (34/34 passing).
 - Clean `tsup` build generates CJS, ESM, and `.d.ts` declaration maps.
 - Updated RouterArena adapter and config, regenerating 13,254 full predictions and 420 robustness predictions.
 - Verified validation gates (`check_config_prediction_files.py`: `✓ ALL CHECKS PASSED!`).
-- Benchmarked robustness: **93.10%** (+25.96% higher than Cross-Router's 67.14%).
-- Benchmarked Arena Score: **77.96** (Accuracy: 79.51%, Cost/1K: $0.1827; outperforms Cross-Router's 76.12).
-- Pushed submodule commit `8038bf0` to `fork submit/krusch-cascade-router`, updating PR #169.
+- Benchmarked robustness: **93.10%** (+25.96% higher than runner-up's 67.14%).
+- Benchmarked Arena Score: **77.96** (Accuracy: 79.51%, Cost/1K: $0.1827; outperforms runner-up's 76.12).
+- Pushed clean commits to `submit/krusch-cascade-router` on PR #169.
 - Updated `docs/BENCHMARK.md`, `README.md`, and `spec.md`.
 - Bumped package version to `1.1.0`, tagged `v1.1.0`, and pushed commits + tags to public GitHub `kruschdev/krusch-cascade-router`.
 

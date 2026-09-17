@@ -108,9 +108,6 @@ export interface MultiSpecialistRouterOptions {
   jeanSREGate?: JeanSREGateConfig;
 }
 
-/** Legacy type alias for backward compatibility */
-export type CrossRouterOptions = MultiSpecialistRouterOptions;
-
 /**
  * Creates a CascadeRouter pre-configured with 7 domain specialist models
  * routing via OpenRouter's unified API layer.
@@ -163,9 +160,6 @@ export function createMultiSpecialistRouter(options?: MultiSpecialistRouterOptio
     jeanSREGate: options?.jeanSREGate
   });
 }
-
-/** Legacy alias for backward compatibility */
-export const createCrossRouter = createMultiSpecialistRouter;
 
 export class CascadeTriggeredError extends Error {
   constructor(message?: string) {

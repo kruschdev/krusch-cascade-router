@@ -12,8 +12,8 @@ from router_inference.router.base_router import BaseRouter
 
 class KruschCascadeRouter(BaseRouter):
     """
-    Krusch Cascade Router multi-specialist architecture routing across the 7 models
-    from the RouterArena #1 ranked Cross-Router suite over OpenRouter.
+    Krusch Cascade Router multi-specialist architecture routing across 7 specialized
+    frontier and flash models over OpenRouter.
 
     Specialist Domains:
     1. games_spatial (gemini-3-flash-preview): Chess, board positions, FEN/PGN.

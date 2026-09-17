@@ -21,7 +21,7 @@ A lightweight, framework-agnostic npm package designed for agentic developers bu
 | Feature | Priority | Notes |
 |---------|----------|-------|
 | Fast Heuristic Classifier | Must-have | Pluggable interface with sub-50ms regex and structural classification. |
-| 7-Model Specialist Architecture | Must-have | Pre-configured `createCrossRouter()` supporting Cross-Router's top 7 models over OpenRouter. |
+| 7-Model Specialist Architecture | Must-have | Pre-configured `createMultiSpecialistRouter()` orchestrating top 7 domain models over OpenRouter. |
 | The Cascade Engine | Must-have | Core loop: Stream from specialist/fast model -> Check logprobs -> Abort if low -> Fallback to `reasoning_deep`. |
 | Provider Agnostic Interface | Must-have | Supports standard OpenAI API shapes, Gemini, and OpenRouter (`https://openrouter.ai/api/v1/chat/completions`). |
 | Knowledge Boundary Gating | Must-have | Isolates closed-world self-contained tasks (syntax, math, regex, formatting, translation) (*arXiv: 2608.23982*). |
@@ -38,10 +38,10 @@ A lightweight, framework-agnostic npm package designed for agentic developers bu
 ## 5. API Design Sketch
 
 ```javascript
-import { createCrossRouter, CascadeRouter } from 'krusch-cascade-router';
+import { createMultiSpecialistRouter, CascadeRouter } from 'krusch-cascade-router';
 
 // 7-Model Specialist Router (Powered by OpenRouter)
-const router = createCrossRouter({
+const router = createMultiSpecialistRouter({
   openrouterApiKey: process.env.OPENROUTER_API_KEY
 });
 
@@ -68,6 +68,6 @@ console.log(`Routed to: ${response.routedTo}`); // e.g. 'code' | 'reasoning_deep
 - [x] Speculative cascade successfully aborts low-confidence streams and falls back cleanly.
 - [x] Evaluated and verified on official **RouterArena Benchmark**:
   - Full 8,400-query benchmark dataset (13,254 total with optimality candidates) + 420 robustness dataset.
-  - Achieved **77.96 Acc-Cost Arena Score** ($0.1827 / 1K queries), beating #1 Cross-Router (76.12).
-  - Achieved **93.10% Robustness Score** (+25.96% over Cross-Router's 67.14%).
+  - Achieved **77.96 Acc-Cost Arena Score** ($0.1827 / 1K queries), outperforming runner-up (76.12).
+  - Achieved **93.10% Robustness Score** (+25.96% over runner-up's 67.14%).
   - Passes all `check_config_prediction_files.py` automated validation gates.
