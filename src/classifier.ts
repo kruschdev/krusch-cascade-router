@@ -7,9 +7,9 @@ export type SpecialistRole =
   | 'general_fast'     // google/gemini-3.1-flash-lite (translation, geo, social, ethics, medicine, narrative)
   | 'factual_stem'     // deepseek/deepseek-v4-flash (MMLU-Pro, OpenTDB, science, arithmetic, STEM)
   | 'code'             // Qwen/Qwen3-Coder-Next (code generation, syntax, functions)
-  | 'reasoning_fast'   // grok-4-1-fast-reasoning (logic puzzles, execution, algorithmic reasoning)
+  | 'reasoning_fast'   // Qwen/Qwen3-Coder-Next (logic puzzles, execution, algorithmic reasoning)
   | 'reasoning_deep'   // deepseek/deepseek-v4-pro (open-ended quiz bowl/trivia, SEC/financial statements)
-  | 'games_spatial'    // gemini-3-flash-preview (chess, FEN/PGN, board positions)
+  | 'games_spatial'    // deepseek/deepseek-v4-flash (chess, FEN/PGN, board positions)
   | 'comprehension_rc';// qwen/qwen3-235b-a22b-2507 (paragraph answer evaluation, SuperGLUE-RC)
 
 export interface ClassifierOptions {
@@ -180,7 +180,16 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
 
   const p = fullText.toLowerCase();
 
-  // 1. Chess & Spatial Board Games (gemini-3-flash-preview)
+  // 1. SuperGLUE-RC / Paragraph Reading Comprehension & Verification (qwen3-235b)
+  if (
+    /based on the "paragraph"/i.test(p) ||
+    /provided answer" is a correct response/i.test(p) ||
+    /evaluate if the "provided answer"/i.test(p)
+  ) {
+    return 'comprehension_rc';
+  }
+
+  // 2. Chess & Spatial Board Games (deepseek-v4-flash)
   if (
     /\b(chess|fen|pgn|stalemate|checkmate|castling)\b/i.test(p) ||
     /board position/i.test(p) ||
@@ -190,25 +199,13 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
     return 'games_spatial';
   }
 
-  // 2. Code Generation & Algorithm Synthesis (Qwen3-Coder-Next & grok-4-1)
+  // 3. Code Generation & Algorithm Synthesis (Qwen3-Coder-Next)
   if (
     /generate an executable python function/i.test(p) ||
     /```(?:python|javascript|typescript|c\+\+|cpp|java|go|rust|sql|html|css|bash|sh)\b/i.test(p) ||
     /\b(?:def\s+[a-zA-Z_]\w*\s*\(|function\s+[a-zA-Z_]\w*\s*\(|class\s+[a-zA-Z_]\w*[:\{])/i.test(p)
   ) {
-    if (/stdin as input/i.test(p) || p.length > 1600) {
-      return 'reasoning_fast';
-    }
     return 'code';
-  }
-
-  // 3. SuperGLUE-RC / Paragraph Reading Comprehension & Verification (qwen3-235b)
-  if (
-    /based on the "paragraph"/i.test(p) ||
-    /provided answer" is a correct response/i.test(p) ||
-    /evaluate if the "provided answer"/i.test(p)
-  ) {
-    return 'comprehension_rc';
   }
 
   // 4. Financial Statements & Deep Open-ended Knowledge (deepseek-v4-pro)

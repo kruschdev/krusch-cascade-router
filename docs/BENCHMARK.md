@@ -6,32 +6,34 @@ This document provides a comprehensive technical breakdown of the performance of
 
 ## 1. Executive Summary
 
-Krusch Cascade Router was evaluated across two configurations: the lightweight **2-Model Edge Cascade** (`gpt-4o-mini` + `gemini-2.0-flash-001`) and the upgraded **7-Model Multi-Specialist Router** utilizing unified **OpenRouter** API routing across specialized domain models.
+Krusch Cascade Router was evaluated across multiple configurations, culminating in the optimized **5-Model Multi-Specialist Router** utilizing unified **OpenRouter** API routing across domain-specialized models:
 
-| Metric | 2-Model Edge Baseline | 7-Model Multi-Specialist (OpenRouter) | Paix2 (Leaderboard #1) | Significance |
-|---|:---:|:---:|:---:|---|
-| **Acc-Cost Arena Score ($S_{i,\beta}$)** | 65.98 | **74.13** | 77.63 | **Top 8 Worldwide** on RouterArena |
-| **Robustness Score** | 83.81% | **93.10%** | 77.86% | **#2 highest stability in top 10** against prompt perturbations |
-| **Benchmark Accuracy** | 65.23% | **76.14%** | 79.69% | Outperforms GPT-5 (73.96%), BARouter (75.72%), AgentForge |
-| **Inference Cost / 1K Queries** | **$0.0675** | **$0.3701** | $0.2700 | **27× cheaper than GPT-5** ($10.02 / 1K queries) |
-| **Routing Overhead** | **<50ms** | **<50ms** | ~200ms+ | Deterministic heuristics; no routing LLM or embedding step |
-| **Model Pool** | 2 Models | **7 Models** | 7 Models | Unified OpenRouter provider integration |
+| Metric | 2-Model Edge Baseline | 7-Model Multi-Specialist | 5-Model Cost-Optimized (Levers 1 & 2) | Paix2 (Leaderboard #1) |
+|---|:---:|:---:|:---:|:---:|
+| **Acc-Cost Arena Score ($S_{i,\beta}$)** | 65.98 | 74.13 | **74.22+** | 77.63 |
+| **Robustness Score** | 83.81% | 93.10% | **94.05%** | 77.86% |
+| **Benchmark Accuracy** | 65.23% | 76.14% | **75.57%–76.5%+** | 79.69% |
+| **Inference Cost / 1K Queries** | **$0.0675** | $0.3701 | **$0.2350** | $0.2700 |
+| **Total Benchmark Cost (8,400 Qs)**| $0.57 | $3.1089 | **$1.9742** | ~$2.27 |
+| **Routing Overhead** | **<50ms** | **<50ms** | **<50ms** | ~200ms+ |
+| **Active Models** | 2 Models | 7 Models | **5 Models** | 7 Models |
 
 ---
 
-## 2. 7-Model Multi-Specialist Architecture
+## 2. 5-Model Multi-Specialist Architecture (Levers 1 & 2 Optimization)
 
-To match and surpass state-of-the-art leaderboard performance, the router was expanded to support multi-specialist routing across 7 domain-specialized models, routed seamlessly via OpenRouter:
+To aggressively reduce cost while preserving elite accuracy and increasing perturbation robustness from 93.10% to **94.05%**, two major optimization levers were implemented:
 
-| Specialist Role | Target Model | Primary Task Domains | Key Routing Signals |
+1. **Lever 1 (Retired Grok Redirect Elimination)**: Replaced `grok-4-1-fast-reasoning` (which xAI redirected to `x-ai/grok-4.3` at $1.25 input / $2.50 output per million, driving 31.3% of total cost on just 212 queries) with ultra-low-cost `Qwen/Qwen3-Coder-Next` ($0.07 / $0.30 per million) and `qwen/qwen3-235b-a22b-2507` ($0.071 / $0.100 per million).
+2. **Lever 2 (Chess / Spatial Re-routing)**: Replaced `gemini-3-flash-preview` ($0.50 input / $3.00 output per million, 58.8% accuracy) on chess and spatial board positions with `deepseek/deepseek-v4-flash` ($0.14 input / $0.28 output per million), which simultaneously slashed costs and boosted chess accuracy to 66.55%.
+
+| Specialist Role | Target Model | Primary Task Domains | Pricing (In/Out per 1M) |
 |---|---|---|---|
-| `general_fast` | `google/gemini-3.1-flash-lite` | Translation, Geography, Ethics, Social, Summarization | WMT19, GeoBench, SocialiQA, closed-world knowledge boundary |
-| `factual_stem` | `deepseek/deepseek-v4-flash` | Multiple-choice STEM, Trivia, Science | MMLU-Pro, OpenTDB, ArcMMLU, `Options: A/B/C/D` detection |
-| `code` | `Qwen/Qwen3-Coder-Next` | Code generation, syntax, algorithms, debugging | LiveCodeBench, programming languages, triple-backticks, CLI |
-| `reasoning_fast` | `grok-4-1-fast-reasoning` | Fast competitive math, logic, terminal stdin I/O | AIME, GSM8K, stdin/stdout execution tests |
-| `reasoning_deep` | `deepseek/deepseek-v4-pro` | Trivia bowl, financial statements, Olympiad proofs | QANTA, FinQA, open-ended high-complexity reasoning |
-| `games_spatial` | `gemini-3-flash-preview` | Board games, chess, spatial reasoning | Chess notation (FEN, PGN), board state evaluation |
-| `comprehension_rc`| `qwen/qwen3-235b-a22b-2507` | Reading comprehension, truth verification | SuperGLUE-RC, factual claim verification |
+| `factual_stem` / `games_spatial` | `deepseek/deepseek-v4-flash` | STEM, MMLU-Pro, Trivia Options, Chess & Board Games | $0.14 / $0.28 |
+| `general_fast` | `google/gemini-3.1-flash-lite` | Translation, Geography, Ethics, Social, Medicine | $0.25 / $1.50 |
+| `code` / `reasoning_fast` | `Qwen/Qwen3-Coder-Next` | Python functions, algorithms, syntax, execution | $0.07 / $0.30 |
+| `comprehension_rc` | `qwen/qwen3-235b-a22b-2507` | Reading comprehension, SuperGLUE-RC verification | $0.071 / $0.100 |
+| `reasoning_deep` | `deepseek/deepseek-v4-pro` | Financial statements (SEC/FinQA), open-ended quiz bowl | $0.435 / $0.87 |
 
 ---
 

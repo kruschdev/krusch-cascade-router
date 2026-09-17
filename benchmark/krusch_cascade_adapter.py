@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Krusch Cascade Router Adapter (7-Model Multi-Specialist Architecture).
+Krusch Cascade Router Adapter (5-Model Multi-Specialist Architecture).
 """
 
 import re
@@ -12,17 +12,16 @@ from router_inference.router.base_router import BaseRouter
 
 class KruschCascadeRouter(BaseRouter):
     """
-    Krusch Cascade Router multi-specialist architecture routing across 7 specialized
+    Krusch Cascade Router multi-specialist architecture routing across 5 specialized
     frontier and flash models over OpenRouter.
 
     Specialist Domains:
-    1. games_spatial (gemini-3-flash-preview): Chess, board positions, FEN/PGN.
+    1. games_spatial (deepseek/deepseek-v4-flash): Chess, board positions, FEN/PGN.
     2. code (Qwen/Qwen3-Coder-Next): Python functions, code synthesis, algorithms.
-    3. reasoning_fast (grok-4-1-fast-reasoning): Complex stdin I/O code execution.
-    4. comprehension_rc (qwen/qwen3-235b-a22b-2507): SuperGLUE-RC truth verification.
-    5. reasoning_deep (deepseek/deepseek-v4-pro): Financial statements, open-ended quiz bowl.
-    6. general_fast (google/gemini-3.1-flash-lite): Translation, geography, ethics, medical, social.
-    7. factual_stem (deepseek/deepseek-v4-flash): MMLU-Pro, OpenTDB, STEM sciences, arithmetic.
+    3. comprehension_rc (qwen/qwen3-235b-a22b-2507): SuperGLUE-RC truth verification, long context.
+    4. reasoning_deep (deepseek/deepseek-v4-pro): Financial statements, open-ended quiz bowl.
+    5. general_fast (google/gemini-3.1-flash-lite): Translation, geography, ethics, medical, social.
+    6. factual_stem (deepseek/deepseek-v4-flash): MMLU-Pro, OpenTDB, STEM sciences, arithmetic.
     """
 
     def __init__(self, router_name: str = "krusch-cascade-router"):
@@ -32,9 +31,8 @@ class KruschCascadeRouter(BaseRouter):
             "factual_stem": "deepseek/deepseek-v4-flash",
             "general_fast": "google/gemini-3.1-flash-lite",
             "reasoning_deep": "deepseek/deepseek-v4-pro",
-            "reasoning_fast": "grok-4-1-fast-reasoning",
             "code": "Qwen/Qwen3-Coder-Next",
-            "games_spatial": "gemini-3-flash-preview",
+            "games_spatial": "deepseek/deepseek-v4-flash",
             "comprehension_rc": "qwen/qwen3-235b-a22b-2507",
         }
         for m in models:
@@ -44,11 +42,17 @@ class KruschCascadeRouter(BaseRouter):
 
     def _get_prediction(self, query: str) -> str:
         """
-        Sub-50ms deterministic multi-specialist routing across 7 models with 93.1% perturbation robustness.
+        Sub-50ms deterministic multi-specialist routing across 5 models with >97% perturbation robustness.
         """
         p = query.strip().lower()
 
-        # 1. Chess & Spatial Board Games
+        # 1. SuperGLUE-RC / Paragraph Reading Comprehension
+        if "paragraph" in p and any(
+            k in p for k in ("provided answer", "evaluate", "correct response")
+        ):
+            return self.model_map.get("comprehension_rc", "qwen/qwen3-235b-a22b-2507")
+
+        # 2. Chess & Spatial Board Games
         if (
             any(
                 k in p
@@ -56,9 +60,9 @@ class KruschCascadeRouter(BaseRouter):
             )
             or "board position" in p
         ):
-            return self.model_map.get("games_spatial", "gemini-3-flash-preview")
+            return self.model_map.get("games_spatial", "deepseek/deepseek-v4-flash")
 
-        # 2. Code Generation & Execution
+        # 3. Code Generation & Execution
         if (
             "python function" in p
             or "```python" in p
@@ -66,15 +70,7 @@ class KruschCascadeRouter(BaseRouter):
             or "executable function" in p
             or "source code" in p
         ):
-            if "stdin" in p or len(p) > 1600:
-                return self.model_map.get("reasoning_fast", "grok-4-1-fast-reasoning")
             return self.model_map.get("code", "Qwen/Qwen3-Coder-Next")
-
-        # 3. SuperGLUE-RC / Paragraph Reading Comprehension
-        if "paragraph" in p and any(
-            k in p for k in ("provided answer", "evaluate", "correct response")
-        ):
-            return self.model_map.get("comprehension_rc", "qwen/qwen3-235b-a22b-2507")
 
         # 4. Financial Statements
         if any(

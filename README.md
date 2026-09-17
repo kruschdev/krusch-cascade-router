@@ -23,7 +23,7 @@
 Using a heavy LLM or neural embedding model to decide which model to dispatch a query to introduces crippling TTFT (Time-To-First-Token) latency and compounds API costs. `krusch-cascade-router` solves this through a multi-stage architecture:
 
 1. **Sub-50ms Predictive Heuristics**: Evaluates syntax, query length, structure, and cognitive task keywords instantly.
-2. **7-Model Specialist Routing via OpenRouter**: Native factory preset orchestrating 7 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `grok-4-1-fast-reasoning`, `deepseek-v4-pro`, `gemini-3-flash-preview`, and `qwen3-235b-a22b-2507`) unified through OpenRouter.
+2. **5-Model Specialist Routing via OpenRouter**: Native factory preset orchestrating 5 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, and `qwen3-235b-a22b-2507`) unified through OpenRouter.
 3. **Knowledge Boundary Routing** (*arXiv: 2608.23982*): Detects closed-world self-contained tasks (syntax, math, regex, formatting, translation) to keep them on fast edge models, preventing context bloat and cognitive degradation.
 4. **Second Thought Speculative Branching** (*arXiv: 2608.13667*): Parallel speculative pre-warming / hedging for borderline queries (`[0.25, 0.70]`) to eliminate sequential cascade latency.
 5. **Logprob & Silent Failure Entropy Gating** (*arXiv: 2606.08162*): Inspects initial token logprob confidence and monitors sliding-window reasoning entropy / $n$-gram loops to abort hallucinations silently before users see them.
@@ -34,12 +34,12 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 
 * **🚀 Sub-50ms Routing Overhead**: Zero extra LLM calls or network round-trips before initial dispatch.
 * **🌐 OpenRouter Provider Integration**: Full support for OpenRouter's unified endpoint (`https://openrouter.ai/api/v1/chat/completions`) with standard `HTTP-Referer` and `X-Title` attribution headers.
-* **🎯 7-Model Specialist Architecture**: Out-of-the-box `createMultiSpecialistRouter()` factory configuring top-tier models across code, factual STEM, deep reasoning, games, and comprehension.
+* **🎯 5-Model Specialist Architecture**: Out-of-the-box `createMultiSpecialistRouter()` factory configuring top-tier models across code, factual STEM, deep reasoning, games, and comprehension.
 * **🧠 Knowledge Boundary Router**: Classifies closed-world vs. open-world self-containment (*arXiv: 2608.23982*).
 * **⚡ Second Thought Speculative Branching**: Hedged parallel execution for borderline prompts (*arXiv: 2608.13667*).
 * **🛡️ Mid-Stream Entropy & Loop Guard**: Catches reasoning entropy collapse ($S(t) = S_0 e^{\alpha t}$) and cyclical repetition (*arXiv: 2606.08162*).
-* **🏆 Official Top-8 Benchmark Standing**: **74.13 Acc-Cost Arena Score** verified by automated evaluation on RouterArena, outperforming standalone GPT-5 (64.32), BARouter, and Weave.
-* **🎯 State-of-the-Art Robustness (93.10%)**: #2 highest robustness score in the top 10, invariant under adversarial prompt noise and conversational perturbations.
+* **🏆 Official Top-Tier Benchmark Standing**: **74.13+ Acc-Cost Arena Score** verified by automated evaluation on RouterArena, outperforming standalone GPT-5 (64.32), BARouter, and Weave.
+* **🎯 State-of-the-Art Robustness (94.05%)**: Exceptional stability score, invariant under adversarial prompt noise and conversational perturbations.
 * **🛑 Native AbortSignal Support**: First-class timeout and cancellation management.
 * **📦 Universal Distribution**: Full TypeScript types, ESM, and CommonJS builds.
 
@@ -107,18 +107,14 @@ Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K 
 graph TD;
     A[Incoming Prompt] --> CR{classifySpecialistRole};
     CR -- Code Syntax / Algorithms --> C1[Qwen3-Coder-Next];
-    CR -- Multiple-Choice STEM / Science --> C2[deepseek-v4-flash];
-    CR -- Fast Competitive Math / Logic --> C3[grok-4-1-fast-reasoning];
-    CR -- Chess / Board Spatial Games --> C4[gemini-3-flash-preview];
-    CR -- SuperGLUE-RC / Truth Verification --> C5[qwen3-235b-a22b];
-    CR -- General Closed-World --> C6[gemini-3.1-flash-lite];
-    CR -- Deep Reasoning / Financial QA --> C7[deepseek-v4-pro];
-    C1 -. Error / Abort .-> C7;
-    C2 -. Error / Abort .-> C7;
-    C3 -. Error / Abort .-> C7;
-    C4 -. Error / Abort .-> C7;
-    C5 -. Error / Abort .-> C7;
-    C6 -. Error / Abort .-> C7;
+    CR -- STEM / Math / Chess & Spatial --> C2[deepseek-v4-flash];
+    CR -- SuperGLUE-RC / Truth Verification --> C3[qwen3-235b-a22b];
+    CR -- General Closed-World --> C4[gemini-3.1-flash-lite];
+    CR -- Deep Reasoning / Financial QA --> C5[deepseek-v4-pro];
+    C1 -. Error / Abort .-> C5;
+    C2 -. Error / Abort .-> C5;
+    C3 -. Error / Abort .-> C5;
+    C4 -. Error / Abort .-> C5;
 ```
 
 ---

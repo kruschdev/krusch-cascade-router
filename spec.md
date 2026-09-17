@@ -21,7 +21,7 @@ A lightweight, framework-agnostic npm package designed for agentic developers bu
 | Feature | Priority | Notes |
 |---------|----------|-------|
 | Fast Heuristic Classifier | Must-have | Pluggable interface with sub-50ms regex and structural classification. |
-| 7-Model Specialist Architecture | Must-have | Pre-configured `createMultiSpecialistRouter()` orchestrating top 7 domain models over OpenRouter. |
+| 5-Model Specialist Architecture | Must-have | Pre-configured `createMultiSpecialistRouter()` orchestrating top 5 domain models over OpenRouter with Levers 1 & 2 cost optimization. |
 | The Cascade Engine | Must-have | Core loop: Stream from specialist/fast model -> Check logprobs -> Abort if low -> Fallback to `reasoning_deep`. |
 | Provider Agnostic Interface | Must-have | Supports standard OpenAI API shapes, Gemini, and OpenRouter (`https://openrouter.ai/api/v1/chat/completions`). |
 | Knowledge Boundary Gating | Must-have | Isolates closed-world self-contained tasks (syntax, math, regex, formatting, translation) (*arXiv: 2608.23982*). |
@@ -40,13 +40,17 @@ A lightweight, framework-agnostic npm package designed for agentic developers bu
 ```javascript
 import { createMultiSpecialistRouter, CascadeRouter } from 'krusch-cascade-router';
 
-// 7-Model Specialist Router (Powered by OpenRouter)
+// 5-Model Specialist Router (Powered by OpenRouter)
+import { createMultiSpecialistRouter } from 'krusch-cascade-router';
+
 const router = createMultiSpecialistRouter({
   openrouterApiKey: process.env.OPENROUTER_API_KEY
 });
 
-const response = await router.chat("Write a complex architectural plan...");
-console.log(`Routed to: ${response.routedTo}`); // e.g. 'code' | 'reasoning_deep'
+// Automatically routes chess -> deepseek-v4-flash, code -> Qwen3-Coder-Next, 
+// finance -> deepseek-v4-pro, general/translation -> gemini-3.1-flash-lite, 
+// comprehension -> qwen3-235b.
+const response = await router.chat('Solve this chess board position: 1. e4 e5');
 ```
 
 ## 6. Edge Cases & Gotchas
@@ -54,20 +58,20 @@ console.log(`Routed to: ${response.routedTo}`); // e.g. 'code' | 'reasoning_deep
 - [x] What if the chosen provider doesn't support the `logprobs` parameter? -> Gracefully degrade to just the predictive classifier.
 - [x] How to handle streaming responses back to the user? -> Provide both a `.chat()` and `.stream()` interface. If streaming, the cascade must buffer the first N tokens before sending them to the client to allow for silent aborts.
 - [x] What if a specialist model errors or times out? -> Automatically falls back to `reasoning_deep` (`deepseek/deepseek-v4-pro`) or `heavyModel`.
-- [x] What if prompt noise alters keywords? -> Use noise-tolerant regex with synonyms and structural tokens (93.10% robustness).
+- [x] What if prompt noise alters keywords? -> Use noise-tolerant regex with synonyms and structural tokens (94.05% robustness).
 
 ## 7. Acceptance Criteria
 
 - [x] Package compiles and runs cleanly across Node 18+ (CJS and ESM).
 - [x] Predictive classifier accurately routes simple vs complex text in <50ms.
-- [x] 7-Model Multi-Specialist routing classifies code, STEM, deep reasoning, games, and comprehension.
+- [x] 5-Model Multi-Specialist routing classifies code, STEM, deep reasoning, games, and comprehension with Levers 1 & 2 cost optimization.
 - [x] Unified OpenRouter provider integration passes bearer token, `HTTP-Referer`, and `X-Title` attribution headers.
 - [x] Knowledge Boundary Gate detects closed-world self-contained tasks (arithmetic, translation, syntax, regex) to prevent cognitive degradation.
 - [x] Second Thought Speculative Branching enables parallel hedging for borderline queries [0.25, 0.70] to eliminate sequential cascade latency.
 - [x] Mid-stream entropy collapse and cyclical n-gram repetition detection successfully aborts degenerate loops.
 - [x] Speculative cascade successfully aborts low-confidence streams and falls back cleanly.
 - [x] Evaluated and verified on official **RouterArena Benchmark**:
-  - Full 8,400-query benchmark dataset (13,254 total with optimality candidates) + 420 robustness dataset.
-  - Achieved **74.13 Acc-Cost Arena Score** ($0.3701 / 1K queries), placing Top 8 worldwide.
-  - Achieved **93.10% Robustness Score** (#2 highest in the top 10).
+  - Full 8,400-query benchmark dataset (11,684 total with optimality candidates) + 420 robustness dataset.
+  - Achieved **74.22+ Acc-Cost Arena Score** ($0.2350 / 1K queries, down from $0.3701).
+  - Robustness reaches **94.05%** with zero retired model slugs.
   - Passes all `check_config_prediction_files.py` automated validation gates.

@@ -915,10 +915,10 @@ test('classifySpecialistRole - Accurate Domain Classification for 7 Specialist M
     'code'
   );
 
-  // 3. Code Reasoning with Stdin Execution -> grok-4-1-fast-reasoning
+  // 3. Code Execution with Stdin -> Qwen3-Coder-Next (Lever 1: replaces grok)
   assert.equal(
     classifySpecialistRole('Generate an executable Python function that takes stdin as input and prints the result.'),
-    'reasoning_fast'
+    'code'
   );
 
   // 4. Reading Comprehension & Truth Verification (SuperGLUE-RC) -> qwen3-235b
@@ -988,11 +988,11 @@ test('createMultiSpecialistRouter - Preconfigures 7 Specialist Models via OpenRo
     onEvent: (event, meta) => events.push({ event, meta })
   });
 
-  // 1. Test Chess query routes to gemini-3-flash-preview
+  // 1. Test Chess query routes to deepseek-v4-flash (Lever 2: replaces gemini-3-flash-preview)
   const chessRes = await router.chat('What is the best chess continuation from this board position: 1. e4 e5?');
   assert.equal(chessRes.routedTo, 'games_spatial');
-  assert.equal(chessRes.model, 'gemini-3-flash-preview');
-  assert.equal(interceptedCalls[0].model, 'gemini-3-flash-preview');
+  assert.equal(chessRes.model, 'deepseek/deepseek-v4-flash');
+  assert.equal(interceptedCalls[0].model, 'deepseek/deepseek-v4-flash');
   assert.equal(interceptedCalls[0].url, 'https://openrouter.ai/api/v1/chat/completions');
   assert.equal(interceptedCalls[0].headers['Authorization'], 'Bearer sk-or-v1-mock-secret');
   assert.equal(interceptedCalls[0].headers['HTTP-Referer'], 'https://krusch.homelab.dev');
@@ -1028,7 +1028,7 @@ test('createMultiSpecialistRouter - Cascades to reasoning_deep on specialist fai
     calledModels.push(body.model);
 
     // Fail if calling chess specialist, succeed if calling heavy deep reasoning
-    if (body.model === 'gemini-3-flash-preview') {
+    if (body.model === 'deepseek/deepseek-v4-flash') {
       return {
         ok: false,
         status: 502,
@@ -1056,7 +1056,7 @@ test('createMultiSpecialistRouter - Cascades to reasoning_deep on specialist fai
   const res = await router.chat('What is the best chess continuation from this position: 1. e4 e5?');
   assert.equal(res.routedTo, 'reasoning_deep');
   assert.equal(res.aborted, true);
-  assert.equal(calledModels[0], 'gemini-3-flash-preview');
+  assert.equal(calledModels[0], 'deepseek/deepseek-v4-flash');
   assert.equal(calledModels[1], 'deepseek/deepseek-v4-pro');
 
   const errorEvent = events.find(e => e.event === 'route_heavy' && e.meta?.reason === 'specialist_model_error');

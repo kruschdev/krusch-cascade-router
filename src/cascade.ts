@@ -118,15 +118,15 @@ export function createMultiSpecialistRouter(options?: MultiSpecialistRouterOptio
   const referer = options?.siteUrl || 'https://github.com/kruschdev/krusch-cascade-router';
   const title = options?.appName || 'krusch-cascade-router';
 
-  // 7-model specialist empirical pool with published OpenRouter pricing ($/1M tokens)
+  // 5-model specialist empirical pool with published OpenRouter pricing ($/1M tokens)
   const defaultModels: Record<SpecialistRole, { model: string; inputCost: number; outputCost: number }> = {
     general_fast: { model: 'google/gemini-3.1-flash-lite', inputCost: 0.25, outputCost: 1.50 },
     factual_stem: { model: 'deepseek/deepseek-v4-flash', inputCost: 0.14, outputCost: 0.28 },
-    code: { model: 'Qwen/Qwen3-Coder-Next', inputCost: 0.12, outputCost: 0.48 },
-    reasoning_fast: { model: 'grok-4-1-fast-reasoning', inputCost: 0.60, outputCost: 2.40 },
-    reasoning_deep: { model: 'deepseek/deepseek-v4-pro', inputCost: 0.55, outputCost: 2.19 },
-    games_spatial: { model: 'gemini-3-flash-preview', inputCost: 0.35, outputCost: 1.50 },
-    comprehension_rc: { model: 'qwen/qwen3-235b-a22b-2507', inputCost: 0.05, outputCost: 0.20 }
+    code: { model: 'Qwen/Qwen3-Coder-Next', inputCost: 0.07, outputCost: 0.30 },
+    reasoning_fast: { model: 'Qwen/Qwen3-Coder-Next', inputCost: 0.07, outputCost: 0.30 },
+    reasoning_deep: { model: 'deepseek/deepseek-v4-pro', inputCost: 0.435, outputCost: 0.87 },
+    games_spatial: { model: 'deepseek/deepseek-v4-flash', inputCost: 0.14, outputCost: 0.28 },
+    comprehension_rc: { model: 'qwen/qwen3-235b-a22b-2507', inputCost: 0.071, outputCost: 0.10 }
   };
 
   const specialistModels: Record<SpecialistRole, ModelConfig> = {} as any;
