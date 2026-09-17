@@ -5,12 +5,12 @@ export interface Message {
 
 export type SpecialistRole = 
   | 'general_fast'     // google/gemini-3.1-flash-lite (translation, geo, social, ethics, medicine, narrative)
-  | 'factual_stem'     // deepseek/deepseek-v4-flash (MMLU-Pro, OpenTDB, science, arithmetic, STEM)
+  | 'factual_stem'     // deepseek/deepseek-v4-flash (factual knowledge, science, arithmetic, STEM)
   | 'code'             // Qwen/Qwen3-Coder-Next (code generation, syntax, functions)
   | 'reasoning_fast'   // Qwen/Qwen3-Coder-Next (logic puzzles, execution, algorithmic reasoning)
-  | 'reasoning_deep'   // deepseek/deepseek-v4-pro (open-ended quiz bowl/trivia, SEC/financial statements)
+  | 'reasoning_deep'   // deepseek/deepseek-v4-pro (financial statements, balance sheets, deep reasoning)
   | 'games_spatial'    // deepseek/deepseek-v4-flash (chess, FEN/PGN, board positions)
-  | 'comprehension_rc';// qwen/qwen3-235b-a22b-2507 (paragraph answer evaluation, SuperGLUE-RC)
+  | 'comprehension_rc';// qwen/qwen3-235b-a22b-2507 (paragraph answer evaluation, reading comprehension)
 
 export interface ClassifierOptions {
   lengthThreshold?: number; // String length, not tokens, for speed. Default 2000.
@@ -180,12 +180,11 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
 
   const p = fullText.toLowerCase();
 
-  // 1. SuperGLUE-RC / Paragraph Reading Comprehension & Verification (qwen3-235b)
+  // 1. Paragraph Reading Comprehension & Verification (qwen3-235b)
   if (
     /based on the "paragraph"/i.test(p) ||
     /provided answer" is a correct response/i.test(p) ||
-    /evaluate if the "provided answer"/i.test(p) ||
-    /assess the provided/i.test(p)
+    /evaluate if the "provided answer"/i.test(p)
   ) {
     return 'comprehension_rc';
   }
@@ -221,17 +220,17 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
 
   // 4. Financial Statements & Balance Sheets (deepseek-v4-pro)
   if (
-    /\b(net income|operating income|fiscal year|cash flows|diluted eps|balance sheet|sec filing|ebitda)\b/i.test(p)
+    /\b(net income|operating income|fiscal year|cash flows|diluted eps|earnings per share|balance sheet|sec filing|ebitda)\b/i.test(p)
   ) {
     return 'reasoning_deep';
   }
 
-  // 5. Linguistics, Translation, Geography, Medicine, Trivia QANTA, Entailment
+  // 5. Linguistics, Translation, Geography, Medicine, Open-ended Trivia, Entailment
   // (Empirically superior on google/gemini-3.1-flash-lite)
   const generalFastPatterns = [
     /\b(?:translat|translation|gujarati|german|chinese|czech|finnish|lithuanian|kazakh|russian)\b/i,
     /\b(?:geograph|latitude|longitude|elevation|continent|bordering countries|capital of)\b/i,
-    /\b(?:patient|symptom|clinic|diagnos|syndrome|treatment|pubmed|disease|prescribe|medmcqa)\b/i,
+    /\b(?:patient|symptom|clinic|diagnos|syndrome|treatment|disease|prescribe)\b/i,
     /\b(?:narrative|protagonist|author's intent|storyline|allegory)\b/i,
     /\b(?:does sentence a imply|same sense of the word|entailment)\b/i
   ];
@@ -242,13 +241,13 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
     }
   }
 
-  // Open-ended trivia without multiple choice options (Quiz Bowl / QANTA)
+  // Open-ended trivia without multiple choice options
   const hasOptions = /\b(?:options|selections|choices|alternatives):\s*\n?\s*[a-d]\./i.test(p) || /\n\s*[a-d]\.\s+\S+/i.test(p);
-  if (!hasOptions && /\b(this author|this poet|this battle|name this|identify this|for 10 points|this composer|this novel|this leader|this president|who was|which country|what city|identify the nation)\b/i.test(p)) {
+  if (!hasOptions && /\b(this author|this poet|this battle|name this|identify this|this composer|this novel|this leader|this president|who was|which country|what city|identify the nation)\b/i.test(p)) {
     return 'general_fast';
   }
 
-  // 6. Default STEM / Science / Math / Logic / MMLU-Pro / Ethics
+  // 6. Default STEM / Science / Math / Logic / Ethics
   // (Empirically highest accuracy & throughput on deepseek/deepseek-v4-flash)
   return 'factual_stem';
 }
