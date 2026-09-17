@@ -35,8 +35,8 @@
 - Clean `tsup` build generates CJS, ESM, and `.d.ts` declaration maps.
 - Updated RouterArena adapter and config, regenerating 13,254 full predictions and 420 robustness predictions.
 - Verified validation gates (`check_config_prediction_files.py`: `✓ ALL CHECKS PASSED!`).
-- Benchmarked robustness: **93.10%** (+25.96% higher than runner-up's 67.14%).
-- Benchmarked Arena Score: **77.96** (Accuracy: 79.51%, Cost/1K: $0.1827; outperforms runner-up's 76.12).
+- Benchmarked robustness: **93.10%** (+15.24% higher than Paix2's 77.86%).
+- Benchmarked Arena Score: **77.96** (Accuracy: 79.51%, Cost/1K: $0.1827; outperforms current #1 Paix2's 77.63).
 - Pushed clean commits to `submit/krusch-cascade-router` on PR #169.
 - Updated `docs/BENCHMARK.md`, `README.md`, and `spec.md`.
 - Bumped package version to `1.1.0`, tagged `v1.1.0`, and pushed commits + tags to public GitHub `kruschdev/krusch-cascade-router`.

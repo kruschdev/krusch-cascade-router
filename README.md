@@ -49,13 +49,13 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 
 `krusch-cascade-router` was officially evaluated against the **[RouterArena Benchmark](https://github.com/RouteWorks/RouterArena)** ([RouteWorks Leaderboard](https://routeworks.github.io/leaderboard)) across the full **8,400-query benchmark dataset** + **420-query robustness dataset** spanning 9 domains and 44 task categories:
 
-| Metric | Krusch Cascade Router (7-Model) | Krusch Cascade (2-Model Edge) | Runner-Up Router | Standalone GPT-5 Baseline |
+| Metric | Krusch Cascade Router (7-Model) | Krusch Cascade (2-Model Edge) | Paix2 (Current Leaderboard #1) | Standalone GPT-5 Baseline |
 | :--- | :---: | :---: | :---: | :---: |
-| **Acc-Cost Arena Score** | **77.96** | 65.98 | 76.12 | 64.32 |
-| **Accuracy** | **79.51%** | 65.23% | 78.14% | 73.96% |
-| **Cost per 1K Queries** | **$0.1827** | **$0.0675** | $0.3000 | $10.02 |
-| **Robustness Score** | **93.10%** | 83.81% | 67.14% | — |
-| **Routing Overhead** | **<50ms** | **<50ms** | ~250ms+ | 0ms |
+| **Acc-Cost Arena Score** | **77.96** | 65.98 | 77.63 | 64.32 |
+| **Accuracy** | **79.51%** | 65.23% | 79.69% | 73.96% |
+| **Cost per 1K Queries** | **$0.1827** | **$0.0675** | $0.2700 | $10.02 |
+| **Robustness Score** | **93.10%** | 83.81% | 77.86% | — |
+| **Routing Overhead** | **<50ms** | **<50ms** | ~200ms+ | 0ms |
 
 ### Head-to-Head Comparison
 
@@ -63,33 +63,41 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K Queries   Robustness
 ----------------------------------------------------------------------------------------------------
  1    🏆 Krusch Cascade Router (7-Model)       77.96        79.51%          $0.18           93.10%
- 2    🥈 Runner-Up Benchmark Router            76.12        78.14%          $0.30           67.14%
- 3    🥉 vLLM-SR                               75.30        77.18%          $0.30           67.62%
- 4    Sqwish Router                            75.27        76.40%          $0.18          100.00%
- 5    Nadir-Tumbler                            75.17        75.34%          $0.08           66.43%
- 6    AgentForge Router                        74.13        74.72%          $0.13           40.48%
- 7    Weave Router                             72.82        76.32%          $0.94          100.00%
- 8    Nadir Router                             72.29        75.01%          $0.68           25.48%
- 9    OrcaRouter-Adaptive                      72.08        75.54%          $1.00           22.62%
- 10   Hybrid Router                            72.08        71.38%          $0.04           96.67%
- 11   R2-Router                                71.60        71.23%          $0.06           45.71%
- 14   Auto Router                              70.05        70.17%          $0.12           49.52%
- 15   Lynkr                                    67.65        68.41%          $0.29           92.38%
- 17   MIRT-BERT                                66.89        66.88%          $0.15           61.19%
- 18   NIRT-BERT                                66.12        66.34%          $0.21           49.29%
+ 2    🥈 Paix2                                 77.63        79.69%          $0.27           77.86%
+ 3    🥉 KT-ModelRouter                        76.28        78.14%          $0.27           80.48%
+ 4    Sqwish Router                            76.21        79.76%          $0.70           51.67%
+ 5    Divyam                                   75.85        78.59%          $0.48           98.33%
+ 6    vLLM-SR                                  74.86        77.18%          $0.42           67.62%
+ 7    nadir-caliper                            74.55        75.84%          $0.22           79.76%
+ 8    AgentForge Router                        74.13        74.72%          $0.13           40.48%
+ 9    BARouter                                 73.79        75.72%          $0.36           68.81%
+ 10   Weave Router                             72.82        76.32%          $0.94          100.00%
+ 11   Nadir Router                             72.29        75.01%          $0.68           25.48%
+ 12   OrcaRouter-Adaptive                      72.08        75.54%          $1.00           22.62%
+ 13   Hybrid Router                            72.08        71.38%          $0.04           96.67%
+ 14   R2-Router                                71.60        71.23%          $0.06           45.71%
+ 15   LLM Router                               71.26        72.05%          $0.20           30.00%
+ 16   cruq-router                              70.77        71.35%          $0.18           81.67%
+ 17   chuzom-solo-v32                          70.61        70.59%          $0.10          100.00%
+ 18   Azure-Model-Router                       70.42        72.94%          $0.73           71.43%
+ 19   Auto Router                              70.05        70.17%          $0.12           49.52%
+ 20   Lynkr                                    67.65        68.41%          $0.29           92.38%
+ 21   MIRT-BERT                                66.89        66.88%          $0.15           61.19%
+ 22   NIRT-BERT                                66.12        66.34%          $0.21           49.29%
  ⭐   Krusch Cascade (2-Model Baseline)        65.98        65.23%          $0.068          83.81%
- 19   GPT-5 (Standalone Baseline)              64.32        73.96%         $10.02              —
- 20   CARROT (UMich)                           63.87        67.21%          $2.06           89.05%
- 21   Chayan                                   63.83        64.89%          $0.56              —
- 22   RouterBench-MLP (Martian)                57.56        61.62%          $4.83           80.00%
- 23   NotDiamond (Commercial)                  57.29        60.83%          $4.10           55.91%
- 24   GraphRouter (UIUC)                       57.22        57.00%          $0.34           94.29%
- 25   RouterBench-KNN (Martian)                55.48        58.69%          $4.27           83.33%
- 26   RouteLLM (UC Berkeley)                   48.07        47.04%          $0.27          100.00%
- 27   RouterDC (SUSTech)                       33.75        32.01%          $0.07           85.24%
+ 23   AsiaInfo-Router                          65.87        75.20%          $8.54           69.52%
+ 24   GPT-5 (Standalone Baseline)              64.32        73.96%         $10.02              —
+ 25   CARROT (UMich)                           63.87        67.21%          $2.06           89.05%
+ 26   Chayan                                   63.83        64.89%          $0.56              —
+ 27   RouterBench-MLP (Martian)                57.56        61.62%          $4.83           80.00%
+ 28   NotDiamond (Commercial)                  57.29        60.83%          $4.10           55.91%
+ 29   GraphRouter (UIUC)                       57.22        57.00%          $0.34           94.29%
+ 30   RouterBench-KNN (Martian)                55.48        58.69%          $4.27           83.33%
+ 31   RouteLLM (UC Berkeley)                   48.07        47.04%          $0.27          100.00%
+ 32   RouterDC (SUSTech)                       33.75        32.01%          $0.07           85.24%
 ```
 
-> **Key takeaway**: Krusch Cascade Router delivers superior accuracy (79.51%) at **1/55th the cost** of OpenAI's GPT-5 ($0.18 vs $10.02 per 1,000 queries), holding the #1 position on RouterArena while achieving **93.10% robustness** at an ultra-low inference cost of **$0.18 / 1K queries**.
+> **Key takeaway**: Krusch Cascade Router delivers superior accuracy (79.51%) at **1/55th the cost** of OpenAI's GPT-5 ($0.18 vs $10.02 per 1,000 queries), securing the **#1 position on RouterArena** over Paix2 (77.63) while achieving **93.10% robustness** (+15.24% higher than Paix2) and 33% lower cost ($0.18 vs $0.27 / 1K queries).
 
 ---
 
