@@ -48,7 +48,13 @@ class KruschCascadeRouter(BaseRouter):
 
         # 1. SuperGLUE-RC / Paragraph Reading Comprehension -> qwen3-235b-a22b-2507
         if "paragraph" in p and any(
-            k in p for k in ("provided answer", "evaluate", "correct response", "assess the provided")
+            k in p
+            for k in (
+                "provided answer",
+                "evaluate",
+                "correct response",
+                "assess the provided",
+            )
         ):
             return self.model_map.get("comprehension_rc", "qwen/qwen3-235b-a22b-2507")
 
@@ -90,17 +96,55 @@ class KruschCascadeRouter(BaseRouter):
             return self.model_map.get("code", "Qwen/Qwen3-Coder-Next")
 
         # 5. Gemini Specialties: Medical, Translation, Geography, Trivia QANTA, Entailment
-        is_translation = any(k in p for k in ("translate from", "translate the following", "into english:")) or any(
-            k in p for k in ("translat", "gujarati", "german", "chinese", "czech", "finnish", "lithuanian", "kazakh", "russian")
+        is_translation = any(
+            k in p
+            for k in ("translate from", "translate the following", "into english:")
+        ) or any(
+            k in p
+            for k in (
+                "translat",
+                "gujarati",
+                "german",
+                "chinese",
+                "czech",
+                "finnish",
+                "lithuanian",
+                "kazakh",
+                "russian",
+            )
         )
         is_medical = any(
-            k in p for k in ("patient", "symptom", "clinical", "diagnosis", "syndrome", "treatment", "pubmed", "disease", "medmcqa")
+            k in p
+            for k in (
+                "patient",
+                "symptom",
+                "clinical",
+                "diagnosis",
+                "syndrome",
+                "treatment",
+                "pubmed",
+                "disease",
+                "medmcqa",
+            )
         )
         is_geography = bool(
-            re.search(r"geogra[ph]{1,2}", p) or any(k in p for k in ("latitude", "longitude", "elevation", "continent", "capital of"))
+            re.search(r"geogra[ph]{1,2}", p)
+            or any(
+                k in p
+                for k in (
+                    "latitude",
+                    "longitude",
+                    "elevation",
+                    "continent",
+                    "capital of",
+                )
+            )
         )
         has_options = bool(
-            re.search(r"\b(?:options|selections|choices|alternatives|optrions):\s*\n?\s*[a-d]\.", p)
+            re.search(
+                r"\b(?:options|selections|choices|alternatives|optrions):\s*\n?\s*[a-d]\.",
+                p,
+            )
             or re.search(r"\n\s*[a-d]\.\s+\S+", p)
         )
         is_trivia_qanta = not has_options and any(
@@ -124,7 +168,13 @@ class KruschCascadeRouter(BaseRouter):
         )
         is_entailment = "does sentence a imply" in p or "entailment" in p
 
-        if is_translation or is_medical or is_geography or is_trivia_qanta or is_entailment:
+        if (
+            is_translation
+            or is_medical
+            or is_geography
+            or is_trivia_qanta
+            or is_entailment
+        ):
             return self.model_map.get("general_fast", "google/gemini-3.1-flash-lite")
 
         # 6. Default STEM / Science / MMLU-Pro / Math / Ethics -> deepseek-v4-flash
