@@ -8,7 +8,7 @@
 
 ## 1. What Is This?
 
-A lightweight, framework-agnostic npm package designed for agentic developers building with local AI and multi-model swarms. It solves the LLM routing problem by combining a fast predictive heuristic classifier with a reactive logprob-based speculative cascade and a 7-model specialist router. It routes queries to domain-optimal models (code, factual STEM, deep reasoning, games, and comprehension) or local small models without the latency penalty or cost of using a third LLM for routing.
+A lightweight, framework-agnostic npm package designed for agentic developers building with local AI and multi-model swarms. It solves the LLM routing problem by combining a fast predictive heuristic classifier with a reactive logprob-based speculative cascade and a 5-model specialist router. It routes queries to domain-optimal models (code, factual STEM, deep reasoning, games, and comprehension) or local small models without the latency penalty or cost of using a third LLM for routing.
 
 ## 2. User Stories
 

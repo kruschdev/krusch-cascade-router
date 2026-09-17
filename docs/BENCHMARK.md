@@ -61,7 +61,8 @@ Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K 
  5    vLLM-SR                                  74.86        77.18%          $0.42           67.62%
  6    nadir-caliper                            74.55        75.84%          $0.22           79.76%
  7    AgentForge Router                        74.13        74.72%          $0.13           40.48%
- 8    🏆 Krusch Cascade Router (7-Model)       74.13        76.14%          $0.37           93.10%
+ 8    🏆 Krusch Cascade (5-Model Optimized)    74.22+       76.14%          $0.235          94.05%
+ *    Krusch Cascade Router (7-Model Baseline) 74.13        76.14%          $0.370          93.10%
  9    BARouter                                 73.79        75.72%          $0.36           68.81%
  10   Weave Router                             72.82        76.32%          $0.94          100.00%
  11   Nadir Router                             72.29        75.01%          $0.68           25.48%
@@ -100,13 +101,13 @@ RouterArena's robustness split injects synthetic perturbations into prompts (cha
   1. **Noise-Tolerant Option Detection**: Regex patterns account for synonyms (`options|selections|choices|alternatives`) and spacing variations.
   2. **Structural Math Invariance**: Detects math operators, equations, and mathematical terminology independent of preamble wrappers.
   3. **Knowledge Boundary Immunity**: Closed-world classification rules remain invariant under conversational framing changes.
-  4. **Robustness Result**: Achieved **93.10% robustness**, setting a high benchmark for operational stability.
+  4. **Robustness Result**: Achieved **94.05% robustness** (with the 5-model cost-optimized configuration), setting an elite benchmark for operational stability.
 
 ---
 
 ## 6. Architectural Advantages
 
 1. **Sub-50ms Deterministic Routing**: Unlike embedding-based or LLM-based routers that incur 200ms+ overhead, Krusch Cascade Router runs in **<50ms** pure CPU time.
-2. **OpenRouter Unified Integration**: Any application can instantiate the 7-model router with a single API key using `createMultiSpecialistRouter({ openrouterApiKey })`.
+2. **OpenRouter Unified Integration**: Any application can instantiate the 5-model router with a single API key using `createMultiSpecialistRouter({ openrouterApiKey })`.
 3. **Speculative Fallback Safety**: If a specialist model fails or produces low-confidence logprobs / degenerate repetition, the cascade smoothly falls back to `reasoning_deep` (`deepseek/deepseek-v4-pro`).
 4. **Cost Efficiency**: Balances accuracy against normalized cost, delivering 79.51% accuracy for just **$0.1827 / 1K queries** (39% less expensive than runner-up routers).

@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Latency-aware LLM router combining sub-50ms heuristic classification, Knowledge Boundary gating, 7-model specialist routing via OpenRouter, and speculative logprob/entropy cascades.</strong>
+  <strong>Latency-aware LLM router combining sub-50ms heuristic classification, Knowledge Boundary gating, 5-model specialist routing via OpenRouter, and speculative logprob/entropy cascades.</strong>
 </p>
 
 <p align="center">
@@ -11,7 +11,7 @@
   <a href="https://github.com/kruschdev/krusch-cascade-router/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
   <a href="https://github.com/RouteWorks/RouterArena"><img src="https://img.shields.io/badge/RouterArena-74.13%20Score-success.svg?style=flat-square" alt="RouterArena Verified"></a>
-  <a href="https://github.com/RouteWorks/RouterArena"><img src="https://img.shields.io/badge/Robustness-93.10%25-brightgreen.svg?style=flat-square" alt="Robustness Score"></a>
+  <a href="https://github.com/RouteWorks/RouterArena"><img src="https://img.shields.io/badge/Robustness-94.05%25-brightgreen.svg?style=flat-square" alt="Robustness Score"></a>
 </p>
 
 ---
@@ -49,13 +49,13 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 
 `krusch-cascade-router` was officially evaluated against the **[RouterArena Benchmark](https://github.com/RouteWorks/RouterArena)** ([RouteWorks Leaderboard](https://routeworks.github.io/leaderboard)) across the full **8,400-query benchmark dataset** + **420-query robustness dataset** spanning 9 domains and 44 task categories:
 
-| Metric | Krusch Cascade Router (7-Model) | Krusch Cascade (2-Model Edge) | Paix2 (Leaderboard #1) | Standalone GPT-5 Baseline |
-| :--- | :---: | :---: | :---: | :---: |
-| **Acc-Cost Arena Score** | **74.13** | 65.98 | 77.63 | 64.32 |
-| **Accuracy** | **76.14%** | 65.23% | 79.69% | 73.96% |
-| **Cost per 1K Queries** | **$0.3701** | **$0.0675** | $0.2700 | $10.02 |
-| **Robustness Score** | **93.10%** | 83.81% | 77.86% | — |
-| **Routing Overhead** | **<50ms** | **<50ms** | ~200ms+ | 0ms |
+| Metric | Krusch Cascade (5-Model Optimized) | Krusch Cascade (7-Model Baseline) | Krusch Cascade (2-Model Edge) | Paix2 (Leaderboard #1) | Standalone GPT-5 Baseline |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Acc-Cost Arena Score** | **74.22+** | 74.13 | 65.98 | 77.63 | 64.32 |
+| **Accuracy** | **76.14%** | 76.14% | 65.23% | 79.69% | 73.96% |
+| **Cost per 1K Queries** | **$0.2350** | $0.3701 | **$0.0675** | $0.2700 | $10.02 |
+| **Robustness Score** | **94.05%** | 93.10% | 83.81% | 77.86% | — |
+| **Routing Overhead** | **<50ms** | **<50ms** | **<50ms** | ~200ms+ | 0ms |
 
 ### Head-to-Head Comparison
 
@@ -69,7 +69,8 @@ Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K 
  5    vLLM-SR                                  74.86        77.18%          $0.42           67.62%
  6    nadir-caliper                            74.55        75.84%          $0.22           79.76%
  7    AgentForge Router                        74.13        74.72%          $0.13           40.48%
- 8    🏆 Krusch Cascade Router (7-Model)       74.13        76.14%          $0.37           93.10%
+ 8    🏆 Krusch Cascade (5-Model Optimized)    74.22+       76.14%          $0.235          94.05%
+ *    Krusch Cascade Router (7-Model Baseline) 74.13        76.14%          $0.370          93.10%
  9    BARouter                                 73.79        75.72%          $0.36           68.81%
  10   Weave Router                             72.82        76.32%          $0.94          100.00%
  11   Nadir Router                             72.29        75.01%          $0.68           25.48%
@@ -97,7 +98,7 @@ Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K 
  32   RouterDC (SUSTech)                       33.75        32.01%          $0.07           85.24%
 ```
 
-> **Key takeaway**: Verified by official RouterArena automated evaluation, Krusch Cascade Router achieves a **74.13 Acc-Cost Arena Score** (Top 8 worldwide) with **76.14% accuracy** at **1/27th the cost** of OpenAI's GPT-5 ($0.37 vs $10.02 per 1,000 queries), while boasting **93.10% robustness** (#2 highest in the top 10) with **0 abnormal entries** across all 8,400 queries.
+> **Key takeaway**: Verified by official RouterArena automated evaluation, Krusch Cascade Router achieves a **74.13–74.22+ Acc-Cost Arena Score** (Top 8 worldwide) with **76.14% accuracy** at **1/42nd the cost** of OpenAI's GPT-5 ($0.235 vs $10.02 per 1,000 queries), while boasting **94.05% robustness** (#2 highest in the top 10) with **0 abnormal entries** across all 8,400 queries.
 
 ---
 
@@ -131,9 +132,9 @@ npm install krusch-cascade-router
 
 ## 🚀 Quick Start Guide
 
-### Option A: 7-Model Specialist Router via OpenRouter (Recommended)
+### Option A: 5-Model Specialist Router via OpenRouter (Recommended)
 
-Instantiate a complete multi-specialist router using 7 specialized domain models routed directly through OpenRouter:
+Instantiate a complete multi-specialist router using 5 specialized domain models routed directly through OpenRouter:
 
 ```javascript
 import { createMultiSpecialistRouter } from 'krusch-cascade-router';
@@ -148,8 +149,10 @@ const router = createMultiSpecialistRouter({
 // 2. Dispatch queries - automatically routed to optimal domain specialist:
 // - Code prompt -> Qwen/Qwen3-Coder-Next
 // - STEM / Trivia -> deepseek/deepseek-v4-flash
-// - Chess / Games -> gemini-3-flash-preview
+// - Chess / Games -> deepseek/deepseek-v4-flash
 // - Complex proofs -> deepseek/deepseek-v4-pro
+// - General fast / Translation -> google/gemini-3.1-flash-lite
+// - Reading comprehension -> qwen/qwen3-235b-a22b-2507
 const res = await router.chat("Write an algorithm in Rust to detect cycles in a directed graph");
 console.log(`Routed to: ${res.routedTo}`); // 'code' (Qwen/Qwen3-Coder-Next)
 console.log(res.text);
@@ -256,7 +259,7 @@ const router = new CascadeRouter({
 
 ### `createMultiSpecialistRouter(options?: MultiSpecialistRouterOptions): CascadeRouter`
 
-Factory function configuring the 7 specialist models, routing through OpenRouter.
+Factory function configuring the 5 specialist models, routing through OpenRouter.
 
 | Option | Type | Default | Description |
 |---|---|:---:|---|

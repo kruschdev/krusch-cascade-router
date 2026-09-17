@@ -109,7 +109,7 @@ export interface MultiSpecialistRouterOptions {
 }
 
 /**
- * Creates a CascadeRouter pre-configured with 7 domain specialist models
+ * Creates a CascadeRouter pre-configured with 5 domain specialist models
  * routing via OpenRouter's unified API layer.
  */
 export function createMultiSpecialistRouter(options?: MultiSpecialistRouterOptions): CascadeRouter {
@@ -290,7 +290,7 @@ export class CascadeRouter {
 
   /**
    * Complete a chat request, routing automatically between fast edge and heavy cloud models,
-   * or across the 7-model specialist pool if configured.
+   * or across the 5-model specialist pool if configured.
    */
   async chat(messages: Message[] | string, systemPrompt?: string, options?: ChatOptions): Promise<CascadeResponse> {
     const formattedMessages = this.formatMessages(messages, systemPrompt, options);

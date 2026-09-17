@@ -900,10 +900,10 @@ test('Knowledge Boundary and Continuous Complexity Scoring', async () => {
   assert.ok(complexScore >= 0.65, `Complex score ${complexScore} should be >= 0.65`);
 });
 
-test('classifySpecialistRole - Accurate Domain Classification for 7 Specialist Models', async () => {
+test('classifySpecialistRole - Accurate Domain Classification for 5 Specialist Models', async () => {
   const { classifySpecialistRole } = await import('./dist/index.js');
 
-  // 1. Games & Spatial (Chess) -> gemini-3-flash-preview
+  // 1. Games & Spatial (Chess) -> deepseek-v4-flash
   assert.equal(
     classifySpecialistRole('Given the board position after 1. e4 e5 2. Nf3, evaluate the best chess move and check for stalemate.'),
     'games_spatial'
@@ -952,7 +952,7 @@ test('classifySpecialistRole - Accurate Domain Classification for 7 Specialist M
   );
 });
 
-test('createMultiSpecialistRouter - Preconfigures 7 Specialist Models via OpenRouter', async () => {
+test('createMultiSpecialistRouter - Preconfigures 5 Specialist Models via OpenRouter', async () => {
   const { createMultiSpecialistRouter } = await import('./dist/index.js');
 
   const interceptedCalls = [];
