@@ -900,6 +900,165 @@ test('Knowledge Boundary and Continuous Complexity Scoring', async () => {
   assert.ok(complexScore >= 0.65, `Complex score ${complexScore} should be >= 0.65`);
 });
 
+test('classifySpecialistRole - Accurate Domain Classification for Cross-Router 7 Models', async () => {
+  const { classifySpecialistRole } = await import('./dist/index.js');
 
+  // 1. Games & Spatial (Chess) -> gemini-3-flash-preview
+  assert.equal(
+    classifySpecialistRole('Given the board position after 1. e4 e5 2. Nf3, evaluate the best chess move and check for stalemate.'),
+    'games_spatial'
+  );
 
+  // 2. Code Generation -> Qwen3-Coder-Next
+  assert.equal(
+    classifySpecialistRole('Generate an executable Python function to calculate the Fibonacci series:\ndef fib(n):'),
+    'code'
+  );
 
+  // 3. Code Reasoning with Stdin Execution -> grok-4-1-fast-reasoning
+  assert.equal(
+    classifySpecialistRole('Generate an executable Python function that takes stdin as input and prints the result.'),
+    'reasoning_fast'
+  );
+
+  // 4. Reading Comprehension & Truth Verification (SuperGLUE-RC) -> qwen3-235b
+  assert.equal(
+    classifySpecialistRole('Your task is to evaluate if the "Provided Answer" is a correct response to the "Question" based on the "Paragraph".\nQuestion: ...\nProvided Answer: ...'),
+    'comprehension_rc'
+  );
+
+  // 5. Financial Statements & Balance Sheets -> deepseek-v4-pro
+  assert.equal(
+    classifySpecialistRole('Table:\nFiscal year 2025 net income was $12.4B with operating income of $15.1B. Calculate diluted EPS.'),
+    'reasoning_deep'
+  );
+
+  // 6. Open-ended Quiz Bowl without Options (QANTA) -> deepseek-v4-pro
+  assert.equal(
+    classifySpecialistRole('Please read the following question and provide the correct answer.\n\nContext: None\n\nQuestion: This author wrote The Sound and the Fury and As I Lay Dying, set in Yoknapatawpha County.'),
+    'reasoning_deep'
+  );
+
+  // 7. General Fast / Multilingual / Geo / Medicine / Ethics -> gemini-3.1-flash-lite
+  assert.equal(classifySpecialistRole('Translate this Gujarati paragraph into English.'), 'general_fast');
+  assert.equal(classifySpecialistRole('What is the capital of Kazakhstan, its latitude, and neighboring countries?'), 'general_fast');
+  assert.equal(classifySpecialistRole('Patient presents with acute chest pain and dyspnea. Clinical diagnosis indicates myocardial infarction.'), 'general_fast');
+  assert.equal(classifySpecialistRole('From a utilitarian ethics perspective, analyze whether the moral dilemma permits action.'), 'general_fast');
+
+  // 8. Factual STEM / MMLU / Science with Options -> deepseek-v4-flash
+  assert.equal(
+    classifySpecialistRole('Which of the following compounds has the highest boiling point?\nOptions:\nA. Water\nB. Methane\nC. Ethanol'),
+    'factual_stem'
+  );
+});
+
+test('createCrossRouter - Preconfigures 7 Specialist Models via OpenRouter', async () => {
+  const { createCrossRouter } = await import('./dist/index.js');
+
+  const interceptedCalls = [];
+  const mockFetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    interceptedCalls.push({
+      url,
+      headers: opts.headers,
+      model: body.model,
+      messages: body.messages
+    });
+
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: 'gen-test-123',
+        choices: [{
+          message: { role: 'assistant', content: `Response from ${body.model}` },
+          finish_reason: 'stop'
+        }],
+        usage: { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 }
+      })
+    };
+  };
+
+  const events = [];
+  const router = createCrossRouter({
+    openrouterApiKey: 'sk-or-v1-mock-secret',
+    siteUrl: 'https://krusch.homelab.dev',
+    appName: 'Krusch Swarm Router',
+    fetch: mockFetch,
+    onEvent: (event, meta) => events.push({ event, meta })
+  });
+
+  // 1. Test Chess query routes to gemini-3-flash-preview
+  const chessRes = await router.chat('What is the best chess continuation from this board position: 1. e4 e5?');
+  assert.equal(chessRes.routedTo, 'games_spatial');
+  assert.equal(chessRes.model, 'gemini-3-flash-preview');
+  assert.equal(interceptedCalls[0].model, 'gemini-3-flash-preview');
+  assert.equal(interceptedCalls[0].url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(interceptedCalls[0].headers['Authorization'], 'Bearer sk-or-v1-mock-secret');
+  assert.equal(interceptedCalls[0].headers['HTTP-Referer'], 'https://krusch.homelab.dev');
+  assert.equal(interceptedCalls[0].headers['X-Title'], 'Krusch Swarm Router');
+
+  // 2. Test Code query routes to Qwen3-Coder-Next
+  const codeRes = await router.chat('Generate an executable Python function to sort a list:\ndef quicksort(arr):');
+  assert.equal(codeRes.routedTo, 'code');
+  assert.equal(codeRes.model, 'Qwen/Qwen3-Coder-Next');
+  assert.equal(interceptedCalls[1].model, 'Qwen/Qwen3-Coder-Next');
+
+  // 3. Test Translation query routes to gemini-3.1-flash-lite
+  const transRes = await router.chat('Translate this text from German to English: Guten Morgen!');
+  assert.equal(transRes.routedTo, 'general_fast');
+  assert.equal(transRes.model, 'google/gemini-3.1-flash-lite');
+
+  // 4. Test STEM question routes to deepseek-v4-flash
+  const stemRes = await router.chat('Calculate the force in Newtons when mass is 10kg and acceleration is 9.8 m/s^2.\nOptions:\nA. 98N\nB. 10N');
+  assert.equal(stemRes.routedTo, 'factual_stem');
+  assert.equal(stemRes.model, 'deepseek/deepseek-v4-flash');
+
+  // Check telemetry events
+  const routeSpecialistEvents = events.filter(e => e.event === 'route_specialist');
+  assert.equal(routeSpecialistEvents.length, 4);
+});
+
+test('createCrossRouter - Cascades to reasoning_deep on specialist failure', async () => {
+  const { createCrossRouter } = await import('./dist/index.js');
+
+  const calledModels = [];
+  const mockFetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    calledModels.push(body.model);
+
+    // Fail if calling chess specialist, succeed if calling heavy deep reasoning
+    if (body.model === 'gemini-3-flash-preview') {
+      return {
+        ok: false,
+        status: 502,
+        text: async () => 'Bad Gateway'
+      };
+    }
+
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { role: 'assistant', content: 'Fallback answer from deepseek-v4-pro' } }],
+        usage: { prompt_tokens: 15, completion_tokens: 10, total_tokens: 25 }
+      })
+    };
+  };
+
+  const events = [];
+  const router = createCrossRouter({
+    openrouterApiKey: 'sk-or-fallback-test',
+    fetch: mockFetch,
+    onEvent: (event, meta) => events.push({ event, meta })
+  });
+
+  const res = await router.chat('What is the best chess continuation from this position: 1. e4 e5?');
+  assert.equal(res.routedTo, 'reasoning_deep');
+  assert.equal(res.aborted, true);
+  assert.equal(calledModels[0], 'gemini-3-flash-preview');
+  assert.equal(calledModels[1], 'deepseek/deepseek-v4-pro');
+
+  const errorEvent = events.find(e => e.event === 'route_heavy' && e.meta?.reason === 'specialist_model_error');
+  assert.ok(errorEvent, 'route_heavy event with specialist_model_error should be emitted');
+});

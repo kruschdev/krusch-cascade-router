@@ -1,4 +1,14 @@
-export { isComplexPrompt, pruneText, detectKnowledgeBoundary, evaluateComplexityScore, Message, ClassifierOptions } from './classifier.js';
+export { 
+  isComplexPrompt, 
+  pruneText, 
+  detectKnowledgeBoundary, 
+  evaluateComplexityScore, 
+  classifySpecialistRole,
+  SpecialistRole,
+  Message, 
+  ClassifierOptions 
+} from './classifier.js';
+
 export { 
   CascadeRouter, 
   RouterConfig, 
@@ -9,5 +19,8 @@ export {
   UsageMetrics,
   RouterMetrics,
   TelemetryEvent,
-  CascadeTriggeredError
+  CascadeTriggeredError,
+  CrossRouterOptions,
+  createCrossRouter
 } from './cascade.js';
+

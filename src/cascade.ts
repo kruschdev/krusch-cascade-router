@@ -1,17 +1,27 @@
-import { isComplexPrompt, pruneText, evaluateComplexityScore, Message, ClassifierOptions } from './classifier.js';
+import { 
+  isComplexPrompt, 
+  pruneText, 
+  evaluateComplexityScore, 
+  classifySpecialistRole, 
+  SpecialistRole, 
+  Message, 
+  ClassifierOptions 
+} from './classifier.js';
 
 export interface ModelConfig {
   url?: string;
   apiKey?: string;
   model: string;
-  provider?: 'openai' | 'gemini';
+  provider?: 'openai' | 'gemini' | 'openrouter';
   costPerMillionInputTokens?: number;  // Default: 0 for local/fast, 0.15 for cloud
   costPerMillionOutputTokens?: number; // Default: 0 for local/fast, 0.60 for cloud
+  headers?: Record<string, string>;
 }
 
 export type TelemetryEvent = 
   | 'route_fast' 
   | 'route_heavy' 
+  | 'route_specialist'
   | 'cascade_triggered' 
   | 'json_fallback_triggered' 
   | 'repetition_loop_triggered'
@@ -26,9 +36,13 @@ export interface JeanSREGateConfig {
 }
 
 export interface RouterConfig {
-  fastModel: ModelConfig;
-  heavyModel: ModelConfig;
+  fastModel?: ModelConfig;
+  heavyModel?: ModelConfig;
   backgroundModel?: ModelConfig;
+  specialistModels?: Partial<Record<SpecialistRole, ModelConfig>>;
+  openrouterApiKey?: string;
+  openrouterReferer?: string;
+  openrouterTitle?: string;
   cascadeThreshold?: number; // Default 0.85 (Linear probability)
   tokensToEvaluate?: number; // Default 5
   maxRepetitiveTokens?: number; // Default 4 (catches degenerate repetitive loops)
@@ -60,9 +74,10 @@ export interface RouterMetrics {
 
 export interface CascadeResponse {
   text: string;
-  routedTo: 'fast' | 'heavy';
+  routedTo: 'fast' | 'heavy' | SpecialistRole;
   aborted: boolean;
   usage?: UsageMetrics;
+  model?: string;
 }
 
 export interface ChatOptions {
@@ -76,6 +91,74 @@ export interface ChatOptions {
 export interface ChatJsonOptions extends ChatOptions {
   schema?: Record<string, any>;
   maxJsonRetries?: number;
+}
+
+export interface CrossRouterOptions {
+  openrouterApiKey?: string;
+  siteUrl?: string;
+  appName?: string;
+  customModels?: Partial<Record<SpecialistRole, string>>;
+  cascadeThreshold?: number;
+  tokensToEvaluate?: number;
+  maxRepetitiveTokens?: number;
+  speculativeBranching?: boolean;
+  prunePreRouting?: boolean;
+  fetch?: typeof fetch;
+  onEvent?: (event: TelemetryEvent, metadata?: Record<string, any>) => void;
+  jeanSREGate?: JeanSREGateConfig;
+}
+
+/**
+ * Creates a CascadeRouter pre-configured with the 7 specialist models from
+ * the #1 ranked Cross-Router, routing via OpenRouter's unified API layer.
+ */
+export function createCrossRouter(options?: CrossRouterOptions): CascadeRouter {
+  const globalProcess = typeof globalThis !== 'undefined' ? (globalThis as any).process : undefined;
+  const apiKey = options?.openrouterApiKey || globalProcess?.env?.OPENROUTER_API_KEY;
+  const referer = options?.siteUrl || 'https://github.com/kruschdev/krusch-cascade-router';
+  const title = options?.appName || 'krusch-cascade-router';
+
+  // Cross-Router top 7 empirical model pool with published OpenRouter pricing ($/1M tokens)
+  const defaultModels: Record<SpecialistRole, { model: string; inputCost: number; outputCost: number }> = {
+    general_fast: { model: 'google/gemini-3.1-flash-lite', inputCost: 0.25, outputCost: 1.50 },
+    factual_stem: { model: 'deepseek/deepseek-v4-flash', inputCost: 0.14, outputCost: 0.28 },
+    code: { model: 'Qwen/Qwen3-Coder-Next', inputCost: 0.12, outputCost: 0.48 },
+    reasoning_fast: { model: 'grok-4-1-fast-reasoning', inputCost: 0.60, outputCost: 2.40 },
+    reasoning_deep: { model: 'deepseek/deepseek-v4-pro', inputCost: 0.55, outputCost: 2.19 },
+    games_spatial: { model: 'gemini-3-flash-preview', inputCost: 0.35, outputCost: 1.50 },
+    comprehension_rc: { model: 'qwen/qwen3-235b-a22b-2507', inputCost: 0.05, outputCost: 0.20 }
+  };
+
+  const specialistModels: Record<SpecialistRole, ModelConfig> = {} as any;
+
+  for (const [roleKey, def] of Object.entries(defaultModels)) {
+    const role = roleKey as SpecialistRole;
+    const modelName = options?.customModels?.[role] || def.model;
+    specialistModels[role] = {
+      model: modelName,
+      provider: 'openrouter',
+      apiKey,
+      costPerMillionInputTokens: def.inputCost,
+      costPerMillionOutputTokens: def.outputCost
+    };
+  }
+
+  return new CascadeRouter({
+    fastModel: specialistModels.factual_stem,
+    heavyModel: specialistModels.reasoning_deep,
+    specialistModels,
+    openrouterApiKey: apiKey,
+    openrouterReferer: referer,
+    openrouterTitle: title,
+    cascadeThreshold: options?.cascadeThreshold,
+    tokensToEvaluate: options?.tokensToEvaluate,
+    maxRepetitiveTokens: options?.maxRepetitiveTokens,
+    speculativeBranching: options?.speculativeBranching,
+    prunePreRouting: options?.prunePreRouting,
+    fetch: options?.fetch,
+    onEvent: options?.onEvent,
+    jeanSREGate: options?.jeanSREGate
+  });
 }
 
 export class CascadeTriggeredError extends Error {
@@ -150,8 +233,17 @@ export class CascadeRouter {
   private metrics: RouterMetrics;
 
   constructor(config: RouterConfig) {
+    if (!config.fastModel && !config.specialistModels) {
+      throw new Error('RouterConfig requires either fastModel or specialistModels.');
+    }
+
+    const defaultFast = config.fastModel ?? (config.specialistModels?.factual_stem || config.specialistModels?.general_fast || Object.values(config.specialistModels || {})[0]);
+    const defaultHeavy = config.heavyModel ?? (config.specialistModels?.reasoning_deep || config.specialistModels?.reasoning_fast || Object.values(config.specialistModels || {})[0]);
+
     this.config = {
       ...config,
+      fastModel: defaultFast!,
+      heavyModel: defaultHeavy!,
       cascadeThreshold: config.cascadeThreshold ?? 0.85,
       tokensToEvaluate: config.tokensToEvaluate ?? 5,
       maxRepetitiveTokens: config.maxRepetitiveTokens ?? 4
@@ -197,7 +289,8 @@ export class CascadeRouter {
   }
 
   /**
-   * Complete a chat request, routing automatically between fast edge and heavy cloud models.
+   * Complete a chat request, routing automatically between fast edge and heavy cloud models,
+   * or across the 7-model specialist pool if configured.
    */
   async chat(messages: Message[] | string, systemPrompt?: string, options?: ChatOptions): Promise<CascadeResponse> {
     const formattedMessages = this.formatMessages(messages, systemPrompt, options);
@@ -216,27 +309,81 @@ export class CascadeRouter {
     const promptText = formattedMessages.map(m => m.content).join('\n');
     const promptTokens = estimateTokens(promptText);
 
-    // 1. Predictive Classifier
+    // 1. Predictive Classifier Options
     const classifierOpts = {
       ...this.config.classifier,
       prunePreRouting: options?.prunePreRouting ?? this.config.prunePreRouting ?? this.config.classifier?.prunePreRouting
     };
     const isComplex = isComplexPrompt(formattedMessages, classifierOpts);
+    const complexityScore = evaluateComplexityScore(formattedMessages, classifierOpts);
+    const isBorderline = complexityScore >= 0.25 && complexityScore <= 0.70;
+    const shouldHedge = (options?.speculativeBranching ?? this.config.speculativeBranching) && isBorderline;
 
+    // --- Path A: Multi-Specialist Pool Routing ---
+    if (this.config.specialistModels && Object.keys(this.config.specialistModels).length > 0) {
+      const specialistRole = classifySpecialistRole(formattedMessages, classifierOpts);
+      let targetRole: SpecialistRole = specialistRole;
+      let targetModel = this.config.specialistModels[specialistRole] || this.config.fastModel!;
+      const heavyModel = this.config.specialistModels.reasoning_deep || this.config.heavyModel!;
+
+      if (isComplex && targetRole !== 'reasoning_deep' && targetRole !== 'reasoning_fast') {
+        targetRole = 'reasoning_deep';
+        targetModel = heavyModel;
+      }
+
+      const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
+        ? this.config.backgroundModel
+        : targetModel;
+
+      this.config.onEvent?.('route_specialist', {
+        role: targetRole,
+        model: modelToUse.model,
+        complexityScore,
+        isComplex
+      });
+
+      let hedgedController: AbortController | null = null;
+      let hedgedHeavyPromise: Promise<{ text: string; usage: UsageMetrics }> | null = null;
+
+      if (shouldHedge && targetRole !== 'reasoning_deep') {
+        hedgedController = new AbortController();
+        this.config.onEvent?.('speculative_branch_hedged', { complexityScore });
+        hedgedHeavyPromise = this.fetchModel(heavyModel, formattedMessages, { ...options, signal: hedgedController.signal });
+      }
+
+      try {
+        const { text, usage } = await this.fetchModel(modelToUse, formattedMessages, options);
+        if (hedgedController) hedgedController.abort();
+
+        const isHeavyRole = targetRole === 'reasoning_deep';
+        this.recordRequestMetrics(isHeavyRole ? 'heavy' : 'fast', false, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+        return { text, routedTo: targetRole, aborted: false, usage, model: modelToUse.model };
+      } catch (err) {
+        if (hedgedHeavyPromise) {
+          try {
+            const { text, usage } = await hedgedHeavyPromise;
+            this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+            return { text, routedTo: 'reasoning_deep', aborted: true, usage, model: heavyModel.model };
+          } catch (_) {}
+        }
+        this.config.onEvent?.('route_heavy', { reason: 'specialist_model_error', role: targetRole, error: (err as Error).message });
+        const { text, usage } = await this.fetchModel(heavyModel, formattedMessages, options);
+        this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+        return { text, routedTo: 'reasoning_deep', aborted: true, usage, model: heavyModel.model };
+      }
+    }
+
+    // --- Path B: Standard 2-Tier Cascade ---
     if (isComplex) {
       // Bypass fast model entirely
       this.config.onEvent?.('route_heavy', { reason: 'classifier_heuristic' });
       const { text, usage } = await this.fetchHeavyModel(formattedMessages, options);
       this.recordRequestMetrics('heavy', false, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
-      return { text, routedTo: 'heavy', aborted: false, usage };
+      return { text, routedTo: 'heavy', aborted: false, usage, model: this.config.heavyModel!.model };
     }
 
     // Speculative Branching ("Second Thought" arXiv: 2608.13667)
     // For borderline queries [0.25, 0.70], hedge heavy model in parallel to mask cascade latency
-    const complexityScore = evaluateComplexityScore(formattedMessages, classifierOpts);
-    const isBorderline = complexityScore >= 0.25 && complexityScore <= 0.70;
-    const shouldHedge = (options?.speculativeBranching ?? this.config.speculativeBranching) && isBorderline;
-
     let hedgedController: AbortController | null = null;
     let hedgedHeavyPromise: Promise<{ text: string; usage: UsageMetrics }> | null = null;
 
@@ -255,7 +402,7 @@ export class CascadeRouter {
           ? await hedgedHeavyPromise 
           : await this.fetchHeavyModel(formattedMessages, options);
         this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
-        return { text, routedTo: 'heavy', aborted: true, usage };
+        return { text, routedTo: 'heavy', aborted: true, usage, model: this.config.heavyModel!.model };
       }
 
       // Fast model succeeded: cleanly abort the speculative heavy hedge if active
@@ -265,7 +412,7 @@ export class CascadeRouter {
 
       const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
         ? this.config.backgroundModel
-        : this.config.fastModel;
+        : this.config.fastModel!;
 
       const completionTokens = estimateTokens(fastResult.text);
       const usage = this.calculateUsage(modelToUse, promptTokens, completionTokens);
@@ -273,19 +420,19 @@ export class CascadeRouter {
       this.config.onEvent?.('route_fast', { reason: 'high_confidence', model: modelToUse.model, speedPriority: options?.speedPriority || 'normal' });
       this.recordRequestMetrics('fast', false, promptTokens, completionTokens, usage.estimatedCostUsd);
 
-      return { text: fastResult.text, routedTo: 'fast', aborted: false, usage };
+      return { text: fastResult.text, routedTo: 'fast', aborted: false, usage, model: modelToUse.model };
     } catch (err) {
       if (hedgedHeavyPromise) {
         try {
           const { text, usage } = await hedgedHeavyPromise;
           this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
-          return { text, routedTo: 'heavy', aborted: true, usage };
+          return { text, routedTo: 'heavy', aborted: true, usage, model: this.config.heavyModel!.model };
         } catch (_) {}
       }
       this.config.onEvent?.('route_heavy', { reason: 'fast_model_error', error: (err as Error).message });
       const { text, usage } = await this.fetchHeavyModel(formattedMessages, options);
       this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
-      return { text, routedTo: 'heavy', aborted: true, usage };
+      return { text, routedTo: 'heavy', aborted: true, usage, model: this.config.heavyModel!.model };
     }
   }
 
@@ -349,6 +496,47 @@ export class CascadeRouter {
     };
     const isComplex = isComplexPrompt(formattedMessages, classifierOpts);
 
+    // --- Path A: Multi-Specialist Pool Streaming ---
+    if (this.config.specialistModels && Object.keys(this.config.specialistModels).length > 0) {
+      const specialistRole = classifySpecialistRole(formattedMessages, classifierOpts);
+      let targetRole: SpecialistRole = specialistRole;
+      let targetModel = this.config.specialistModels[specialistRole] || this.config.fastModel!;
+      const heavyModel = this.config.specialistModels.reasoning_deep || this.config.heavyModel!;
+
+      if (isComplex && targetRole !== 'reasoning_deep' && targetRole !== 'reasoning_fast') {
+        targetRole = 'reasoning_deep';
+        targetModel = heavyModel;
+      }
+
+      const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
+        ? this.config.backgroundModel
+        : targetModel;
+
+      this.config.onEvent?.('route_specialist', {
+        role: targetRole,
+        model: modelToUse.model,
+        isComplex
+      });
+
+      if (targetRole === 'reasoning_deep') {
+        yield* this.streamHeavyModel(formattedMessages, options, heavyModel);
+        return;
+      }
+
+      try {
+        yield* this.streamAndEvaluateFastModelGen(formattedMessages, options, modelToUse);
+      } catch (err) {
+        if (err instanceof CascadeTriggeredError) {
+          this.config.onEvent?.('route_heavy', { reason: 'cascade_fallback', fallbackFrom: targetRole });
+        } else {
+          this.config.onEvent?.('route_heavy', { reason: 'fast_model_error', fallbackFrom: targetRole, error: (err as Error).message });
+        }
+        yield* this.streamHeavyModel(formattedMessages, options, heavyModel);
+      }
+      return;
+    }
+
+    // --- Path B: Standard 2-Tier Cascade Streaming ---
     if (isComplex) {
       this.config.onEvent?.('route_heavy', { reason: 'classifier_heuristic' });
       yield* this.streamHeavyModel(formattedMessages, options);
@@ -444,14 +632,12 @@ export class CascadeRouter {
    * Streams the fast model, buffering the first N tokens to check logprobs and loops.
    * If confidence is lower than threshold or loop is detected, aborts and returns { aborted: true }.
    */
-  private async streamAndEvaluateFastModel(messages: Message[], options?: ChatOptions): Promise<{ text: string, aborted: boolean }> {
-    const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
-      ? this.config.backgroundModel
-      : this.config.fastModel;
-    const url = modelToUse.url || 'http://localhost:11434/v1/chat/completions';
-    
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (modelToUse.apiKey) headers['Authorization'] = `Bearer ${modelToUse.apiKey}`;
+  private async streamAndEvaluateFastModel(messages: Message[], options?: ChatOptions, customModel?: ModelConfig): Promise<{ text: string, aborted: boolean }> {
+    const modelToUse = customModel
+      || ((options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
+        ? this.config.backgroundModel
+        : this.config.fastModel!);
+    const { url, headers } = this.getModelEndpoint(modelToUse, true);
 
     const controller = new AbortController();
     
@@ -570,35 +756,57 @@ export class CascadeRouter {
     }
   }
 
-  /**
-   * Fallback to heavy model.
-   */
-  private async fetchHeavyModel(messages: Message[], options?: ChatOptions): Promise<{ text: string, usage: UsageMetrics }> {
-    const { heavyModel } = this.config;
-    const provider = heavyModel.provider || 'openai';
+  private getModelEndpoint(modelConfig: ModelConfig, isLocalFastDefault: boolean = false): { url: string; headers: Record<string, string> } {
+    const provider = modelConfig.provider || 'openai';
+    const isOpener = provider === 'openrouter';
+    let defaultUrl = 'https://api.openai.com/v1/chat/completions';
+    if (isOpener) {
+      defaultUrl = 'https://openrouter.ai/api/v1/chat/completions';
+    } else if (isLocalFastDefault) {
+      defaultUrl = 'http://localhost:11434/v1/chat/completions';
+    }
+    const url = modelConfig.url || defaultUrl;
 
-    if (provider === 'gemini') {
-      return this.fetchGemini(messages, options);
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const apiKey = modelConfig.apiKey || (isOpener ? this.config.openrouterApiKey : undefined);
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
     }
 
-    // Default OpenAI format
-    const url = heavyModel.url || 'https://api.openai.com/v1/chat/completions';
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (heavyModel.apiKey) headers['Authorization'] = `Bearer ${heavyModel.apiKey}`;
+    if (isOpener) {
+      headers['HTTP-Referer'] = modelConfig.headers?.['HTTP-Referer'] || this.config.openrouterReferer || 'https://github.com/kruschdev/krusch-cascade-router';
+      headers['X-Title'] = modelConfig.headers?.['X-Title'] || this.config.openrouterTitle || 'krusch-cascade-router';
+    }
+
+    if (modelConfig.headers) {
+      Object.assign(headers, modelConfig.headers);
+    }
+
+    return { url, headers };
+  }
+
+  private async fetchModel(modelConfig: ModelConfig, messages: Message[], options?: ChatOptions): Promise<{ text: string, usage: UsageMetrics }> {
+    const provider = modelConfig.provider || 'openai';
+
+    if (provider === 'gemini') {
+      return this.fetchGemini(messages, options, modelConfig);
+    }
+
+    const { url, headers } = this.getModelEndpoint(modelConfig, false);
 
     const response = await this.fetchFn(url, {
       method: 'POST',
       headers,
       signal: options?.signal,
       body: JSON.stringify({
-        model: heavyModel.model,
+        model: modelConfig.model,
         messages,
         stream: false
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Heavy model HTTP ${response.status}`);
+      throw new Error(`${modelConfig.model} HTTP ${response.status}`);
     }
 
     const data = await response.json();
@@ -607,13 +815,20 @@ export class CascadeRouter {
     // Extract usage
     const promptTokens = data.usage?.prompt_tokens ?? estimateTokens(messages.map(m => m.content).join('\n'));
     const completionTokens = data.usage?.completion_tokens ?? estimateTokens(text);
-    const usage = this.calculateUsage(heavyModel, promptTokens, completionTokens);
+    const usage = this.calculateUsage(modelConfig, promptTokens, completionTokens);
 
     return { text, usage };
   }
 
-  private async fetchGemini(messages: Message[], options?: ChatOptions): Promise<{ text: string, usage: UsageMetrics }> {
-    const { heavyModel } = this.config;
+  /**
+   * Fallback to heavy model.
+   */
+  private async fetchHeavyModel(messages: Message[], options?: ChatOptions): Promise<{ text: string, usage: UsageMetrics }> {
+    return this.fetchModel(this.config.heavyModel!, messages, options);
+  }
+
+  private async fetchGemini(messages: Message[], options?: ChatOptions, customModel?: ModelConfig): Promise<{ text: string, usage: UsageMetrics }> {
+    const heavyModel = customModel || this.config.heavyModel!;
     const apiKey = heavyModel.apiKey;
     if (!apiKey) throw new Error('Gemini requires an API key');
 
@@ -653,14 +868,12 @@ export class CascadeRouter {
     return { text, usage };
   }
 
-  private async *streamAndEvaluateFastModelGen(messages: Message[], options?: ChatOptions): AsyncGenerator<string, void, unknown> {
-    const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
-      ? this.config.backgroundModel
-      : this.config.fastModel;
-    const url = modelToUse.url || 'http://localhost:11434/v1/chat/completions';
-    
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (modelToUse.apiKey) headers['Authorization'] = `Bearer ${modelToUse.apiKey}`;
+  private async *streamAndEvaluateFastModelGen(messages: Message[], options?: ChatOptions, customModel?: ModelConfig): AsyncGenerator<string, void, unknown> {
+    const modelToUse = customModel
+      || ((options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
+        ? this.config.backgroundModel
+        : this.config.fastModel!);
+    const { url, headers } = this.getModelEndpoint(modelToUse, true);
 
     const controller = new AbortController();
     const onAbort = () => controller.abort();
@@ -820,18 +1033,16 @@ export class CascadeRouter {
     }
   }
 
-  private async *streamHeavyModel(messages: Message[], options?: ChatOptions): AsyncGenerator<string, void, unknown> {
-    const { heavyModel } = this.config;
+  private async *streamHeavyModel(messages: Message[], options?: ChatOptions, customModel?: ModelConfig): AsyncGenerator<string, void, unknown> {
+    const heavyModel = customModel || this.config.heavyModel!;
     const provider = heavyModel.provider || 'openai';
 
     if (provider === 'gemini') {
-      yield* this.streamGemini(messages, options);
+      yield* this.streamGemini(messages, options, heavyModel);
       return;
     }
 
-    const url = heavyModel.url || 'https://api.openai.com/v1/chat/completions';
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (heavyModel.apiKey) headers['Authorization'] = `Bearer ${heavyModel.apiKey}`;
+    const { url, headers } = this.getModelEndpoint(heavyModel, false);
 
     const response = await this.fetchFn(url, {
       method: 'POST',
@@ -890,8 +1101,8 @@ export class CascadeRouter {
     }
   }
 
-  private async *streamGemini(messages: Message[], options?: ChatOptions): AsyncGenerator<string, void, unknown> {
-    const { heavyModel } = this.config;
+  private async *streamGemini(messages: Message[], options?: ChatOptions, customModel?: ModelConfig): AsyncGenerator<string, void, unknown> {
+    const heavyModel = customModel || this.config.heavyModel!;
     const apiKey = heavyModel.apiKey;
     if (!apiKey) throw new Error('Gemini requires an API key');
 

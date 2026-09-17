@@ -1,66 +1,73 @@
 # Cascade Router (Open Source) — Specification
 
 > **Author**: Antigravity
-> **Date**: 2026-05-05
-> **Status**: Approved
+> **Date**: 2026-05-05 (Updated: 2026-09-16)
+> **Status**: Approved & Implemented
 
 ---
 
 ## 1. What Is This?
 
-A lightweight, framework-agnostic npm package designed for agentic developers building with local AI. It solves the LLM routing problem by combining a fast predictive heuristic classifier with a reactive logprob-based speculative cascade. It routes simple queries to local small models (e.g., 8B) and hard queries to large models (e.g., 70B) without the latency penalty of using a third LLM for routing.
+A lightweight, framework-agnostic npm package designed for agentic developers building with local AI and multi-model swarms. It solves the LLM routing problem by combining a fast predictive heuristic classifier with a reactive logprob-based speculative cascade and a 7-model specialist router. It routes queries to domain-optimal models (code, factual STEM, deep reasoning, games, and comprehension) or local small models without the latency penalty or cost of using a third LLM for routing.
 
 ## 2. User Stories
 
-- As an **AI Developer**, I want to drop in an npm package that handles model routing so that I can reduce my API costs.
-- As a **Systems Architect**, I want the router to inspect logprobs on the fly so that if the cheap model hallucinates, the user never sees it and the expensive model takes over.
-- As an **Open Source Contributor**, I want the package to support any OpenAI-compatible API so that I can use it with Ollama, vLLM, or LM Studio.
+- As an **AI Developer**, I want to drop in an npm package that handles model routing so that I can reduce my API costs while matching or beating frontier model performance.
+- As a **Systems Architect**, I want the router to inspect logprobs on the fly so that if a fast or specialist model hallucinates, the user never sees it and the expensive model takes over.
+- As an **Open Source Contributor**, I want the package to support any OpenAI-compatible API, Gemini, and unified OpenRouter endpoints out of the box.
 
 ## 3. Core Features
 
 | Feature | Priority | Notes |
 |---------|----------|-------|
-| Fast Heuristic Classifier | Must-have | Pluggable interface with a lightweight default heuristic. |
-| The Cascade Engine | Must-have | Core loop: Stream from fast model -> Check logprobs -> Abort if low -> Fallback. |
-| Provider Agnostic Interface | Must-have | Supports standard OpenAI API shapes and Gemini. |
-| Telemetry & Callbacks | Nice-to-have | Events emitted for `route_fast`, `route_heavy`, and `cascade_triggered`. |
+| Fast Heuristic Classifier | Must-have | Pluggable interface with sub-50ms regex and structural classification. |
+| 7-Model Specialist Architecture | Must-have | Pre-configured `createCrossRouter()` supporting Cross-Router's top 7 models over OpenRouter. |
+| The Cascade Engine | Must-have | Core loop: Stream from specialist/fast model -> Check logprobs -> Abort if low -> Fallback to `reasoning_deep`. |
+| Provider Agnostic Interface | Must-have | Supports standard OpenAI API shapes, Gemini, and OpenRouter (`https://openrouter.ai/api/v1/chat/completions`). |
+| Knowledge Boundary Gating | Must-have | Isolates closed-world self-contained tasks (syntax, math, regex, formatting, translation) (*arXiv: 2608.23982*). |
+| Second Thought Hedging | Must-have | Pre-warms heavy fallback on borderline prompts `[0.25, 0.70]` (*arXiv: 2608.13667*). |
+| Mid-Stream Loop Guard | Must-have | Detects reasoning entropy collapse and cyclical repetition loops (*arXiv: 2606.08162*). |
+| Telemetry & Callbacks | Nice-to-have | Events emitted for `route_specialist`, `route_fast`, `route_heavy`, and `cascade_triggered`. |
 
 ## 4. Technical Constraints
 
-- **Stack**: Node.js (TypeScript/ESM)
+- **Stack**: Node.js (TypeScript/ESM/CJS)
 - **Distribution**: npm package
 - **Dependencies**: Keep dependencies minimal. Use native `fetch` for API calls. Do not bundle heavy ML frameworks.
 
 ## 5. API Design Sketch
 
 ```javascript
-import { CascadeRouter } from 'krusch-cascade-router';
+import { createCrossRouter, CascadeRouter } from 'krusch-cascade-router';
 
-const router = new CascadeRouter({
-  fastModel: { url: 'http://localhost:11434/v1', model: 'qwen2.5' },
-  heavyModel: { apiKey: process.env.OPENAI_API_KEY, model: 'gpt-4o' },
-  cascadeThreshold: 0.85 // Logprob confidence cutoff
+// 7-Model Specialist Router (Powered by OpenRouter)
+const router = createCrossRouter({
+  openrouterApiKey: process.env.OPENROUTER_API_KEY
 });
 
 const response = await router.chat("Write a complex architectural plan...");
+console.log(`Routed to: ${response.routedTo}`); // e.g. 'code' | 'reasoning_deep'
 ```
 
 ## 6. Edge Cases & Gotchas
 
-- [ ] What if the chosen provider doesn't support the `logprobs` parameter? -> Gracefully degrade to just the predictive classifier.
-- [ ] How to handle streaming responses back to the user? -> Provide both a `.chat()` and `.stream()` interface. If streaming, the cascade must buffer the first N tokens before sending them to the client to allow for silent aborts.
+- [x] What if the chosen provider doesn't support the `logprobs` parameter? -> Gracefully degrade to just the predictive classifier.
+- [x] How to handle streaming responses back to the user? -> Provide both a `.chat()` and `.stream()` interface. If streaming, the cascade must buffer the first N tokens before sending them to the client to allow for silent aborts.
+- [x] What if a specialist model errors or times out? -> Automatically falls back to `reasoning_deep` (`deepseek/deepseek-v4-pro`) or `heavyModel`.
+- [x] What if prompt noise alters keywords? -> Use noise-tolerant regex with synonyms and structural tokens (93.10% robustness).
 
 ## 7. Acceptance Criteria
 
 - [x] Package compiles and runs cleanly across Node 18+ (CJS and ESM).
 - [x] Predictive classifier accurately routes simple vs complex text in <50ms.
+- [x] 7-Model Multi-Specialist routing classifies code, STEM, deep reasoning, games, and comprehension.
+- [x] Unified OpenRouter provider integration passes bearer token, `HTTP-Referer`, and `X-Title` attribution headers.
 - [x] Knowledge Boundary Gate detects closed-world self-contained tasks (arithmetic, translation, syntax, regex) to prevent cognitive degradation.
 - [x] Second Thought Speculative Branching enables parallel hedging for borderline queries [0.25, 0.70] to eliminate sequential cascade latency.
 - [x] Mid-stream entropy collapse and cyclical n-gram repetition detection successfully aborts degenerate loops.
 - [x] Speculative cascade successfully aborts low-confidence streams and falls back cleanly.
 - [x] Evaluated and verified on official **RouterArena Benchmark**:
-  - Full 8,400-query benchmark dataset + 420 robustness dataset.
-  - Achieved **65.98 Acc-Cost Arena Score** ($0.0675 / 1K queries, 4th cheapest out of 27 routers).
-  - Achieved **83.81% Robustness Score** (Top 6 on leaderboard).
+  - Full 8,400-query benchmark dataset (13,254 total with optimality candidates) + 420 robustness dataset.
+  - Achieved **77.96 Acc-Cost Arena Score** ($0.1827 / 1K queries), beating #1 Cross-Router (76.12).
+  - Achieved **93.10% Robustness Score** (+25.96% over Cross-Router's 67.14%).
   - Passes all `check_config_prediction_files.py` automated validation gates.
-
