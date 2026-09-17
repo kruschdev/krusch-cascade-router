@@ -39,6 +39,7 @@
 - Benchmarked Arena Score: **77.96** (Accuracy: 79.51%, Cost/1K: $0.1827; outperforms Cross-Router's 76.12).
 - Pushed submodule commit `8038bf0` to `fork submit/krusch-cascade-router`, updating PR #169.
 - Updated `docs/BENCHMARK.md`, `README.md`, and `spec.md`.
+- Bumped package version to `1.1.0`, tagged `v1.1.0`, and pushed commits + tags to public GitHub `kruschdev/krusch-cascade-router`.
 
 ## Open Questions
 - None.
