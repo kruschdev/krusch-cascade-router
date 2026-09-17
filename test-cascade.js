@@ -685,4 +685,221 @@ test('CascadeRouter - urgency: low - stream() routes to backgroundModel', async 
   assert.equal(fetchedUrl, 'http://background-url/v1/chat/completions');
 });
 
+test('CascadeRouter - Token Usage & Router Metrics Telemetry', async () => {
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5', url: 'http://fast-url/v1/chat/completions', costPerMillionInputTokens: 0, costPerMillionOutputTokens: 0 },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key', costPerMillionInputTokens: 0.15, costPerMillionOutputTokens: 0.60 },
+    fetch: createMockFetch({
+      fastTokens: ['Fast', ' response'],
+      fastLogprobs: [0.95, 0.96],
+      heavyText: 'Heavy cloud response for complex problem',
+      fastShouldFail: false
+    })
+  });
+
+  // Fast request
+  const fastRes = await router.chat('Simple hello');
+  assert.equal(fastRes.routedTo, 'fast');
+  assert.ok(fastRes.usage);
+  assert.ok(fastRes.usage.promptTokens > 0);
+  assert.ok(fastRes.usage.completionTokens > 0);
+  assert.equal(fastRes.usage.estimatedCostUsd, 0);
+
+  // Heavy request (complex verb "architect")
+  const heavyRes = await router.chat('Please architect a distributed database.');
+  assert.equal(heavyRes.routedTo, 'heavy');
+  assert.ok(heavyRes.usage);
+  assert.ok(heavyRes.usage.estimatedCostUsd > 0);
+
+  // Check router metrics
+  const metrics = router.getMetrics();
+  assert.equal(metrics.totalRequests, 2);
+  assert.equal(metrics.fastRequests, 1);
+  assert.equal(metrics.heavyRequests, 1);
+  assert.ok(metrics.totalPromptTokens > 0);
+  assert.ok(metrics.totalCompletionTokens > 0);
+  assert.ok(metrics.estimatedSavingsUsd > 0);
+
+  router.resetMetrics();
+  assert.equal(router.getMetrics().totalRequests, 0);
+});
+
+test('CascadeRouter - chatJson() Happy Path and Fallback Cascade on Malformed JSON', async () => {
+  const events = [];
+
+  // 1. Happy path: Fast model returns valid JSON
+  const happyRouter = new CascadeRouter({
+    fastModel: { model: 'qwen2.5', url: 'http://fast-url/v1/chat/completions' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    fetch: createMockFetch({
+      fastTokens: ['{"status":', ' "ok",', ' "code": 200}'],
+      fastLogprobs: [0.95, 0.95, 0.95],
+      heavyText: '{"status": "heavy"}',
+      fastShouldFail: false
+    }),
+    onEvent: (event, meta) => events.push({ event, meta })
+  });
+
+  const happyJson = await happyRouter.chatJson('Get status');
+  assert.equal(happyJson.status, 'ok');
+  assert.equal(happyJson.code, 200);
+  assert.equal(happyJson._routedTo, 'fast');
+
+  // 2. Fallback path: Fast model returns non-JSON text -> triggers json fallback cascade
+  const fallbackRouter = new CascadeRouter({
+    fastModel: { model: 'qwen2.5', url: 'http://fast-url/v1/chat/completions' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    fetch: createMockFetch({
+      fastTokens: ['Here', ' is your', ' plain text response without JSON.'],
+      fastLogprobs: [0.95, 0.95, 0.95],
+      heavyText: '```json\n{"status": "recovered_by_heavy", "valid": true}\n```',
+      fastShouldFail: false
+    }),
+    onEvent: (event, meta) => events.push({ event, meta })
+  });
+
+  const fallbackJson = await fallbackRouter.chatJson('Get data');
+  assert.equal(fallbackJson.status, 'recovered_by_heavy');
+  assert.equal(fallbackJson.valid, true);
+  assert.equal(fallbackJson._routedTo, 'heavy');
+
+  const fallbackEvent = events.find(e => e.event === 'json_fallback_triggered');
+  assert.ok(fallbackEvent, 'json_fallback_triggered event must be emitted');
+});
+
+test('CascadeRouter - Speculative Repetition Loop Detection Triggers Cascade', async () => {
+  const events = [];
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5', url: 'http://fast-url/v1/chat/completions' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    maxRepetitiveTokens: 3,
+    fetch: createMockFetch({
+      // Fast model outputs repeating token loop
+      fastTokens: ['loop', 'loop', 'loop', 'loop'],
+      fastLogprobs: [0.99, 0.99, 0.99, 0.99],
+      heavyText: 'Clean recovery from heavy model',
+      fastShouldFail: false
+    }),
+    onEvent: (event, meta) => events.push({ event, meta })
+  });
+
+  const result = await router.chat('Tell me something');
+  assert.equal(result.routedTo, 'heavy');
+  assert.equal(result.text, 'Clean recovery from heavy model');
+  assert.equal(result.aborted, true);
+
+  const loopEvent = events.find(e => e.event === 'repetition_loop_triggered');
+  assert.ok(loopEvent, 'repetition_loop_triggered event must be emitted');
+});
+
+test('CascadeRouter - Cyclic 2-Gram Loop Triggers Cascade', async () => {
+  const events = [];
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5', url: 'http://fast-url/v1/chat/completions' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    fetch: createMockFetch({
+      // 2-gram cyclic loop: 'apple', 'banana', 'apple', 'banana', 'apple', 'banana'
+      fastTokens: ['apple', 'banana', 'apple', 'banana', 'apple', 'banana'],
+      fastLogprobs: [0.99, 0.99, 0.99, 0.99, 0.99, 0.99],
+      heavyText: 'Recovered from cyclic loop',
+      fastShouldFail: false
+    }),
+    onEvent: (event, meta) => events.push({ event, meta })
+  });
+
+  const result = await router.chat('Loop prompt');
+  assert.equal(result.routedTo, 'heavy');
+  assert.equal(result.text, 'Recovered from cyclic loop');
+  assert.equal(result.aborted, true);
+  const loopEvent = events.find(e => e.event === 'repetition_loop_triggered');
+  assert.ok(loopEvent, 'cyclic repetition should trigger repetition_loop_triggered event');
+});
+
+test('CascadeRouter - Second Thought Speculative Branching for Borderline Query', async () => {
+  const events = [];
+  let heavyCalled = false;
+
+  const mockFetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    if (body.stream) {
+      // Fast model stream fails logprob on 2nd token
+      const chunks = [
+        { choices: [{ delta: { content: 'Intro ' }, logprobs: { content: [{ logprob: -0.01 }] } }] },
+        { choices: [{ delta: { content: 'bad' }, logprobs: { content: [{ logprob: -2.5 }] } }] }
+      ];
+      return {
+        ok: true,
+        status: 200,
+        body: {
+          getReader: () => {
+            let i = 0;
+            return {
+              read: async () => {
+                if (i < chunks.length) {
+                  const chunk = chunks[i++];
+                  return { value: new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`), done: false };
+                }
+                return { done: true };
+              }
+            };
+          }
+        }
+      };
+    } else {
+      // Heavy model
+      heavyCalled = true;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content: 'Speculative heavy answer' } }],
+          usage: { prompt_tokens: 10, completion_tokens: 15, total_tokens: 25 }
+        })
+      };
+    }
+  };
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5', url: 'http://fast-url/v1/chat/completions' },
+    heavyModel: { model: 'gpt-4o', apiKey: 'test-key' },
+    speculativeBranching: true,
+    tokensToEvaluate: 2,
+    cascadeThreshold: 0.85,
+    fetch: mockFetch,
+    onEvent: (event, meta) => events.push({ event, meta })
+  });
+
+  // Prompt with moderate complexity (borderline inquiry, not directly matching isComplexPrompt verbs)
+  const borderlinePrompt = 'Could you explain why this happened and clarify the tradeoffs?';
+  const res = await router.chat(borderlinePrompt);
+  assert.equal(res.routedTo, 'heavy');
+  assert.equal(res.text, 'Speculative heavy answer');
+  assert.equal(heavyCalled, true);
+  const hedgedEvent = events.find(e => e.event === 'speculative_branch_hedged');
+  assert.ok(hedgedEvent, 'speculative_branch_hedged event should be emitted');
+});
+
+test('Knowledge Boundary and Continuous Complexity Scoring', async () => {
+  const { detectKnowledgeBoundary, evaluateComplexityScore } = await import('./dist/index.js');
+  
+  // Closed-world tasks
+  assert.equal(detectKnowledgeBoundary('Translate this paragraph to Spanish: Hello world'), 'closed');
+  assert.equal(detectKnowledgeBoundary('Calculate 25 * 40 / 2'), 'closed');
+  assert.equal(detectKnowledgeBoundary('Format this JSON string properly'), 'closed');
+
+  // Open-world tasks
+  assert.equal(detectKnowledgeBoundary('What are the ethical implications of autonomous AI in judicial systems?'), 'open');
+
+  // Complexity score
+  const simpleScore = evaluateComplexityScore('What is the capital of Vermont?');
+  assert.ok(simpleScore < 0.35, `Simple score ${simpleScore} should be < 0.35`);
+
+  const complexScore = evaluateComplexityScore('```typescript\nfunction analyze(x: number) { return x; }\n```\nSynthesize an architectural plan');
+  assert.ok(complexScore >= 0.65, `Complex score ${complexScore} should be >= 0.65`);
+});
+
+
+
 

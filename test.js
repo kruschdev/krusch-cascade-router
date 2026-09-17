@@ -30,3 +30,16 @@ test('isComplexPrompt - Custom Rules', () => {
     assert.equal(isComplexPrompt('Please do something MAGIC.', { customRules: [/MAGIC/] }), true);
     assert.equal(isComplexPrompt('Please do something NORMAL.', { customRules: [/MAGIC/] }), false);
 });
+
+test('pruneText and isComplexPrompt - Pre-Routing Pruning', async () => {
+    const { pruneText } = await import('./dist/index.js');
+    const bloated = "Hey, could you please tell me what the status is? Thanks in advance!";
+    const cleaned = pruneText(bloated);
+    assert.equal(cleaned, "what the status is?");
+
+    // borderText length is > 2000 chars with filler (2021 chars), but < 2000 once pruned (1980 chars)
+    const borderText = "Hey, could you please " + "word ".repeat(396) + " Thanks in advance!";
+    assert.equal(isComplexPrompt(borderText, { lengthThreshold: 2000, prunePreRouting: false }), true);
+    assert.equal(isComplexPrompt(borderText, { lengthThreshold: 2000, prunePreRouting: true }), false);
+});
+

@@ -1,13 +1,22 @@
-import { isComplexPrompt, Message, ClassifierOptions } from './classifier.js';
+import { isComplexPrompt, pruneText, evaluateComplexityScore, Message, ClassifierOptions } from './classifier.js';
 
 export interface ModelConfig {
   url?: string;
   apiKey?: string;
   model: string;
   provider?: 'openai' | 'gemini';
+  costPerMillionInputTokens?: number;  // Default: 0 for local/fast, 0.15 for cloud
+  costPerMillionOutputTokens?: number; // Default: 0 for local/fast, 0.60 for cloud
 }
 
-export type TelemetryEvent = 'route_fast' | 'route_heavy' | 'cascade_triggered';
+export type TelemetryEvent = 
+  | 'route_fast' 
+  | 'route_heavy' 
+  | 'cascade_triggered' 
+  | 'json_fallback_triggered' 
+  | 'repetition_loop_triggered'
+  | 'speculative_branch_hedged'
+  | 'entropy_collapse_triggered';
 
 export interface JeanSREGateConfig {
   enabled: boolean;
@@ -22,22 +31,51 @@ export interface RouterConfig {
   backgroundModel?: ModelConfig;
   cascadeThreshold?: number; // Default 0.85 (Linear probability)
   tokensToEvaluate?: number; // Default 5
+  maxRepetitiveTokens?: number; // Default 4 (catches degenerate repetitive loops)
   classifier?: ClassifierOptions;
+  prunePreRouting?: boolean; // If true, automatically prunes whitespace/filler before routing
+  speculativeBranching?: boolean; // If true, enables Second Thought parallel hedging for borderline queries
   fetch?: typeof fetch;
   onEvent?: (event: TelemetryEvent, metadata?: Record<string, any>) => void;
   jeanSREGate?: JeanSREGateConfig;
+}
+
+export interface UsageMetrics {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+}
+
+export interface RouterMetrics {
+  totalRequests: number;
+  fastRequests: number;
+  heavyRequests: number;
+  cascadedRequests: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  estimatedCostUsd: number;
+  estimatedSavingsUsd: number;
 }
 
 export interface CascadeResponse {
   text: string;
   routedTo: 'fast' | 'heavy';
   aborted: boolean;
+  usage?: UsageMetrics;
 }
 
 export interface ChatOptions {
   signal?: AbortSignal;
   speedPriority?: 'high' | 'medium' | 'low';
   urgency?: 'high' | 'medium' | 'low';
+  prunePreRouting?: boolean;
+  speculativeBranching?: boolean;
+}
+
+export interface ChatJsonOptions extends ChatOptions {
+  schema?: Record<string, any>;
+  maxJsonRetries?: number;
 }
 
 export class CascadeTriggeredError extends Error {
@@ -47,27 +85,122 @@ export class CascadeTriggeredError extends Error {
   }
 }
 
+/**
+ * Robust JSON extraction helper that parses raw AI JSON output or repairs markdown-wrapped json.
+ */
+function parseJsonSafe<T = any>(text: string): T {
+  if (!text || typeof text !== 'string') {
+    throw new Error('Cannot parse empty or non-string AI response as JSON.');
+  }
+
+  const trimmed = text.trim();
+
+  // 1. Direct parse attempt
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch (_) {
+    // Fall through to markdown regex extractor
+  }
+
+  // 2. Extract code fence ```json ... ```
+  const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim()) as T;
+    } catch (_) {
+      // Fall through
+    }
+  }
+
+  // 3. Extract outermost object or array brackets
+  const firstBrace = trimmed.indexOf('{');
+  const lastBrace = trimmed.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1)) as T;
+    } catch (_) {
+      // Fall through
+    }
+  }
+
+  const firstBracket = trimmed.indexOf('[');
+  const lastBracket = trimmed.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    try {
+      return JSON.parse(trimmed.slice(firstBracket, lastBracket + 1)) as T;
+    } catch (_) {
+      // Fall through
+    }
+  }
+
+  throw new Error(`Failed to parse AI JSON response: ${trimmed.slice(0, 100)}...`);
+}
+
+/**
+ * Approximate token estimator: ~4 characters per token in English.
+ */
+function estimateTokens(text: string): number {
+  if (!text) return 0;
+  return Math.ceil(text.length / 4);
+}
+
 export class CascadeRouter {
   private config: RouterConfig;
   private fetchFn: typeof fetch;
+  private metrics: RouterMetrics;
 
   constructor(config: RouterConfig) {
     this.config = {
       ...config,
       cascadeThreshold: config.cascadeThreshold ?? 0.85,
-      tokensToEvaluate: config.tokensToEvaluate ?? 5
+      tokensToEvaluate: config.tokensToEvaluate ?? 5,
+      maxRepetitiveTokens: config.maxRepetitiveTokens ?? 4
     };
     this.fetchFn = config.fetch ?? (typeof globalThis !== 'undefined' ? globalThis.fetch : fetch);
     if (!this.fetchFn) {
       throw new Error('A global fetch API is required, or a custom fetch implementation must be provided in RouterConfig.');
     }
+
+    this.metrics = {
+      totalRequests: 0,
+      fastRequests: 0,
+      heavyRequests: 0,
+      cascadedRequests: 0,
+      totalPromptTokens: 0,
+      totalCompletionTokens: 0,
+      estimatedCostUsd: 0,
+      estimatedSavingsUsd: 0
+    };
   }
 
   /**
-   * Complete a chat request, routing automatically.
+   * Retrieves aggregate routing and token telemetry metrics.
+   */
+  getMetrics(): RouterMetrics {
+    return { ...this.metrics };
+  }
+
+  /**
+   * Resets internal telemetry counters.
+   */
+  resetMetrics(): void {
+    this.metrics = {
+      totalRequests: 0,
+      fastRequests: 0,
+      heavyRequests: 0,
+      cascadedRequests: 0,
+      totalPromptTokens: 0,
+      totalCompletionTokens: 0,
+      estimatedCostUsd: 0,
+      estimatedSavingsUsd: 0
+    };
+  }
+
+  /**
+   * Complete a chat request, routing automatically between fast edge and heavy cloud models.
    */
   async chat(messages: Message[] | string, systemPrompt?: string, options?: ChatOptions): Promise<CascadeResponse> {
-    const formattedMessages = this.formatMessages(messages, systemPrompt);
+    const formattedMessages = this.formatMessages(messages, systemPrompt, options);
 
     // Fetch SRE suggestions if gate is enabled
     if (this.config.jeanSREGate?.enabled) {
@@ -80,14 +213,37 @@ export class CascadeRouter {
       }
     }
 
+    const promptText = formattedMessages.map(m => m.content).join('\n');
+    const promptTokens = estimateTokens(promptText);
+
     // 1. Predictive Classifier
-    const isComplex = isComplexPrompt(formattedMessages, this.config.classifier);
+    const classifierOpts = {
+      ...this.config.classifier,
+      prunePreRouting: options?.prunePreRouting ?? this.config.prunePreRouting ?? this.config.classifier?.prunePreRouting
+    };
+    const isComplex = isComplexPrompt(formattedMessages, classifierOpts);
 
     if (isComplex) {
       // Bypass fast model entirely
       this.config.onEvent?.('route_heavy', { reason: 'classifier_heuristic' });
-      const text = await this.fetchHeavyModel(formattedMessages, options);
-      return { text, routedTo: 'heavy', aborted: false };
+      const { text, usage } = await this.fetchHeavyModel(formattedMessages, options);
+      this.recordRequestMetrics('heavy', false, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+      return { text, routedTo: 'heavy', aborted: false, usage };
+    }
+
+    // Speculative Branching ("Second Thought" arXiv: 2608.13667)
+    // For borderline queries [0.25, 0.70], hedge heavy model in parallel to mask cascade latency
+    const complexityScore = evaluateComplexityScore(formattedMessages, classifierOpts);
+    const isBorderline = complexityScore >= 0.25 && complexityScore <= 0.70;
+    const shouldHedge = (options?.speculativeBranching ?? this.config.speculativeBranching) && isBorderline;
+
+    let hedgedController: AbortController | null = null;
+    let hedgedHeavyPromise: Promise<{ text: string; usage: UsageMetrics }> | null = null;
+
+    if (shouldHedge) {
+      hedgedController = new AbortController();
+      this.config.onEvent?.('speculative_branch_hedged', { complexityScore });
+      hedgedHeavyPromise = this.fetchHeavyModel(formattedMessages, { ...options, signal: hedgedController.signal });
     }
 
     // 2. Try fast model with Speculative Cascade
@@ -95,28 +251,85 @@ export class CascadeRouter {
       const fastResult = await this.streamAndEvaluateFastModel(formattedMessages, options);
       if (fastResult.aborted) {
         this.config.onEvent?.('route_heavy', { reason: 'cascade_fallback' });
-        const heavyText = await this.fetchHeavyModel(formattedMessages, options);
-        return { text: heavyText, routedTo: 'heavy', aborted: true };
+        const { text, usage } = hedgedHeavyPromise 
+          ? await hedgedHeavyPromise 
+          : await this.fetchHeavyModel(formattedMessages, options);
+        this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+        return { text, routedTo: 'heavy', aborted: true, usage };
       }
+
+      // Fast model succeeded: cleanly abort the speculative heavy hedge if active
+      if (hedgedController) {
+        hedgedController.abort();
+      }
+
       const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
         ? this.config.backgroundModel
         : this.config.fastModel;
+
+      const completionTokens = estimateTokens(fastResult.text);
+      const usage = this.calculateUsage(modelToUse, promptTokens, completionTokens);
+
       this.config.onEvent?.('route_fast', { reason: 'high_confidence', model: modelToUse.model, speedPriority: options?.speedPriority || 'normal' });
-      return { text: fastResult.text, routedTo: 'fast', aborted: false };
+      this.recordRequestMetrics('fast', false, promptTokens, completionTokens, usage.estimatedCostUsd);
+
+      return { text: fastResult.text, routedTo: 'fast', aborted: false, usage };
     } catch (err) {
+      if (hedgedHeavyPromise) {
+        try {
+          const { text, usage } = await hedgedHeavyPromise;
+          this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+          return { text, routedTo: 'heavy', aborted: true, usage };
+        } catch (_) {}
+      }
       this.config.onEvent?.('route_heavy', { reason: 'fast_model_error', error: (err as Error).message });
-      const heavyText = await this.fetchHeavyModel(formattedMessages, options);
-      return { text: heavyText, routedTo: 'heavy', aborted: true };
+      const { text, usage } = await this.fetchHeavyModel(formattedMessages, options);
+      this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+      return { text, routedTo: 'heavy', aborted: true, usage };
+    }
+  }
+
+  /**
+   * Complete a chat request and parse the output as structured JSON.
+   * If the fast model produces malformed JSON, automatically cascades to heavy model.
+   */
+  async chatJson<T = any>(messages: Message[] | string, systemPrompt?: string, options?: ChatJsonOptions): Promise<T & { _routedTo?: 'fast' | 'heavy'; _usage?: UsageMetrics }> {
+    const jsonInstruction = 'IMPORTANT: You must respond ONLY with a valid JSON object or array. Do not include markdown preamble, commentary, or backticks.';
+    const combinedSystemPrompt = systemPrompt ? `${systemPrompt}\n\n${jsonInstruction}` : jsonInstruction;
+
+    const response = await this.chat(messages, combinedSystemPrompt, options);
+
+    try {
+      const parsed = parseJsonSafe<T>(response.text);
+      if (typeof parsed === 'object' && parsed !== null) {
+        (parsed as any)._routedTo = response.routedTo;
+        (parsed as any)._usage = response.usage;
+      }
+      return parsed as any;
+    } catch (parseErr) {
+      // If fast model produced unparseable JSON, cascade to heavy model
+      if (response.routedTo === 'fast') {
+        this.config.onEvent?.('json_fallback_triggered', { error: (parseErr as Error).message });
+        const formatted = this.formatMessages(messages, combinedSystemPrompt, options);
+        const { text, usage } = await this.fetchHeavyModel(formatted, options);
+        const parsedHeavy = parseJsonSafe<T>(text);
+        if (typeof parsedHeavy === 'object' && parsedHeavy !== null) {
+          (parsedHeavy as any)._routedTo = 'heavy';
+          (parsedHeavy as any)._usage = usage;
+        }
+        return parsedHeavy as any;
+      }
+      throw parseErr;
     }
   }
 
   /**
    * Stream a chat request, yielding text chunks in real-time.
    * Speculatively buffers the first N tokens from the fast model.
-   * If confidence dips below threshold, silent abort occurs and fallbacks to heavy.
+   * If confidence dips below threshold or a repetitive loop is detected, silent abort occurs and falls back to heavy.
    */
   async *stream(messages: Message[] | string, systemPrompt?: string, options?: ChatOptions): AsyncGenerator<string, void, unknown> {
-    const formattedMessages = this.formatMessages(messages, systemPrompt);
+    const formattedMessages = this.formatMessages(messages, systemPrompt, options);
 
     // Fetch SRE suggestions if gate is enabled
     if (this.config.jeanSREGate?.enabled) {
@@ -130,7 +343,11 @@ export class CascadeRouter {
     }
 
     // 1. Predictive Classifier
-    const isComplex = isComplexPrompt(formattedMessages, this.config.classifier);
+    const classifierOpts = {
+      ...this.config.classifier,
+      prunePreRouting: options?.prunePreRouting ?? this.config.prunePreRouting ?? this.config.classifier?.prunePreRouting
+    };
+    const isComplex = isComplexPrompt(formattedMessages, classifierOpts);
 
     if (isComplex) {
       this.config.onEvent?.('route_heavy', { reason: 'classifier_heuristic' });
@@ -151,22 +368,81 @@ export class CascadeRouter {
     }
   }
 
-  private formatMessages(messages: Message[] | string, systemPrompt?: string): Message[] {
+  private formatMessages(messages: Message[] | string, systemPrompt?: string, options?: ChatOptions): Message[] {
     const msgs: Message[] = [];
+    const shouldPrune = options?.prunePreRouting ?? this.config.prunePreRouting;
+
     if (systemPrompt) {
-      msgs.push({ role: 'system', content: systemPrompt });
+      msgs.push({ role: 'system', content: shouldPrune ? pruneText(systemPrompt) : systemPrompt });
     }
+
     if (typeof messages === 'string') {
-      msgs.push({ role: 'user', content: messages });
+      msgs.push({ role: 'user', content: shouldPrune ? pruneText(messages) : messages });
     } else {
-      msgs.push(...messages);
+      for (const m of messages) {
+        msgs.push({
+          role: m.role,
+          content: shouldPrune ? pruneText(m.content) : m.content
+        });
+      }
     }
     return msgs;
   }
 
   /**
-   * Streams the fast model, buffering the first N tokens to check logprobs.
-   * If confidence is lower than threshold, aborts and returns { aborted: true }.
+   * Helper: Detects repetitive token degenerate loops and reasoning entropy collapse
+   * during speculative buffer evaluation (PIG Engine / Trajectory Guard arXiv: 2606.08162).
+   */
+  private detectRepetitiveLoop(tokens: string[]): boolean {
+    const maxRep = this.config.maxRepetitiveTokens || 4;
+    if (tokens.length < maxRep) return false;
+
+    // 1. Single token repetition check
+    const lastToken = tokens[tokens.length - 1].trim();
+    if (lastToken) {
+      let identicalCount = 0;
+      for (let i = tokens.length - 1; i >= 0; i--) {
+        if (tokens[i].trim() === lastToken) {
+          identicalCount++;
+        } else {
+          break;
+        }
+      }
+      if (identicalCount >= maxRep) return true;
+    }
+
+    // 2. 2-gram cyclic repetition check (e.g. A, B, A, B, A, B)
+    if (tokens.length >= 6) {
+      const t1 = tokens[tokens.length - 2].trim();
+      const t2 = tokens[tokens.length - 1].trim();
+      if (t1 && t2 && t1 !== t2) {
+        if (
+          tokens[tokens.length - 4].trim() === t1 &&
+          tokens[tokens.length - 3].trim() === t2 &&
+          tokens[tokens.length - 6].trim() === t1 &&
+          tokens[tokens.length - 5].trim() === t2
+        ) {
+          return true;
+        }
+      }
+    }
+
+    // 3. Sliding-window unique token entropy collapse (last 10 tokens)
+    if (tokens.length >= 10) {
+      const windowTokens = tokens.slice(-10).map(t => t.trim().toLowerCase()).filter(Boolean);
+      const unique = new Set(windowTokens);
+      // If 8+ tokens contain 2 or fewer distinct words, entropy has collapsed
+      if (windowTokens.length >= 8 && unique.size <= 2) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Streams the fast model, buffering the first N tokens to check logprobs and loops.
+   * If confidence is lower than threshold or loop is detected, aborts and returns { aborted: true }.
    */
   private async streamAndEvaluateFastModel(messages: Message[], options?: ChatOptions): Promise<{ text: string, aborted: boolean }> {
     const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
@@ -211,6 +487,7 @@ export class CascadeRouter {
       let fullText = '';
       let tokenCount = 0;
       let accumulatedProb = 0;
+      const seenDeltas: string[] = [];
 
       let buffer = '';
 
@@ -233,7 +510,17 @@ export class CascadeRouter {
               const choice = data.choices?.[0];
               const delta = choice?.delta?.content || '';
               
-              if (delta) fullText += delta;
+              if (delta) {
+                fullText += delta;
+                seenDeltas.push(delta);
+
+                // Repetition loop check
+                if (this.detectRepetitiveLoop(seenDeltas)) {
+                  this.config.onEvent?.('repetition_loop_triggered', { tokenCount, delta });
+                  controller.abort();
+                  return { text: '', aborted: true };
+                }
+              }
 
               // Evaluate logprobs if present
               const logprobsObj = choice?.logprobs?.content;
@@ -284,9 +571,9 @@ export class CascadeRouter {
   }
 
   /**
-   * Fallback to heavy model. Only returns the full string for now.
+   * Fallback to heavy model.
    */
-  private async fetchHeavyModel(messages: Message[], options?: ChatOptions): Promise<string> {
+  private async fetchHeavyModel(messages: Message[], options?: ChatOptions): Promise<{ text: string, usage: UsageMetrics }> {
     const { heavyModel } = this.config;
     const provider = heavyModel.provider || 'openai';
 
@@ -315,17 +602,21 @@ export class CascadeRouter {
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || '';
+    const text = data.choices?.[0]?.message?.content || '';
+    
+    // Extract usage
+    const promptTokens = data.usage?.prompt_tokens ?? estimateTokens(messages.map(m => m.content).join('\n'));
+    const completionTokens = data.usage?.completion_tokens ?? estimateTokens(text);
+    const usage = this.calculateUsage(heavyModel, promptTokens, completionTokens);
+
+    return { text, usage };
   }
 
-  private async fetchGemini(messages: Message[], options?: ChatOptions): Promise<string> {
+  private async fetchGemini(messages: Message[], options?: ChatOptions): Promise<{ text: string, usage: UsageMetrics }> {
     const { heavyModel } = this.config;
     const apiKey = heavyModel.apiKey;
     if (!apiKey) throw new Error('Gemini requires an API key');
 
-    // NOTE: Google's REST API uses the key as a query parameter. This means the API key
-    // may appear in server logs, proxy logs, and error reporting. For higher security,
-    // consider using the Google Cloud client libraries with service account auth instead.
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${heavyModel.model}:generateContent?key=${apiKey}`;
 
     const systemPrompt = messages.find(m => m.role === 'system')?.content;
@@ -353,7 +644,13 @@ export class CascadeRouter {
     }
 
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    const promptTokens = data.usageMetadata?.promptTokenCount ?? estimateTokens(messages.map(m => m.content).join('\n'));
+    const completionTokens = data.usageMetadata?.candidatesTokenCount ?? estimateTokens(text);
+    const usage = this.calculateUsage(heavyModel, promptTokens, completionTokens);
+
+    return { text, usage };
   }
 
   private async *streamAndEvaluateFastModelGen(messages: Message[], options?: ChatOptions): AsyncGenerator<string, void, unknown> {
@@ -403,6 +700,7 @@ export class CascadeRouter {
     const decoder = new TextDecoder('utf-8');
 
     const bufferedTokens: string[] = [];
+    const seenDeltas: string[] = [];
     let tokenCount = 0;
     let accumulatedProb = 0;
     let evaluationComplete = false;
@@ -442,6 +740,15 @@ export class CascadeRouter {
             }
 
             if (delta) {
+              seenDeltas.push(delta);
+
+              // Check for degenerate repetitive loop
+              if (this.detectRepetitiveLoop(seenDeltas)) {
+                this.config.onEvent?.('repetition_loop_triggered', { tokenCount, delta });
+                controller.abort();
+                throw new CascadeTriggeredError('Repetitive token loop detected');
+              }
+
               if (evaluationComplete) {
                 yield delta;
               } else {
@@ -679,6 +986,41 @@ export class CascadeRouter {
     } catch (err) {
       // Gracefully degrade if SRE endpoint is down or unreachable
       return null;
+    }
+  }
+
+  private calculateUsage(modelConfig: ModelConfig, promptTokens: number, completionTokens: number): UsageMetrics {
+    const inRate = modelConfig.costPerMillionInputTokens ?? (modelConfig.provider === 'gemini' ? 0.15 : (modelConfig.url?.includes('localhost') ? 0.0 : 0.15));
+    const outRate = modelConfig.costPerMillionOutputTokens ?? (modelConfig.provider === 'gemini' ? 0.60 : (modelConfig.url?.includes('localhost') ? 0.0 : 0.60));
+
+    const promptCost = (promptTokens / 1_000_000) * inRate;
+    const completionCost = (completionTokens / 1_000_000) * outRate;
+    const estimatedCostUsd = Math.round((promptCost + completionCost) * 1_000_000) / 1_000_000;
+
+    return {
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      estimatedCostUsd
+    };
+  }
+
+  private recordRequestMetrics(routedTo: 'fast' | 'heavy', cascaded: boolean, promptTokens: number, completionTokens: number, actualCostUsd: number) {
+    this.metrics.totalRequests++;
+    this.metrics.totalPromptTokens += promptTokens;
+    this.metrics.totalCompletionTokens += completionTokens;
+    this.metrics.estimatedCostUsd += actualCostUsd;
+
+    if (routedTo === 'fast') {
+      this.metrics.fastRequests++;
+      // Calculate savings vs heavy cloud baseline ($0.15/$0.60 per 1M tokens)
+      const cloudHypotheticalCost = ((promptTokens / 1_000_000) * 0.15) + ((completionTokens / 1_000_000) * 0.60);
+      this.metrics.estimatedSavingsUsd += Math.max(0, cloudHypotheticalCost - actualCostUsd);
+    } else {
+      this.metrics.heavyRequests++;
+      if (cascaded) {
+        this.metrics.cascadedRequests++;
+      }
     }
   }
 }
