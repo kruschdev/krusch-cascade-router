@@ -6,6 +6,7 @@ Krusch Cascade Router Adapter (7-Model Multi-Specialist Architecture).
 """
 
 import re
+
 from router_inference.router.base_router import BaseRouter
 
 
@@ -49,7 +50,10 @@ class KruschCascadeRouter(BaseRouter):
 
         # 1. Chess & Spatial Board Games
         if (
-            any(k in p for k in ("chess", "fen", "pgn", "stalemate", "checkmate", "castling"))
+            any(
+                k in p
+                for k in ("chess", "fen", "pgn", "stalemate", "checkmate", "castling")
+            )
             or "board position" in p
         ):
             return self.model_map.get("games_spatial", "gemini-3-flash-preview")
@@ -67,14 +71,22 @@ class KruschCascadeRouter(BaseRouter):
             return self.model_map.get("code", "Qwen/Qwen3-Coder-Next")
 
         # 3. SuperGLUE-RC / Paragraph Reading Comprehension
-        if "paragraph" in p and any(k in p for k in ("provided answer", "evaluate", "correct response")):
+        if "paragraph" in p and any(
+            k in p for k in ("provided answer", "evaluate", "correct response")
+        ):
             return self.model_map.get("comprehension_rc", "qwen/qwen3-235b-a22b-2507")
 
         # 4. Financial Statements
         if any(
-            k in p for k in (
-                "net income", "operating income", "fiscal year", "cash flows",
-                "diluted eps", "balance sheet", "sec filing"
+            k in p
+            for k in (
+                "net income",
+                "operating income",
+                "fiscal year",
+                "cash flows",
+                "diluted eps",
+                "balance sheet",
+                "sec filing",
             )
         ):
             return self.model_map.get("reasoning_deep", "deepseek/deepseek-v4-pro")
@@ -85,9 +97,20 @@ class KruschCascadeRouter(BaseRouter):
             or re.search(r"\n\s*[a-d]\.\s+\S+", p)
         )
         is_math = any(
-            k in p for k in (
-                "\\boxed", "equation", "theorem", "integral", "derivative", "modulo",
-                "polynomial", "arithmetic", "geometry", "triangle", "prime number", "divisible"
+            k in p
+            for k in (
+                "\\boxed",
+                "equation",
+                "theorem",
+                "integral",
+                "derivative",
+                "modulo",
+                "polynomial",
+                "arithmetic",
+                "geometry",
+                "triangle",
+                "prime number",
+                "divisible",
             )
         )
         if is_math:
@@ -95,24 +118,70 @@ class KruschCascadeRouter(BaseRouter):
 
         # 6. Open-ended Quiz Bowl / Trivia without Multiple Choice (QANTA) -> deepseek-v4-pro
         if not has_options and any(
-            k in p for k in (
-                "this author", "this poet", "this battle", "name this", "identify this",
-                "for 10 points", "this composer", "this novel", "this leader", "this president",
-                "who was", "which country", "what city"
+            k in p
+            for k in (
+                "this author",
+                "this poet",
+                "this battle",
+                "name this",
+                "identify this",
+                "for 10 points",
+                "this composer",
+                "this novel",
+                "this leader",
+                "this president",
+                "who was",
+                "which country",
+                "what city",
             )
         ):
             return self.model_map.get("reasoning_deep", "deepseek/deepseek-v4-pro")
 
         # 7. Multilingual, Geography, Medicine, Ethics, Social, Narrative -> gemini-3.1-flash-lite
         if any(
-            k in p for k in (
-                "translate", "translation", "gujarati", "german", "chinese", "czech", "finnish", "lithuanian", "kazakh", "russian",
-                "geography", "latitude", "longitude", "elevation", "continent", "capital of",
-                "socialiqa", "social relationship", "how would you feel", "how would someone feel",
-                "ethics", "moral", "virtue", "utilitarian", "deontology", "justice",
-                "patient", "symptom", "clinical", "diagnosis", "syndrome", "treatment", "pubmed", "disease",
-                "narrative", "protagonist", "author's intent", "storyline",
-                "does sentence a imply", "same sense of the word", "cause and effect"
+            k in p
+            for k in (
+                "translate",
+                "translation",
+                "gujarati",
+                "german",
+                "chinese",
+                "czech",
+                "finnish",
+                "lithuanian",
+                "kazakh",
+                "russian",
+                "geography",
+                "latitude",
+                "longitude",
+                "elevation",
+                "continent",
+                "capital of",
+                "socialiqa",
+                "social relationship",
+                "how would you feel",
+                "how would someone feel",
+                "ethics",
+                "moral",
+                "virtue",
+                "utilitarian",
+                "deontology",
+                "justice",
+                "patient",
+                "symptom",
+                "clinical",
+                "diagnosis",
+                "syndrome",
+                "treatment",
+                "pubmed",
+                "disease",
+                "narrative",
+                "protagonist",
+                "author's intent",
+                "storyline",
+                "does sentence a imply",
+                "same sense of the word",
+                "cause and effect",
             )
         ):
             return self.model_map.get("general_fast", "google/gemini-3.1-flash-lite")
