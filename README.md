@@ -10,7 +10,7 @@
   <a href="https://www.npmjs.com/package/krusch-cascade-router"><img src="https://img.shields.io/github/package-json/v/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="NPM Version"></a>
   <a href="https://github.com/kruschdev/krusch-cascade-router/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
-  <a href="https://github.com/RouteWorks/RouterArena"><img src="https://img.shields.io/badge/RouterArena-79.67%20Score%20%231-success.svg?style=flat-square" alt="RouterArena Verified"></a>
+  <a href="https://github.com/RouteWorks/RouterArena"><img src="https://img.shields.io/badge/RouterArena-77.93%20Score%20%231-success.svg?style=flat-square" alt="RouterArena Verified"></a>
   <a href="https://github.com/RouteWorks/RouterArena"><img src="https://img.shields.io/badge/Robustness-92.62%25-brightgreen.svg?style=flat-square" alt="Robustness Score"></a>
 </p>
 
@@ -38,7 +38,7 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 * **🧠 Knowledge Boundary Router**: Classifies closed-world vs. open-world self-containment (*arXiv: 2608.23982*).
 * **⚡ Second Thought Speculative Branching**: Hedged parallel execution for borderline prompts (*arXiv: 2608.13667*).
 * **🛡️ Mid-Stream Entropy & Loop Guard**: Catches reasoning entropy collapse ($S(t) = S_0 e^{\alpha t}$) and cyclical repetition (*arXiv: 2606.08162*).
-* **🏆 #1 Global Leaderboard Standing**: **79.67 Acc-Cost Arena Score** verified by automated evaluation on RouterArena, ranking #1 worldwide over Paix2 (77.63), KT-ModelRouter (76.28), and Sqwish (76.21).
+* **🏆 #1 Global Leaderboard Standing**: **77.93 Acc-Cost Arena Score** verified by official automated bot evaluation on RouterArena, ranking #1 worldwide over Paix2 (77.63), KT-ModelRouter (76.28), and Sqwish (76.21).
 * **🎯 State-of-the-Art Robustness (92.62%)**: Exceptional stability score, invariant under adversarial prompt noise and conversational perturbations.
 * **🛑 Native AbortSignal Support**: First-class timeout and cancellation management.
 * **📦 Universal Distribution**: Full TypeScript types, ESM, and CommonJS builds.
@@ -49,11 +49,11 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 
 `krusch-cascade-router` was officially evaluated against the **[RouterArena Benchmark](https://github.com/RouteWorks/RouterArena)** ([RouteWorks Leaderboard](https://routeworks.github.io/leaderboard)) across the full **8,400-query benchmark dataset** + **420-query robustness dataset** spanning 9 domains and 44 task categories:
 
-| Metric | 🏆 Krusch Cascade (5-Model Refined) | Paix2 (Former #1) | KT-ModelRouter (#2) | Sqwish Router (#3) | Standalone GPT-5 Baseline |
+| Metric | 🏆 Krusch Cascade (Official Bot Evaluated) | Paix2 (Former #1) | KT-ModelRouter (#2) | Sqwish Router (#3) | Standalone GPT-5 Baseline |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Acc-Cost Arena Score** | **79.67** | 77.63 | 76.28 | 76.21 | 64.32 |
-| **Accuracy** | **81.69%** | 79.69% | 78.14% | 79.76% | 73.96% |
-| **Cost per 1K Queries** | **$0.2126** | $0.2700 | $0.2700 | $0.7000 | $10.02 |
+| **Acc-Cost Arena Score** | **77.93** | 77.63 | 76.28 | 76.21 | 64.32 |
+| **Accuracy** | **81.53%** | 79.69% | 78.14% | 79.76% | 73.96% |
+| **Cost per 1K Queries** | **$0.6071** | $0.2700 | $0.2700 | $0.7000 | $10.02 |
 | **Robustness Score** | **92.62%** | 77.86% | 80.48% | 51.67% | — |
 | **Routing Overhead** | **<50 microseconds** | <50ms | ~15–40ms | ~20–50ms | 0ms |
 
@@ -62,7 +62,7 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 ```
 Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K Queries   Robustness
 ----------------------------------------------------------------------------------------------------
- 1    🏆 Krusch Cascade (5-Model Refined)      79.67        81.69%          $0.21           92.62%
+ 1    🏆 Krusch Cascade (Official Bot)          77.93        81.53%          $0.61           92.62%
  2    Paix2                                    77.63        79.69%          $0.27           77.86%
  3    KT-ModelRouter                           76.28        78.14%          $0.27           80.48%
  4    Sqwish Router                            76.21        79.76%          $0.70           51.67%
@@ -98,7 +98,7 @@ Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K 
  32   RouterDC (SUSTech)                       33.75        32.01%          $0.07           85.24%
 ```
 
-> **Key takeaway**: Verified by official RouterArena automated evaluation, Krusch Cascade Router achieves a **79.67 Acc-Cost Arena Score** (**Rank #1 Worldwide**, surpassing former #1 Paix2 at 77.63, KT-ModelRouter at 76.28, and Sqwish at 76.21) with **81.69% accuracy** (+6.07% over baseline) at **1/47th the cost** of OpenAI's GPT-5 ($0.2126 vs $10.02 per 1,000 queries), while boasting **92.62% robustness** with **0 abnormal entries** across all 8,400 benchmark queries.
+> **Key takeaway**: Verified by official RouterArena automated bot evaluation, Krusch Cascade Router achieves a **77.93 Acc-Cost Arena Score** (**Rank #1 Worldwide**, surpassing former #1 Paix2 at 77.63, KT-ModelRouter at 76.28, and Sqwish at 76.21) with **81.53% accuracy** (the highest overall accuracy in the arena) at **$0.6071 per 1,000 queries** (1/16th the cost of OpenAI's GPT-5), while boasting **92.62% robustness** with **0 abnormal entries** across all 8,400 benchmark queries.
 
 ---
 

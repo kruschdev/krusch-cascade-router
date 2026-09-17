@@ -10,13 +10,17 @@ Krusch Cascade Router was evaluated across multiple configurations, culminating 
 
 With the heuristic optimizations detailed below, Krusch Cascade Router achieves the **#1 Rank Globally** on RouterArena, outperforming all external commercial and academic routers:
 
-| Metric | Krusch Cascade (5-Model Refined) | Paix2 (Former #1) | KT-ModelRouter (#2) | Sqwish Router (#3) | vLLM-SR (#5) |
+| Metric | Krusch Cascade (Official Bot Evaluated) | Paix2 (Former #1) | KT-ModelRouter (#2) | Sqwish Router (#3) | vLLM-SR (#5) |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **RouterArena Score ($S_{i,\beta}$)** | **79.67** (0.7967) | 77.63 | 76.28 | 76.21 | 74.86 |
-| **Benchmark Accuracy** | **81.69%** (6,862/8,400) | 79.69% | 78.14% | 79.76% | 77.18% |
-| **Cost / 1K Queries** | **$0.2126** | $0.2700 | $0.2700 | $0.7000 | $0.4200 |
-| **Total Cost (8,400 Queries)** | **$1.7862** | ~$2.27 | ~$2.27 | ~$5.88 | ~$3.53 |
+| **RouterArena Score ($S_{i,\beta}$)** | **77.93** (0.7793) | 77.63 | 76.28 | 76.21 | 74.86 |
+| **Benchmark Accuracy** | **81.53%** (6,848.5/8,400) | 79.69% | 78.14% | 79.76% | 77.18% |
+| **Cost / 1K Queries** | **$0.6071** | $0.2700 | $0.2700 | $0.7000 | $0.4200 |
+| **Total Cost (8,400 Queries)** | **$5.1000** | ~$2.27 | ~$2.27 | ~$5.88 | ~$3.53 |
 | **Robustness Score** | **92.62%** (389/420) | 77.86% | 80.48% | 51.67% | 67.62% |
+| **Opt.Acc (Accuracy vs Optimal)** | **0.9334** (93.34%) | — | — | — | — |
+| **Opt.Cost (Cost Efficiency)** | **0.2082** | — | — | — | — |
+| **Opt.Sel (Optimal Selection)** | **0.0680** | — | — | — | — |
+| **Abnormal Entries** | **0** | 0 | 0 | 0 | 0 |
 | **Routing Token Overhead** | **0 tokens ($0.00)** | 0 tokens | ~Embed tokens | ~Embed tokens | ~Embed tokens |
 | **Routing Latency** | **<50 microseconds** | <50ms | ~15–40ms | ~20–50ms | ~15–30ms |
 | **Active Models** | **5 Models** | 7 Models | 4 Models | 5 Models | 4 Models |
@@ -75,7 +79,7 @@ Comprehensive empirical profiling across the 35 benchmark datasets isolated the 
 ```
 Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K Queries   Robustness
 ----------------------------------------------------------------------------------------------------
- 1    🏆 Krusch Cascade (5-Model Refined)      79.67        81.69%          $0.21           92.62%
+ 1    🏆 Krusch Cascade (Official Bot)          77.93        81.53%          $0.61           92.62%
  2    Paix2                                    77.63        79.69%          $0.27           77.86%
  3    KT-ModelRouter                           76.28        78.14%          $0.27           80.48%
  4    Sqwish Router                            76.21        79.76%          $0.70           51.67%
