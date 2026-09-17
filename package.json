@@ -1,7 +1,7 @@
 {
   "name": "krusch-cascade-router",
-  "version": "1.0.0",
-  "description": "Latency-aware LLM router that dynamically cascades between edge and cloud models via logprob inspection.",
+  "version": "1.1.0",
+  "description": "Latency-aware LLM router combining sub-50ms heuristic classification, 7-model specialist routing via OpenRouter, and speculative logprob cascades.",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -34,7 +34,10 @@
     "cascade",
     "logprobs",
     "agentic",
-    "local-ai"
+    "local-ai",
+    "openrouter",
+    "routerarena",
+    "cross-router"
   ],
   "author": "kruschdev",
   "license": "MIT",
