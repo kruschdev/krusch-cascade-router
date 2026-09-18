@@ -33,7 +33,7 @@ export function detectKnowledgeBoundary(text: string): 'closed' | 'open' {
   const closedWorldPatterns = [
     /^(?:translate|convert|calculate|format|prettify|lint|capitalize|lowercase|reverse)\b/i,
     /\b(?:regex|regular expression|json format|csv format|unit conversion|celsius to fahrenheit|miles to km)\b/i,
-    /^(?:what is|solve)\s+[\d\s+\-*/^().=]+$/i, // Direct arithmetic expressions
+    /^(?:what is|solve|calculate)\s+[\d\s+\-*/^().=]+[?]?$/i, // Direct arithmetic expressions with optional ?
     /\b(?:dictionary definition|synonym for|antonym for|spelling of)\b/i
   ];
 
@@ -181,69 +181,101 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
   const p = fullText.toLowerCase();
 
   // 1. Paragraph Reading Comprehension & Verification (qwen3-235b)
-  if (
+  const isReadingComprehension = 
+    /\b(?:based on (?:the|this|that) (?:text|passage|article|excerpt|document|context|paragraph|historical account|case study))\b/i.test(fullText) ||
+    /\b(?:according to (?:the|this|that) (?:text|passage|article|excerpt|document|context|historical account|case study))\b/i.test(fullText) ||
+    /\b(?:in (?:the|this) (?:text|passage|article|excerpt|document|paragraph|case study) (?:above|below|provided)?)\b/i.test(fullText) ||
+    /\b(?:in paragraph \d+)\b/i.test(fullText) ||
+    /\b(?:summarize (?:the|this) (?:text|passage|article|excerpt|document|chapter|section))\b/i.test(fullText) ||
+    /\b(?:what does the author (?:mean|state|imply|claim|conclude|suggest|argue))\b/i.test(fullText) ||
+    /\b(?:main thesis of the author|author's main argument)\b/i.test(fullText) ||
+    /\b(?:from the (?:text|passage|excerpt|article|document) (?:above|below)?)\b/i.test(fullText) ||
+    /\b(?:reading comprehension|evaluate if the (?:provided|given) (?:answer|statement))\b/i.test(fullText) ||
+    /\b(?:information provided in the (?:preceding|provided|following) (?:text|case study|article|passage))\b/i.test(fullText) ||
     /based on the "paragraph"/i.test(p) ||
     /provided answer" is a correct response/i.test(p) ||
-    /evaluate if the "provided answer"/i.test(p)
-  ) {
+    /evaluate if the "provided answer"/i.test(p);
+
+  if (isReadingComprehension) {
     return 'comprehension_rc';
   }
 
   // 2. Chess & Spatial Board Games (Qwen3-Coder-Next via games_spatial)
   const isChess = 
-    /chess move/i.test(p) ||
-    /chess game/i.test(p) ||
-    /chess position/i.test(p) ||
-    /board position/i.test(p) ||
-    /\b(?:fen|pgn|checkmate|castling)\b/i.test(p) ||
-    /\b[a-h][1-8]-[a-h][1-8]\b/.test(p) ||
-    /(?:1\.|\b(?:e4|d4|nf3|c4))\s+[a-z0-9+#=-]+/i.test(p);
+    /\b(?:chess|checkmate|stalemate|castling|fen|pgn|en passant|zugzwang)\b/i.test(fullText) ||
+    /\b(?:board position|legal moves|pawn move|knight move|bishop move|rook move|queen move|king move)\b/i.test(fullText) ||
+    /\b(?:sudoku grid|tic-tac-toe|connect four|gomoku)\b/i.test(fullText) ||
+    /\b[a-h][1-8]-[a-h][1-8]\b/.test(fullText) ||
+    /(?:1\.|\b(?:e4|d4|nf3|c4))\s+[a-z0-9+#=-]+/i.test(fullText);
 
   if (isChess) {
     return 'games_spatial';
   }
 
-  // 3. Code Generation & Algorithm Synthesis (Qwen3-Coder-Next)
+  // 3. Code Generation, Refactoring & Algorithm Synthesis (Qwen3-Coder-Next)
   const isCode = 
+    // Markdown code blocks
+    /```/i.test(fullText) ||
+    // Intent to write / implement / refactor / debug / optimize code
+    /\b(?:write|create|implement|build|refactor|debug|fix|optimize|convert)\b[\s\S]{0,60}\b(?:code|script|function|class|method|algorithm|api|endpoint|query|component|hook|test|handler|decorator|type|interface|schema|middleware|resolver|generator|workflow|pipeline|dockerfile|regex|callback|promise|async\/await)\b/i.test(fullText) ||
+    /\b(?:how (?:do|can) I (?:implement|code|write|program|fix|debug|test|optimize|refactor))\b/i.test(fullText) ||
+    /\b(?:fix this (?:code|bug|error|issue|exception|stack trace|syntax|crash|warning))\b/i.test(fullText) ||
+    /\b(?:unit test|test suite|test case|pytest|jest|vitest|mocha|cargo test)\b/i.test(fullText) ||
+    // Stack traces and runtime errors
+    /(?:Traceback \(most recent call last\)|TypeError:|SyntaxError:|ReferenceError:|NullPointerException|IndexOutOfBoundsException|ModuleNotFoundError:|panic:|Segmentation fault|SIGSEGV|Uncaught Error:)/i.test(fullText) ||
+    // Language & Framework specific terms combined with coding keywords
+    (/\b(?:typescript|javascript|python|rust|golang|react|vue|angular|svelte|next\.js|node\.js|express|fastapi|django|flask|graphql|dockerfile|github actions|kubernetes|k8s|css flexbox|css grid|tailwind|sql query|postgresql|sqlite|redis|mongodb)\b/i.test(fullText) &&
+     /\b(?:error|bug|issue|exception|function|class|component|hook|query|schema|type|import|export|install|build|compile|syntax|loop|re-render|memory leak|thread|mutex|deadlock|concurrency|async|await|promise|callback|iterator|package|module|resolver|endpoint|route|layout|generic|workflow)\b/i.test(fullText)) ||
+    // Programming keywords and signatures
+    /\b(?:def\s+[a-zA-Z_]\w*|function\s+[a-zA-Z_]\w*|const\s+[a-zA-Z_]\w*\s*=|let\s+[a-zA-Z_]\w*\s*=|var\s+[a-zA-Z_]\w*\s*=|fn\s+[a-zA-Z_]\w*|func\s+[a-zA-Z_]\w*|class\s+[a-zA-Z_]\w*|public\s+(?:static\s+)?void|import\s+.*\s+from|from\s+.*\s+import|#include\s+<|require\(['"].*['"]\)|package\s+main|console\.log\(|println!|std::|fmt\.Println)\b/.test(fullText) ||
+    // SQL DDL / DML
+    /\b(?:SELECT\s+[\s\S]+?\s+FROM|INSERT\s+INTO|UPDATE\s+[\s\S]+?\s+SET|DELETE\s+FROM|CREATE\s+TABLE|ALTER\s+TABLE)\b/i.test(fullText) ||
+    // React hooks (strictly case-sensitive)
+    /\buse[A-Z][a-zA-Z0-9_]+\b/.test(fullText) ||
+    // Types, Generics & Systems programming constructs
+    /\b(?:generic type|type alias|interface\s+[a-zA-Z_]|struct\s+[a-zA-Z_]|impl\s+[a-zA-Z_]|Arc<Mutex<|RwLock<|flexbox layout|token bucket|lru cache|event emitter|pull request|git commit|git diff)\b/i.test(fullText) ||
+    // Benchmark backwards-compatibility
     /generate an executable python function/i.test(p) ||
     /craft a python/i.test(p) ||
-    /py[th]{2}[on]{1,2}/i.test(p) ||
-    /```(?:python|javascript|typescript|c\+\+|cpp|java|go|rust|sql|html|css|bash|sh)\b/i.test(p) ||
-    /\b(?:def\s+[a-zA-Z_]\w*\s*\(|function\s+[a-zA-Z_]\w*\s*\(|class\s+[a-zA-Z_]\w*[:\{])/i.test(p) ||
-    /subroutine/i.test(p) ||
-    /runnable python/i.test(p) ||
-    /source code/i.test(p);
+    /runnable python/i.test(p);
 
   if (isCode) {
     return 'code';
   }
 
-  // 4. Financial Statements & Balance Sheets (deepseek-v4-pro)
-  if (
-    /\b(net income|operating income|fiscal year|cash flows|diluted eps|earnings per share|balance sheet|sec filing|ebitda)\b/i.test(p)
-  ) {
+  // 4. Financial Statements, Balance Sheets & Formal Proofs (deepseek-v4-pro)
+  const isDeepReasoning = 
+    /\b(?:net income|operating income|operating margin|gross margin|fiscal year|cash flow[s]?|diluted eps|earnings per share|balance sheet|sec filing|10-k|10-q|ebitda|ebit|cagr|amortization|depreciation|discounted cash flow|dcf model|valuation model|p\/e ratio|return on equity|roe|roic|capital expenditure|capex|free cash flow|wacc|working capital|covenant breach)\b/i.test(fullText) ||
+    /\b(?:formal (?:deductive )?logic proof|formal mathematical proof|deductive reasoning|proof by contradiction|mathematical proof|game theory|nash equilibrium|prisoner's dilemma|pareto optimal(?:ity|)?|counterfactual analysis|formal logic proof|first-order logic|syllogism proof|grim trigger|tit-for-tat|first fundamental theorem)\b/i.test(fullText);
+
+  if (isDeepReasoning) {
     return 'reasoning_deep';
   }
 
   // 5. Linguistics, Translation, Geography, Medicine, Open-ended Trivia, Entailment
   // (Empirically superior on google/gemini-3.1-flash-lite)
   const generalFastPatterns = [
-    /\b(?:translat|translation|gujarati|german|chinese|czech|finnish|lithuanian|kazakh|russian)\b/i,
-    /\b(?:geograph|latitude|longitude|elevation|continent|bordering countries|capital of)\b/i,
-    /\b(?:patient|symptom|clinic|diagnos|syndrome|treatment|disease|prescribe)\b/i,
-    /\b(?:narrative|protagonist|author's intent|storyline|allegory)\b/i,
+    /\b(?:translat|translation|translated)\b/i,
+    /\b(?:how do you say .* in (?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin))\b/i,
+    /\b(?:in (?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin):)\b/i,
+    /\b(?:gujarati|german|chinese|czech|finnish|lithuanian|kazakh|russian|spanish|french|japanese|portuguese|italian|korean)\b/i,
+    /\b(?:geograph|latitude|longitude|elevation|continent|bordering countries|countries that border|capital of|mountain range|peninsula)\b/i,
+    /\b(?:patient|symptom|clinic|diagnos|syndrome|treatment|disease|prescribe|prognosis|pharmacolog(?:y|ical)|lyme disease)\b/i,
+    /\b(?:write (?:a|an)?(?:\s+\w+)?\s*(?:poem|story|haiku|essay|song|dialogue|letter|email))\b/i,
+    /\b(?:grammar|proofread|correct the grammar|spelling|rephrase|paraphrase)\b/i,
+    /\b(?:narrative|protagonist|author's intent|storyline|allegory|metaphor)\b/i,
     /\b(?:does sentence a imply|same sense of the word|entailment)\b/i
   ];
 
   for (const pattern of generalFastPatterns) {
-    if (pattern.test(p)) {
+    if (pattern.test(fullText)) {
       return 'general_fast';
     }
   }
 
   // Open-ended trivia without multiple choice options
-  const hasOptions = /\b(?:options|selections|choices|alternatives):\s*\n?\s*[a-d]\./i.test(p) || /\n\s*[a-d]\.\s+\S+/i.test(p);
-  if (!hasOptions && /\b(this author|this poet|this battle|name this|identify this|this composer|this novel|this leader|this president|who was|which country|what city|identify the nation)\b/i.test(p)) {
+  const hasOptions = /\b(?:options|selections|choices|alternatives):\s*\n?\s*[a-d]\./i.test(fullText) || /\n\s*[a-d]\.\s+\S+/i.test(fullText);
+  if (!hasOptions && /\b(?:this author|this poet|this battle|name this|identify this|this composer|this novel|this leader|this president|who was|which country|what city|identify the nation)\b/i.test(fullText)) {
     return 'general_fast';
   }
 

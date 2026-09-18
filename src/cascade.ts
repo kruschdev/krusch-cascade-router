@@ -326,7 +326,9 @@ export class CascadeRouter {
       let targetModel = this.config.specialistModels[specialistRole] || this.config.fastModel!;
       const heavyModel = this.config.specialistModels.reasoning_deep || this.config.heavyModel!;
 
-      if (isComplex && targetRole !== 'reasoning_deep' && targetRole !== 'reasoning_fast') {
+      // Domain specialists (code, games_spatial, comprehension_rc) should retain their specialization
+      const isDomainSpecialist = targetRole === 'code' || targetRole === 'games_spatial' || targetRole === 'comprehension_rc';
+      if (isComplex && !isDomainSpecialist && targetRole !== 'reasoning_deep' && targetRole !== 'reasoning_fast') {
         targetRole = 'reasoning_deep';
         targetModel = heavyModel;
       }
@@ -503,7 +505,9 @@ export class CascadeRouter {
       let targetModel = this.config.specialistModels[specialistRole] || this.config.fastModel!;
       const heavyModel = this.config.specialistModels.reasoning_deep || this.config.heavyModel!;
 
-      if (isComplex && targetRole !== 'reasoning_deep' && targetRole !== 'reasoning_fast') {
+      // Domain specialists (code, games_spatial, comprehension_rc) should retain their specialization
+      const isDomainSpecialist = targetRole === 'code' || targetRole === 'games_spatial' || targetRole === 'comprehension_rc';
+      if (isComplex && !isDomainSpecialist && targetRole !== 'reasoning_deep' && targetRole !== 'reasoning_fast') {
         targetRole = 'reasoning_deep';
         targetModel = heavyModel;
       }

@@ -1064,3 +1064,35 @@ test('createMultiSpecialistRouter - Cascades to reasoning_deep on specialist fai
   const errorEvent = events.find(e => e.event === 'route_heavy' && e.meta?.reason === 'specialist_model_error');
   assert.ok(errorEvent, 'route_heavy event with specialist_model_error should be emitted');
 });
+
+test('createMultiSpecialistRouter - Preserves code routing even for complex prompts with code blocks and length > 2000', async () => {
+  const { createMultiSpecialistRouter } = await import('./dist/index.js');
+
+  const calledModels = [];
+  const mockFetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    calledModels.push(body.model);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { role: 'assistant', content: 'def refactored(): pass' } }],
+        usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 }
+      })
+    };
+  };
+
+  const router = createMultiSpecialistRouter({
+    openrouterApiKey: 'sk-or-code-test',
+    fetch: mockFetch
+  });
+
+  // Long complex code prompt with markdown code block and cognitive verb 'refactor'
+  const longCodePrompt = `Please refactor this complex Rust implementation:\n\`\`\`rust\nfn process_data(data: &[u8]) -> Result<Vec<u8>, Error> {\n    // Some code here\n    let mut result = Vec::new();\n    for byte in data {\n        result.push(byte.wrapping_add(1));\n    }\n    Ok(result)\n}\n\`\`\`\n` + 'Additional context: '.repeat(200);
+
+  const res = await router.chat(longCodePrompt);
+  assert.equal(res.routedTo, 'code', 'Complex code prompt must route to code specialist, NOT reasoning_deep');
+  assert.equal(res.model, 'Qwen/Qwen3-Coder-Next');
+  assert.equal(calledModels[0], 'Qwen/Qwen3-Coder-Next');
+});
+
