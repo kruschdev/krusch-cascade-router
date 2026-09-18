@@ -13,4 +13,6 @@ scratch/
 benchmark/venv/
 *.pyc
 __pycache__/
+.env
+.env.*
 

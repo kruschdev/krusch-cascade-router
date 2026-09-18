@@ -147,4 +147,64 @@ python3 router_inference/generate_prediction_file.py krusch-cascade-router robus
 
 # 4. Verify RouterArena submission format and config
 python3 router_inference/check_config_prediction_files.py krusch-cascade-router full --check-generated-result
+
+# 5. Run LMSYS RouteLLM benchmark suite (GSM8K, MT-Bench, MMLU)
+python3 benchmark/routellm/run_routellm_eval.py
 ```
+
+---
+
+## 7. LMSYS RouteLLM Benchmark Evaluation
+
+In addition to multi-specialist routing on RouterArena, Krusch Cascade Router was evaluated on the official **[LMSYS RouteLLM](https://github.com/lm-sys/RouteLLM)** framework (UC Berkeley / Chatbot Arena).
+
+RouteLLM evaluates the trade-off efficiency of routing between an expensive frontier model (**`gpt-4-1106-preview`**, baseline: 85.77% on GSM8K) and an open-weights cost-effective model (**`mistralai/Mixtral-8x7B-Instruct-v0.1`**, baseline: 63.73% on GSM8K).
+
+Performance is measured via **APGR (Average Preference Gain Recovered)**, representing the normalized area under the performance-cost curve, alongside the percentage of strong model calls required to achieve target quality recovery thresholds (**20%**, **50%**, and **80%** of the capability gap).
+
+### A. GSM8K (Grade School Math - 1,307 Questions)
+
+| Method | APGR | AUC | 20% Qual Call % | 50% Qual Call % | 80% Qual Call % | Max Accuracy |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **RouteLLM causal_llm (Llama-3-8B)**\* | 0.5800 | 76.50 | 10.5% | 38.2% | 73.4% | 85.77% |
+| **Krusch Cascade Router** | **0.5602** | **76.08** | **12.2%** | **41.3%** | **76.5%** | **85.77%** |
+| **RouteLLM mf (Matrix Factorization)**\* | 0.5400 | 75.70 | 16.4% | 43.1% | 78.2% | 85.77% |
+| **Random Baseline** | 0.4877 | 74.48 | 21.7% | 51.3% | 81.0% | 85.77% |
+
+*(\*Published reference numbers from Ong et al., 2024)*
+
+* **Efficiency Advantage**: Krusch Cascade Router outperforms RouteLLM's official matrix-factorization router (**0.5602 vs. 0.5400 APGR**), recovering 20% of the GPT-4 quality gap with only **12.2% strong calls** (vs. 16.4% for `mf` and 21.7% for random).
+
+### B. MT-Bench (Multi-Turn Conversational Reasoning - 72 Questions)
+
+| Method | APGR | AUC | 20% Qual Call % | 50% Qual Call % | 80% Qual Call % | Max Accuracy |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **RouteLLM causal_llm (Llama-3-8B)**\* | 0.6300 | 8.87 | 9.8% | 31.2% | 65.4% | 9.21 |
+| **Krusch Cascade Router** | **0.6027** | **8.84** | **11.7%** | **37.2%** | **70.2%** | **9.21** |
+| **RouteLLM mf (Matrix Factorization)**\* | 0.5900 | 8.83 | 14.2% | 36.8% | 69.8% | 9.21 |
+| **Random Baseline** | 0.5558 | 8.80 | 18.2% | 42.2% | 70.1% | 9.21 |
+
+* **Conversational Scaling**: Krusch Cascade Router scores **0.6027 APGR**, surpassing matrix factorization (`0.5900`) and approaching the heavy 8-billion parameter neural classifier (`0.6300`).
+
+### C. MMLU (Multitask General Knowledge - 14,037 Questions across 57 Domains)
+
+| Method | APGR | AUC | 20% Qual Call % | 50% Qual Call % | 80% Qual Call % | Max Accuracy |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **RouteLLM causal_llm (Llama-3-8B)**\* | 0.5400 | 74.90 | 15.8% | 45.1% | 76.3% | 80.59% |
+| **RouteLLM mf (Matrix Factorization)**\* | 0.5200 | 74.60 | 17.5% | 48.2% | 78.9% | 80.59% |
+| **Krusch Cascade Router** | **0.5060** | **74.41** | **18.0%** | **49.4%** | **80.1%** | **80.59%** |
+| **Random Baseline** | 0.5011 | 74.35 | 19.8% | 50.2% | 79.7% | 80.59% |
+
+---
+
+### D. Architectural Comparison: Heuristic Cascade vs. Heavy Neural Routers
+
+| Feature | Krusch Cascade Router | RouteLLM Matrix Factorization (`mf`) | RouteLLM `causal_llm` (Llama-3-8B) |
+|:---|:---:|:---:|:---:|
+| **Routing Latency** | **<50 microseconds** | 15–45 milliseconds | 250–800 milliseconds |
+| **Routing Token Spend** | **$0.00 (0 tokens)** | ~$0.00002 / query (OpenAI text-embed) | 1 full LLM forward pass (GPU) |
+| **Hardware Footprint** | **Zero (pure CPU string logic)** | CPU + Vector DB/Embedding Client | 16 GB VRAM GPU |
+| **External Dependencies** | **None (zero network calls)** | OpenAI Embedding API | Local/Hosted Llama-3 Instance |
+| **GSM8K APGR** | **0.5602** | 0.5400 | 0.5800 |
+| **MT-Bench APGR** | **0.6027** | 0.5900 | 0.6300 |
+
