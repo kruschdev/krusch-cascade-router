@@ -917,13 +917,13 @@ test('classifySpecialistRole - Accurate Domain Classification for 5 Specialist M
 
   // 3. Code Execution with Stdin / Complex Logic -> Qwen3-Coder-Next (code)
   assert.equal(
-    classifySpecialistRole('Generate an executable Python function that takes stdin as input and prints the result.'),
+    classifySpecialistRole('Write a Python function that takes a list of integers and returns all prime numbers.'),
     'code'
   );
 
-  // 4. Reading Comprehension & Truth Verification (SuperGLUE-RC) -> qwen3-235b
+  // 4. Reading Comprehension & Text Verification -> qwen3-235b
   assert.equal(
-    classifySpecialistRole('Your task is to evaluate if the "Provided Answer" is a correct response to the "Question" based on the "Paragraph".\nQuestion: ...\nProvided Answer: ...'),
+    classifySpecialistRole('Based on the provided passage, what was the primary economic factor that led to the currency crisis?'),
     'comprehension_rc'
   );
 

@@ -6,24 +6,26 @@ This document provides a comprehensive technical breakdown and academic literatu
 
 ## 1. Executive Summary
 
-Krusch Cascade Router was evaluated across multiple configurations, culminating in the optimized **5-Model Multi-Specialist Architecture** utilizing unified **OpenRouter** API routing across domain-specialized frontier and flash models.
+This evaluation analyzes the **Krusch Cascade Router** across multiple configurations, focusing on a **5-Model Multi-Specialist Architecture** utilizing unified **OpenRouter** API routing across domain-specialized frontier and fast models.
 
-With the heuristic optimizations detailed below, Krusch Cascade Router achieves the **#1 Rank Globally** on RouterArena, outperforming all external commercial and academic routers:
+The official public RouterArena leaderboard ([routeworks.github.io/leaderboard](https://routeworks.github.io/leaderboard)) is currently led by **Paix2 (Score: 77.63)**.
 
-| Metric | Krusch Cascade (Official Bot Evaluated) | Paix2 (Former #1) | KT-ModelRouter (#2) | Sqwish Router (#3) | vLLM-SR (#5) |
+Our candidate submission ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) was evaluated offline using the official RouterArena benchmark dataset and evaluation harness (`compute_scores.py`). On the offline 8,400-query benchmark dataset, our candidate configuration scores **80.27** (with earlier 5-model baseline iterations scoring **77.93**).
+
+> [!NOTE]
+> **Candidate Status**: The scores reported below are offline candidate evaluations submitted for community review in [PR #169](https://github.com/RouteWorks/RouterArena/pull/169) and are **not** yet merged entries on the live public leaderboard. The official live leaderboard remains led by Paix2 at 77.63.
+
+| Metric | Krusch Cascade (PR #169 Candidate) | Paix2 (Live #1) | KT-ModelRouter (#2) | Sqwish Router (#3) | vLLM-SR (#5) |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **RouterArena Score ($S_{i,\beta}$)** | **77.93** (0.7793) | 77.63 | 76.28 | 76.21 | 74.86 |
-| **Benchmark Accuracy** | **81.53%** (6,848.5/8,400) | 79.69% | 78.14% | 79.76% | 77.18% |
-| **Cost / 1K Queries** | **$0.6071** | $0.2700 | $0.2700 | $0.7000 | $0.4200 |
-| **Total Cost (8,400 Queries)** | **$5.1000** | ~$2.27 | ~$2.27 | ~$5.88 | ~$3.53 |
-| **Robustness Score** | **92.62%** (389/420) | 77.86% | 80.48% | 51.67% | 67.62% |
-| **Opt.Acc (Accuracy vs Optimal)** | **0.9334** (93.34%) | — | — | — | — |
-| **Opt.Cost (Cost Efficiency)** | **0.2082** | — | — | — | — |
-| **Opt.Sel (Optimal Selection)** | **0.0680** | — | — | — | — |
+| **RouterArena Score ($S_{i,\beta}$)** | **80.27** (Candidate) | **77.63** | 76.28 | 76.21 | 74.86 |
+| **Benchmark Accuracy** | **82.72%** | 79.69% | 78.14% | 79.76% | 77.18% |
+| **Cost / 1K Queries** | **$0.2613** | $0.2700 | $0.2700 | $0.7000 | $0.4200 |
+| **Robustness Score** | **92.62%** | 77.86% | 80.48% | 51.67% | 67.62% |
 | **Abnormal Entries** | **0** | 0 | 0 | 0 | 0 |
 | **Routing Token Overhead** | **0 tokens ($0.00)** | 0 tokens | ~Embed tokens | ~Embed tokens | ~Embed tokens |
 | **Routing Latency** | **<50 microseconds** | <50ms | ~15–40ms | ~20–50ms | ~15–30ms |
 | **Active Models** | **5 Models** | 7 Models | 4 Models | 5 Models | 4 Models |
+| **Status** | **Offline Candidate (PR #169)** | **Published #1** | Published | Published | Published |
 
 ---
 
@@ -74,23 +76,29 @@ Comprehensive empirical profiling across the 35 benchmark datasets isolated the 
 
 ---
 
-## 4. Leaderboard Standings (RouterArena Official)
+## 4. Leaderboard Standings (RouterArena Public Official)
+
+The public [RouteWorks/RouterArena Leaderboard](https://routeworks.github.io/leaderboard) stands as follows:
 
 ```
-Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K Queries   Robustness
-----------------------------------------------------------------------------------------------------
- 1    🏆 Krusch Cascade (Official Bot)          77.93        81.53%          $0.61           92.62%
- 2    Paix2                                    77.63        79.69%          $0.27           77.86%
- 3    KT-ModelRouter                           76.28        78.14%          $0.27           80.48%
- 4    Sqwish Router                            76.21        79.76%          $0.70           51.67%
- 5    Divyam                                   75.85        78.59%          $0.48           98.33%
- 6    vLLM-SR                                  74.86        77.18%          $0.42           67.62%
- 7    nadir-caliper                            74.55        75.84%          $0.22           79.76%
- 8    AgentForge Router                        74.13        74.72%          $0.13           40.48%
- *    Krusch Cascade (7-Model Baseline)        74.13        76.14%          $0.37           93.10%
- 9    BARouter                                 73.79        75.72%          $0.36           68.81%
- 10   Weave Router                             72.82        76.32%          $0.94          100.00%
- 11   Nadir Router                             72.29        75.01%          $0.68           25.48%
+Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K Queries   Robustness   Status
+-----------------------------------------------------------------------------------------------------------------
+ 1    Paix2                                    77.63        79.69%          $0.27           77.86%     Published (#1)
+ 2    KT-ModelRouter                           76.28        78.14%          $0.27           80.48%     Published
+ 3    Sqwish Router                            76.21        79.76%          $0.70           51.67%     Published
+ 4    Divyam                                   75.85        78.59%          $0.48           98.33%     Published
+ 5    vLLM-SR                                  74.86        77.18%          $0.42           67.62%     Published
+ 6    nadir-caliper                            74.55        75.84%          $0.22           79.76%     Published
+ 7    AgentForge Router                        74.13        74.72%          $0.13           40.48%     Published
+ 8    BARouter                                 73.79        75.72%          $0.36           68.81%     Published
+ 9    Weave Router                             72.82        76.32%          $0.94          100.00%     Published
+ 10   Nadir Router                             72.29        75.01%          $0.68           25.48%     Published
+
+--- Candidate Submissions Awaiting Merge ---
+ *    Krusch Cascade (PR #169 Candidate)       80.27        82.72%          $0.26           92.62%     Offline / In Review
+ *    Krusch Cascade (5-Model Baseline)        77.93        81.53%          $0.61           92.62%     Offline / In Review
+ *    Krusch Cascade (7-Model Baseline)        74.13        76.14%          $0.37           93.10%     Offline / In Review
+```
  12   OrcaRouter-Adaptive                      72.08        75.54%          $1.00           22.62%
  13   Hybrid Router                            72.08        71.38%          $0.04           96.67%
  14   R2-Router                                71.60        71.23%          $0.06           45.71%

@@ -103,9 +103,9 @@ class KruschRouteLLMRouter(Router):
         if any(term in p for term in moderate_cognition):
             score += 0.15
 
-        # 6. Reading comprehension / truth evaluation
-        if "paragraph" in p and any(k in p for k in ("provided answer", "evaluate", "correct response")):
-            score += 0.40
+        # 6. Reading comprehension & document analysis
+        if any(term in p for term in ("based on the text", "based on the passage", "according to the passage", "summarize the article", "reading comprehension")):
+            score += 0.35
 
         # 7. Financial & corporate accounting
         if any(k in p for k in ("net income", "operating income", "fiscal year", "cash flows", "diluted eps", "balance sheet")):

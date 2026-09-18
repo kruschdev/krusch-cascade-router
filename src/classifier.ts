@@ -149,7 +149,7 @@ export function isComplexPrompt(messages: Message[] | string, options?: Classifi
     /```[a-z]*/i,             // Contains code blocks
     /<\/?([a-z][a-z0-9]*)\b[^>]*>/i, // Contains XML/HTML tags
     /\{[\s\S]*"[\s\S]*\}/,    // Contains JSON-like structures
-    /\b(analyze|evaluate|architect|synthesize|speculate|refactor|debug|test|benchmark)\b/i // Complex cognitive verbs
+    /\b(analyze|evaluate|architect|synthesize|speculate|refactor|debug|benchmark)\b/i // Complex cognitive verbs
   ];
 
   if (options?.customRules) {
@@ -182,15 +182,15 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
 
   // 1. Paragraph Reading Comprehension & Verification (qwen3-235b)
   const isReadingComprehension = 
-    /\b(?:based on (?:the|this|that)\s+["']?(?:text|passage|article|excerpt|document|context|paragraph|historical account|case study)["']?)/i.test(fullText) ||
-    /\b(?:according to (?:the|this|that)\s+["']?(?:text|passage|article|excerpt|document|context|historical account|case study)["']?)/i.test(fullText) ||
-    /\b(?:in (?:the|this)\s+["']?(?:text|passage|article|excerpt|document|paragraph|case study)["']?\s+(?:above|below|provided)?)/i.test(fullText) ||
+    /\b(?:based on (?:the|this|that)?\s*(?:provided|following|above|below)?\s*["']?(?:text|passage|article|excerpt|document|context|paragraph|historical account|case study)["']?)/i.test(fullText) ||
+    /\b(?:according to (?:the|this|that)?\s*(?:provided|following|above|below)?\s*["']?(?:text|passage|article|excerpt|document|context|historical account|case study)["']?)/i.test(fullText) ||
+    /\b(?:in (?:the|this)\s+(?:provided|following)?\s*["']?(?:text|passage|article|excerpt|document|paragraph|case study)["']?\s+(?:above|below|provided)?)/i.test(fullText) ||
     /\b(?:in paragraph \d+)\b/i.test(fullText) ||
     /\b(?:summarize (?:the|this)\s+["']?(?:text|passage|article|excerpt|document|chapter|section)["']?)/i.test(fullText) ||
     /\b(?:what does the author (?:mean|state|imply|claim|conclude|suggest|argue))\b/i.test(fullText) ||
     /\b(?:main thesis of the author|author's main argument)\b/i.test(fullText) ||
     /\b(?:from the\s+["']?(?:text|passage|excerpt|article|document)["']?\s+(?:above|below)?)/i.test(fullText) ||
-    /\b(?:reading comprehension|evaluate if (?:the\s+)?["']?(?:provided|given)\s+(?:answer|statement|response)["']?)/i.test(fullText) ||
+    /\b(?:reading comprehension|comprehension question|evaluate (?:whether|if) (?:the|this) (?:statement|claim|assertion) is (?:true|false|accurate|supported))\b/i.test(fullText) ||
     /\b(?:information provided in (?:the|this)\s+["']?(?:preceding|provided|following)?\s*(?:text|case study|article|passage)["']?)/i.test(fullText);
 
   if (isReadingComprehension) {
@@ -248,10 +248,11 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
   // 5. Linguistics, Translation, Geography, Medicine, Open-ended Trivia, Entailment
   // (Empirically superior on google/gemini-3.1-flash-lite)
   const generalFastPatterns = [
-    /\b(?:translat|translation|translated)\b/i,
-    /\b(?:how do you say .* in (?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin))\b/i,
+    /\b(?:translate|translation|translated|translating)\b/i,
+    /\b(?:how do you say\b[\s\S]*?\bin (?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin))\b/i,
     /\b(?:in (?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin):)\b/i,
-    /\b(?:gujarati|german|chinese|czech|finnish|lithuanian|kazakh|russian|spanish|french|japanese|portuguese|italian|korean)\b/i,
+    /\b(?:from\s+\w+\s+(?:to|into)\s+(?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin|english))\b/i,
+    /\b(?:(?:to|into)\s+(?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin))\b/i,
     /\b(?:geograph|latitude|longitude|elevation|continent|bordering countries|countries that border|capital of|mountain range|peninsula)\b/i,
     /\b(?:patient|symptom|clinic|diagnos|syndrome|treatment|disease|prescribe|prognosis|pharmacolog(?:y|ical)|lyme disease)\b/i,
     /\b(?:write (?:a|an)?(?:\s+\w+)?\s*(?:poem|story|haiku|essay|song|dialogue|letter|email))\b/i,
@@ -270,7 +271,7 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
 
   // Open-ended trivia without multiple choice options
   const hasOptions = /\b(?:options|selections|choices|alternatives):\s*\n?\s*[a-d]\./i.test(fullText) || /\n\s*[a-d]\.\s+\S+/i.test(fullText);
-  if (!hasOptions && /\b(?:who (?:was|wrote|directed|composed|invented|discovered)|what is the capital of|which country|what city)\b/i.test(fullText)) {
+  if (!hasOptions && /\b(?:who (?:was|wrote|directed|composed|invented|discovered)|what is the (?:capital of|[\w-]+\s+capital)|which country|what city)\b/i.test(fullText)) {
     return 'general_fast';
   }
 

@@ -48,10 +48,10 @@ class KruschCascadeRouter(BaseRouter):
 
         # 1. Reading comprehension / paragraph evaluation -> qwen3-235b-a22b-2507
         is_rc = bool(
-            re.search(r"\b(?:based on (?:the|this|that)\s+[\"']?(?:text|passage|article|excerpt|document|context|paragraph|historical account|case study)[\"']?)", p)
-            or re.search(r"\b(?:according to (?:the|this|that)\s+[\"']?(?:text|passage|article|excerpt|document|context|historical account|case study)[\"']?)", p)
-            or re.search(r"\b(?:in (?:the|this)\s+[\"']?(?:text|passage|article|excerpt|document|paragraph|case study)[\"']?\s+(?:above|below|provided)?)", p)
-            or re.search(r"\b(?:reading comprehension|evaluate if (?:the\s+)?[\"']?(?:provided|given)\s+(?:answer|statement|response)[\"']?)", p)
+            re.search(r"\b(?:based on (?:the|this|that)?\s*(?:provided|following|above|below)?\s*[\"']?(?:text|passage|article|excerpt|document|context|paragraph|historical account|case study)[\"']?)", p)
+            or re.search(r"\b(?:according to (?:the|this|that)?\s*(?:provided|following|above|below)?\s*[\"']?(?:text|passage|article|excerpt|document|context|historical account|case study)[\"']?)", p)
+            or re.search(r"\b(?:in (?:the|this)\s+(?:provided|following)?\s*[\"']?(?:text|passage|article|excerpt|document|paragraph|case study)[\"']?\s+(?:above|below|provided)?)", p)
+            or re.search(r"\b(?:reading comprehension|comprehension question|evaluate (?:whether|if) (?:the|this) (?:statement|claim|assertion) is (?:true|false|accurate|supported))\b", p)
             or re.search(r"\b(?:summarize (?:the|this)\s+[\"']?(?:text|passage|article|excerpt|document|chapter|section)[\"']?)", p)
             or re.search(r"\b(?:main thesis of the author|author's main argument)\b", p)
         )
@@ -96,22 +96,12 @@ class KruschCascadeRouter(BaseRouter):
             return self.model_map.get("code", "Qwen/Qwen3-Coder-Next")
 
         # 5. Language translation, medical diagnosis, geography, open-ended trivia, entailment
-        is_translation = any(
-            k in p
-            for k in ("translate from", "translate the following", "into english:")
-        ) or any(
-            k in p
-            for k in (
-                "translat",
-                "gujarati",
-                "german",
-                "chinese",
-                "czech",
-                "finnish",
-                "lithuanian",
-                "kazakh",
-                "russian",
-            )
+        is_translation = bool(
+            re.search(r"\b(?:translate|translation|translated|translating)\b", p)
+            or re.search(r"\b(?:how do you say\b[\s\S]*?\bin (?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin))\b", p)
+            or re.search(r"\b(?:in (?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin):)", p)
+            or re.search(r"\b(?:from\s+\w+\s+(?:to|into)\s+(?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin|english))\b", p)
+            or re.search(r"\b(?:(?:to|into)\s+(?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin))\b", p)
         )
         is_medical = any(
             k in p
@@ -146,7 +136,7 @@ class KruschCascadeRouter(BaseRouter):
             or re.search(r"\n\s*[a-d]\.\s+\S+", p)
         )
         is_trivia = not has_options and bool(
-            re.search(r"\b(?:who (?:was|wrote|directed|composed|invented|discovered)|what is the capital of|which country|what city)\b", p)
+            re.search(r"\b(?:who (?:was|wrote|directed|composed|invented|discovered)|what is the (?:capital of|[\w-]+\s+capital)|which country|what city)\b", p)
             or re.search(r"\b(?:author|poet|novelist|playwright)\s+(?:wrote|penned|composed|published|authored)\b", p)
             or re.search(r"\b(?:literary|novel|poem|playwright|poetry|biography|novelist)\b", p)
         )

@@ -43,3 +43,19 @@ test('pruneText and isComplexPrompt - Pre-Routing Pruning', async () => {
     assert.equal(isComplexPrompt(borderText, { lengthThreshold: 2000, prunePreRouting: true }), false);
 });
 
+test('isComplexPrompt - casual "test" queries do not trigger complexity', () => {
+    assert.equal(isComplexPrompt('Can you test if this works?'), false);
+    assert.equal(isComplexPrompt('Please run a quick test on the server.'), false);
+});
+
+test('classifySpecialistRole - language name disambiguation', async () => {
+    const { classifySpecialistRole } = await import('./dist/index.js');
+    // Trivia asking for capital
+    assert.equal(classifySpecialistRole('What is the German capital?'), 'general_fast');
+    // Real translation query
+    assert.equal(classifySpecialistRole('Translate this text into German: Good morning'), 'general_fast');
+    // Factual history query containing language name - must NOT be hijacked into translation
+    assert.equal(classifySpecialistRole('Explain the economic impact of the German reunification in 1990.'), 'factual_stem');
+    assert.equal(classifySpecialistRole('Analyze the themes of Russian literature in the 19th century.'), 'factual_stem');
+});
+

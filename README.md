@@ -11,8 +11,8 @@
   <a href="https://github.com/kruschdev/krusch-cascade-router/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
   <img src="https://img.shields.io/badge/OpenRouter-5--Model%20Specialists-purple.svg?style=flat-square" alt="OpenRouter Specialists">
-  <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Submitted-orange.svg?style=flat-square" alt="RouterArena PR #169"></a>
-  <img src="https://img.shields.io/badge/tests-38%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
+  <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Candidate%20(Pending%20Review)-orange.svg?style=flat-square" alt="RouterArena PR #169"></a>
+  <img src="https://img.shields.io/badge/tests-40%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
 </p>
 
 ---
@@ -40,7 +40,7 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 * **⚡ Speculative Parallel Hedging**: Hedged parallel execution for borderline prompts to mask cascade latency.
 * **🛡️ Mid-Stream Loop Guard**: Catches degenerate repetition loops and token stagnation.
 * **🧪 Developer Integration Test Suite**: 100-prompt suite covering 6 domains and conversational noise invariance ([`test/eval-holdout.test.js`](test/eval-holdout.test.js)).
-* **📊 RouterArena Benchmark Candidate**: Evaluated offline on the 8,400-query RouterArena dataset and submitted for review in [PR #169](https://github.com/RouteWorks/RouterArena/pull/169).
+* **📊 RouterArena Benchmark Candidate**: Evaluated offline on the 8,400-query RouterArena dataset and submitted for review in [PR #169](https://github.com/RouteWorks/RouterArena/pull/169) (Live leaderboard led by Paix2 at 77.63).
 * **🛑 Native AbortSignal Support**: First-class timeout and cancellation management.
 * **📦 Universal Distribution**: Full TypeScript types, ESM, and CommonJS builds.
 
@@ -52,7 +52,7 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 
 | Benchmark Suite | Sponsoring Organization / Publication | Benchmark Scope | Baseline Comparison | Krusch Cascade Router Evaluation | Primary Metric | Cost Reduction vs Frontier | Routing Overhead |
 |:---|:---|:---|:---|:---|:---:|:---:|:---:|
-| **1. RouterArena** | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool | **Candidate Score: 80.27**<br>Accuracy: **82.72%**<br>Robustness: **92.62%** | **80.27 Score**<br>([Submitted PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.26 / 1K queries**<br>(vs $1.00 Orca, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
+| **1. RouterArena** | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool | **Candidate Evaluation (PR #169)**:<br>Offline Score: **80.27**<br>Accuracy: **82.72%**<br>*(Official live #1: Paix2 @ 77.63)* | **80.27 (Candidate)**<br>([Submitted PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.26 / 1K queries**<br>(vs $1.00 Orca, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
 | **2. Integration Suite** | Real-World Developer Prompts | 100 Diverse Queries across 6 Domains | Multi-Model Pool | **Domain Accuracy: 100.0%**<br>Noise Invariance: **100.0%** | **100.0% Accuracy**<br>(Classification test suite) | **~75% Savings**<br>vs Frontier Oracle | 0.02 ms<br>(50,000+ QPS) |
 | **3. WithMartian RouterBench** | WithMartian (arXiv: 2403.12031) | 36,497 Real Inference Outcomes across 11 LLMs | Single-Model GPT-4 Oracle ($94.39 Total Cost) | **AIQ Score: 0.7200** (92.1% of Ceiling)<br>Frugal: 64.51% Acc @ $8.13<br>Balanced: 75.08% Acc @ $52.52 | **0.7200 AIQ Score**<br>(vs Martian MLP 0.6830) | **93.23% (Frugal)**<br>**56.29% (Balanced)** | 0.11 ms<br>(9,066 QPS) |
 | **4. Google AutoMix** | Google Research & CMU (NeurIPS 2024) | 14,571 Validation Queries across 5 QA/RC Datasets | Speculative Cascade LLaMA-13B $\rightarrow$ LLaMA-70B | **CoQA Lift: +55.17%** (vs +43.68% POMDP)<br>**NarrativeQA: +17.45%** (vs +6.44% POMDP) | **+55.17% IBC Lift**<br>(vs Google RL POMDP) | **82.40% on CoQA**<br>**68.39% on NarrativeQA** | 0.007 ms<br>(137,081 QPS) |
@@ -128,28 +128,18 @@ graph TD;
 
 ---
 
-## 📖 Academic Literature Foundation
+## 📖 Theoretical Foundations & Related Work
 
-`krusch-cascade-router` implements proven patterns from recent literature on efficient LLM inference, dynamic model routing, and information-theoretic safety:
+`krusch-cascade-router` draws on proven systems concepts and dynamic inference literature:
 
-1. **Dynamic Model Routing and Cascading for Efficient LLM Inference: A Survey** (*Moslem & Kelleher, TMLR 2026, [arXiv:2603.04445](https://arxiv.org/abs/2603.04445)*):
-   - Categorizes multi-LLM routing methods across decision timing, signal types, and policy computation, establishing the latency and cost advantages of zero-token deterministic heuristic gating.
-2. **RouteLLM: Learning to Route LLMs with Preference Data** (*Ong et al., 2024, [arXiv:2406.18665](https://arxiv.org/abs/2406.18665)*):
-   - Demonstrates steep diminishing returns when dispatching closed-world STEM problems to expensive frontier models, motivating deterministic routing to cost-effective high-throughput specialists.
-3. **FrugalGPT: How to Use Large Language Models More Cheaply** (*Chen et al., 2023, [arXiv:2305.05176](https://arxiv.org/abs/2305.05176)*):
-   - Establishes the sequential cascade principle: querying smaller/cheaper models first and escalating to frontier models only upon low confidence or degradation.
-4. **AutoMix: Automatically Mixing Language Models** (*Gu et al., NeurIPS 2024, [arXiv:2310.12963](https://arxiv.org/abs/2310.12963)*):
-   - Demonstrates that verification cascades can achieve significant quality lifts over monolithic models at a fraction of the inference cost.
-5. **RouterBench: A Benchmark for Multi-LLM Routing System** (*Hu et al., WithMartian / UC Berkeley, 2024, [arXiv:2403.12031](https://arxiv.org/abs/2403.12031)*):
-   - Provides empirical frameworks for evaluating cost vs. accuracy trade-offs across heterogeneous LLM pools.
-6. **Second Thought: Reasoning in Parallel as LLM Agents Act and Observe** (*Sun, Yang, Lyu, Shi, & Lo, August 2026, [arXiv:2608.13667](https://arxiv.org/abs/2608.13667)*):
-   - Eliminates sequential cascade latency by parallel speculative pre-warming on borderline confidence prompts $[0.25, 0.70]$.
-7. **Memory Is Not Always Needed: Characterizing Conditional Memory in Scientific Reasoning** (*Bi, Chen, Wang et al., August 2026, [arXiv:2608.23982](https://arxiv.org/abs/2608.23982)*):
-   - Demonstrates that closed-world tasks (syntax, arithmetic, regex, formatting) are degraded by cognitive context bloat, motivating Knowledge Boundary gating.
-8. **Silent Failure in LLM Agent Systems: The Entropy Principle and the Inevitable Disorder of Autonomous Agents** (*Liu, June 2026, [arXiv:2606.08162](https://arxiv.org/abs/2606.08162)*):
-   - Formulates intelligence entropy $S(t) = S_0 e^{\alpha t}$ and motivates mid-stream $n$-gram repetition and token entropy monitoring to abort runaway generation early.
-9. **Degenerative Repetition and Decoding Entropy** (*Holtzman et al., 2020*):
-   - Establishes the foundational theoretical framework for tracking token repetition and entropy collapse during auto-regressive decoding.
+1. **Sequential Model Cascading & Fallbacks** (*FrugalGPT; Chen et al., 2023, [arXiv:2305.05176](https://arxiv.org/abs/2305.05176)*):
+   - Establishes the sequential cascade principle: querying smaller/cheaper models first and escalating to frontier models only upon low confidence or failure.
+2. **Speculative Parallel Hedging** (*The Tail at Scale; Dean & Barroso, Communications of the ACM, 2013*):
+   - Rather than waiting sequentially for borderline queries, issuing hedged requests across models masks cascade latency and caps 99th-percentile response times.
+3. **Degenerative Token Loops & Repetition** (*The Curious Case of Neural Text Degeneration; Holtzman et al., ICLR 2020*):
+   - Autoregressive generation is prone to degenerate repetitive cycles. Monitoring sliding-window $n$-gram repetition allows aborting runaway loops mid-stream before consuming full output tokens.
+4. **Zero-Overhead vs. Learned Routing** (*RouterBench; Hu et al., 2024, [arXiv:2403.12031](https://arxiv.org/abs/2403.12031)* & *RouteLLM; Ong et al., 2024, [arXiv:2406.18665](https://arxiv.org/abs/2406.18665)*):
+   - Multi-LLM routing benchmarks show that while learned classifiers or LLM routers achieve high accuracy, they introduce 15–50ms embedding overhead or 500ms+ LLM latency. Fast heuristic gating provides sub-millisecond dispatch for distinct syntactic and domain signatures.
 
 ---
 

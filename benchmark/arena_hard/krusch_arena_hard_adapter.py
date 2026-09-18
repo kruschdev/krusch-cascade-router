@@ -109,8 +109,15 @@ class KruschArenaHardAdapter:
             return "comprehension_rc"
 
         # 5. Linguistics, Translation, Medical, Geography, Creative Writing
+        is_trans = bool(
+            re.search(r"\b(?:translate|translation|translated|translating)\b", p)
+            or re.search(r"\b(?:how do you say\b[\s\S]*?\bin (?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin))\b", p)
+            or re.search(r"\b(?:in (?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin):)", p)
+            or re.search(r"\b(?:from\s+\w+\s+(?:to|into)\s+(?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin|english))\b", p)
+            or re.search(r"\b(?:(?:to|into)\s+(?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin))\b", p)
+        )
         if (
-            any(tok in p for tok in ["translate", "translation", "german", "french", "spanish", "chinese", "japanese", "russian"])
+            is_trans
             or any(tok in p for tok in ["symptom", "patient", "clinical", "diagnosis", "therapy", "dosage", "medical"])
             or any(tok in p for tok in ["capital of", "latitude", "longitude", "continent", "geography", "country borders"])
             or any(tok in p for tok in ["write a story", "write a poem", "creative writing", "dialogue between", "screenplay"])

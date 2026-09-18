@@ -129,9 +129,7 @@ class KruschRouterBenchAdapter:
             or re.search(r"py[th]{2}[on]{1,2}", p)
         )
         is_math_word = bool(
-            "grade school math" in p
-            or "word problem" in p
-            or "how many" in p and any(d in p for d in ["apple", "dollar", "mile", "hour", "percent", "total"])
+            re.search(r"\b(?:how many|how much|total cost|total number|calculate the total|word problem)\b", p)
         )
         is_math_formal = bool(
             "calculate" in p
@@ -145,17 +143,23 @@ class KruschRouterBenchAdapter:
         )
         is_math = is_math_word or is_math_formal
 
-        is_arc_science = bool(
-            "astronomer" in p
-            or "photosynthesis" in p
-            or "friction" in p
-            or "organism" in p
-            or "kinetic energy" in p
-            or "density" in p
-            or "gravity" in p
-            or "velocity" in p
-            or "cellular" in p
-            or "ecosystem" in p
+        is_arc_science = any(
+            tok in p
+            for tok in (
+                "physics",
+                "chemistry",
+                "biology",
+                "friction",
+                "kinetic energy",
+                "velocity",
+                "density",
+                "gravity",
+                "cellular",
+                "organism",
+                "ecosystem",
+                "molecule",
+                "wavelength",
+            )
         )
         is_law_ethics = bool(
             "court" in p
@@ -172,7 +176,7 @@ class KruschRouterBenchAdapter:
         )
         is_hellaswag_winogrande = bool(
             re.search(r"\n[a-d]\)", text)
-            and any(act in p for act in ["he ", "she ", "they ", "a man ", "a woman "])
+            and re.search(r"\b(?:which (?:is most likely|best completes|continuation|happens next))\b", p)
         )
 
         p_est = {}
