@@ -1,0 +1,182 @@
+{
+  "timestamp": 1789697909.7499404,
+  "v01": {
+    "benchmark": "arena-hard-v0.1",
+    "num_queries": 500,
+    "score_weak": 27.775,
+    "score_strong": 38.35,
+    "cost_weak_total": 0.294605,
+    "cost_strong_total": 13.09746,
+    "apgr": 0.4646070449326023,
+    "sweep_results": [
+      {
+        "threshold": 0.15,
+        "win_rate": 38.35,
+        "total_cost": 13.09746,
+        "cost_per_1k": 26.19492,
+        "strong_calls_pct": 100.0,
+        "cost_reduction_pct": 0.0,
+        "quality_retained_pct": 100.0,
+        "latency_ms": 0.057168269995599985
+      },
+      {
+        "threshold": 0.25,
+        "win_rate": 30.525000000000002,
+        "total_cost": 4.4600185,
+        "cost_per_1k": 8.920037,
+        "strong_calls_pct": 25.6,
+        "cost_reduction_pct": 65.947454697323,
+        "quality_retained_pct": 79.59582790091265,
+        "latency_ms": 0.05633489400497638
+      },
+      {
+        "threshold": 0.35,
+        "win_rate": 29.325000000000003,
+        "total_cost": 3.223613,
+        "cost_per_1k": 6.447226,
+        "strong_calls_pct": 17.2,
+        "cost_reduction_pct": 75.38749497994269,
+        "quality_retained_pct": 76.46675358539767,
+        "latency_ms": 0.0602565279987175
+      },
+      {
+        "threshold": 0.45,
+        "win_rate": 29.15,
+        "total_cost": 2.2364945,
+        "cost_per_1k": 4.472989,
+        "strong_calls_pct": 10.2,
+        "cost_reduction_pct": 82.92421202278915,
+        "quality_retained_pct": 76.01043024771838,
+        "latency_ms": 0.06008446199120954
+      },
+      {
+        "threshold": 0.5,
+        "win_rate": 28.9,
+        "total_cost": 2.1686615,
+        "cost_per_1k": 4.337323,
+        "strong_calls_pct": 9.6,
+        "cost_reduction_pct": 83.44212160220378,
+        "quality_retained_pct": 75.35853976531942,
+        "latency_ms": 0.05988142400747165
+      },
+      {
+        "threshold": 0.55,
+        "win_rate": 28.749999999999996,
+        "total_cost": 1.690266,
+        "cost_per_1k": 3.380532,
+        "strong_calls_pct": 6.800000000000001,
+        "cost_reduction_pct": 87.09470385861076,
+        "quality_retained_pct": 74.96740547588004,
+        "latency_ms": 0.06166446600400377
+      },
+      {
+        "threshold": 0.65,
+        "win_rate": 28.499999999999996,
+        "total_cost": 1.325941,
+        "cost_per_1k": 2.651882,
+        "strong_calls_pct": 4.3999999999999995,
+        "cost_reduction_pct": 89.87635007092977,
+        "quality_retained_pct": 74.31551499348107,
+        "latency_ms": 0.056675072002690285
+      },
+      {
+        "threshold": 0.75,
+        "win_rate": 28.15,
+        "total_cost": 1.0793945,
+        "cost_per_1k": 2.158789,
+        "strong_calls_pct": 3.2,
+        "cost_reduction_pct": 91.75874940637345,
+        "quality_retained_pct": 73.40286831812254,
+        "latency_ms": 0.07563704000494909
+      },
+      {
+        "threshold": 0.85,
+        "win_rate": 28.175,
+        "total_cost": 0.73268,
+        "cost_per_1k": 1.46536,
+        "strong_calls_pct": 1.7999999999999998,
+        "cost_reduction_pct": 94.40593825062264,
+        "quality_retained_pct": 73.46805736636244,
+        "latency_ms": 0.07543808600166813
+      }
+    ],
+    "domain_distribution": {
+      "factual_stem": {
+        "count": 364,
+        "avg_complexity": 0.22109890109890107
+      },
+      "code": {
+        "count": 120,
+        "avg_complexity": 0.2555833333333333
+      },
+      "games_spatial": {
+        "count": 1,
+        "avg_complexity": 0.75
+      },
+      "general_fast": {
+        "count": 11,
+        "avg_complexity": 0.28545454545454546
+      },
+      "reasoning_deep": {
+        "count": 4,
+        "avg_complexity": 0.25
+      }
+    }
+  },
+  "v20": {
+    "benchmark": "arena-hard-v2.0",
+    "num_queries": 750,
+    "score_weak": 48.63333333333333,
+    "score_strong": 55.666666666666664,
+    "cost_weak_total": 3.9309192,
+    "cost_strong_total": 10.95678864,
+    "apgr": 0.30194427141072516,
+    "sweep_results": [
+      {
+        "threshold": 0.2,
+        "win_rate": 51.56666666666667,
+        "total_cost": 8.74701992,
+        "cost_per_1k": 11.662693226666667,
+        "strong_calls_pct": 59.333333333333336,
+        "cost_reduction_pct": 20.168032738468522,
+        "quality_retained_pct": 92.63473053892216
+      },
+      {
+        "threshold": 0.35,
+        "win_rate": 49.233333333333334,
+        "total_cost": 6.66613054,
+        "cost_per_1k": 8.888174053333334,
+        "strong_calls_pct": 28.4,
+        "cost_reduction_pct": 39.15981443993611,
+        "quality_retained_pct": 88.44311377245509
+      },
+      {
+        "threshold": 0.5,
+        "win_rate": 48.63333333333333,
+        "total_cost": 5.79151475,
+        "cost_per_1k": 7.722019666666667,
+        "strong_calls_pct": 20.0,
+        "cost_reduction_pct": 47.14222442096866,
+        "quality_retained_pct": 87.36526946107784
+      },
+      {
+        "threshold": 0.65,
+        "win_rate": 49.016666666666666,
+        "total_cost": 5.37795755,
+        "cost_per_1k": 7.170610066666666,
+        "strong_calls_pct": 13.600000000000001,
+        "cost_reduction_pct": 50.916662475657645,
+        "quality_retained_pct": 88.05389221556887
+      },
+      {
+        "threshold": 0.8,
+        "win_rate": 48.36666666666667,
+        "total_cost": 4.94127342,
+        "cost_per_1k": 6.58836456,
+        "strong_calls_pct": 7.733333333333333,
+        "cost_reduction_pct": 54.90217451160032,
+        "quality_retained_pct": 86.88622754491018
+      }
+    ]
+  }
+}
