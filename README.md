@@ -132,16 +132,24 @@ graph TD;
 
 `krusch-cascade-router` implements proven patterns from recent literature on efficient LLM inference, dynamic model routing, and information-theoretic safety:
 
-1. **RouteLLM: Learning to Route LLMs with Preference Data** (*Ong et al., 2024, arXiv:2406.18665*):
+1. **Dynamic Model Routing and Cascading for Efficient LLM Inference: A Survey** (*Moslem & Kelleher, TMLR 2026, [arXiv:2603.04445](https://arxiv.org/abs/2603.04445)*):
+   - Categorizes multi-LLM routing methods across decision timing, signal types, and policy computation, establishing the latency and cost advantages of zero-token deterministic heuristic gating.
+2. **RouteLLM: Learning to Route LLMs with Preference Data** (*Ong et al., 2024, [arXiv:2406.18665](https://arxiv.org/abs/2406.18665)*):
    - Demonstrates steep diminishing returns when dispatching closed-world STEM problems to expensive frontier models, motivating deterministic routing to cost-effective high-throughput specialists.
-2. **FrugalGPT: How to Use Large Language Models More Cheaply** (*Chen et al., 2023, arXiv:2305.05176*):
+3. **FrugalGPT: How to Use Large Language Models More Cheaply** (*Chen et al., 2023, [arXiv:2305.05176](https://arxiv.org/abs/2305.05176)*):
    - Establishes the sequential cascade principle: querying smaller/cheaper models first and escalating to frontier models only upon low confidence or degradation.
-3. **AutoMix: Automatically Mixing Language Models** (*Gu et al., NeurIPS 2024, arXiv:2310.12963*):
+4. **AutoMix: Automatically Mixing Language Models** (*Gu et al., NeurIPS 2024, [arXiv:2310.12963](https://arxiv.org/abs/2310.12963)*):
    - Demonstrates that verification cascades can achieve significant quality lifts over monolithic models at a fraction of the inference cost.
-4. **RouterBench: A Benchmark for Multi-LLM Routing System** (*Hu et al., WithMartian / UC Berkeley, 2024, arXiv:2403.12031*):
-   - Provides empirical frameworks for evaluating cost vs accuracy trade-offs across heterogeneous LLM pools.
-5. **Degenerative Repetition and Decoding Entropy** (*Holtzman et al., 2020*):
-   - Motivates real-time $n$-gram repetition and token entropy monitoring to catch runaway hallucination loops early.
+5. **RouterBench: A Benchmark for Multi-LLM Routing System** (*Hu et al., WithMartian / UC Berkeley, 2024, [arXiv:2403.12031](https://arxiv.org/abs/2403.12031)*):
+   - Provides empirical frameworks for evaluating cost vs. accuracy trade-offs across heterogeneous LLM pools.
+6. **Second Thought: Reasoning in Parallel as LLM Agents Act and Observe** (*Sun, Yang, Lyu, Shi, & Lo, August 2026, [arXiv:2608.13667](https://arxiv.org/abs/2608.13667)*):
+   - Eliminates sequential cascade latency by parallel speculative pre-warming on borderline confidence prompts $[0.25, 0.70]$.
+7. **Memory Is Not Always Needed: Characterizing Conditional Memory in Scientific Reasoning** (*Bi, Chen, Wang et al., August 2026, [arXiv:2608.23982](https://arxiv.org/abs/2608.23982)*):
+   - Demonstrates that closed-world tasks (syntax, arithmetic, regex, formatting) are degraded by cognitive context bloat, motivating Knowledge Boundary gating.
+8. **Silent Failure in LLM Agent Systems: The Entropy Principle and the Inevitable Disorder of Autonomous Agents** (*Liu, June 2026, [arXiv:2606.08162](https://arxiv.org/abs/2606.08162)*):
+   - Formulates intelligence entropy $S(t) = S_0 e^{\alpha t}$ and motivates mid-stream $n$-gram repetition and token entropy monitoring to abort runaway generation early.
+9. **Degenerative Repetition and Decoding Entropy** (*Holtzman et al., 2020*):
+   - Establishes the foundational theoretical framework for tracking token repetition and entropy collapse during auto-regressive decoding.
 
 ---
 
