@@ -2,8 +2,8 @@
   "dataset": "benchmark/data/routerbench/routerbench_0shot.pkl",
   "num_queries": 36497,
   "aiq": 0.7200085420198657,
-  "routing_latency_us": 110.30253190037911,
-  "qps": 9065.975030411455,
+  "routing_latency_us": 97.7488047996303,
+  "qps": 10230.304115225172,
   "results": [
     {
       "Router / Model": "mistralai/mistral-7b-chat",

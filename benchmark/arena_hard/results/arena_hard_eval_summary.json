@@ -1,5 +1,5 @@
 {
-  "timestamp": 1789697909.7499404,
+  "timestamp": 1789698935.1945703,
   "v01": {
     "benchmark": "arena-hard-v0.1",
     "num_queries": 500,
@@ -17,7 +17,7 @@
         "strong_calls_pct": 100.0,
         "cost_reduction_pct": 0.0,
         "quality_retained_pct": 100.0,
-        "latency_ms": 0.057168269995599985
+        "latency_ms": 0.056676412001252174
       },
       {
         "threshold": 0.25,
@@ -27,7 +27,7 @@
         "strong_calls_pct": 25.6,
         "cost_reduction_pct": 65.947454697323,
         "quality_retained_pct": 79.59582790091265,
-        "latency_ms": 0.05633489400497638
+        "latency_ms": 0.056739290012046695
       },
       {
         "threshold": 0.35,
@@ -37,7 +37,7 @@
         "strong_calls_pct": 17.2,
         "cost_reduction_pct": 75.38749497994269,
         "quality_retained_pct": 76.46675358539767,
-        "latency_ms": 0.0602565279987175
+        "latency_ms": 0.057605426001828164
       },
       {
         "threshold": 0.45,
@@ -47,7 +47,7 @@
         "strong_calls_pct": 10.2,
         "cost_reduction_pct": 82.92421202278915,
         "quality_retained_pct": 76.01043024771838,
-        "latency_ms": 0.06008446199120954
+        "latency_ms": 0.06115139598841779
       },
       {
         "threshold": 0.5,
@@ -57,7 +57,7 @@
         "strong_calls_pct": 9.6,
         "cost_reduction_pct": 83.44212160220378,
         "quality_retained_pct": 75.35853976531942,
-        "latency_ms": 0.05988142400747165
+        "latency_ms": 0.05818203999660909
       },
       {
         "threshold": 0.55,
@@ -67,7 +67,7 @@
         "strong_calls_pct": 6.800000000000001,
         "cost_reduction_pct": 87.09470385861076,
         "quality_retained_pct": 74.96740547588004,
-        "latency_ms": 0.06166446600400377
+        "latency_ms": 0.06145036200177856
       },
       {
         "threshold": 0.65,
@@ -77,7 +77,7 @@
         "strong_calls_pct": 4.3999999999999995,
         "cost_reduction_pct": 89.87635007092977,
         "quality_retained_pct": 74.31551499348107,
-        "latency_ms": 0.056675072002690285
+        "latency_ms": 0.06703476399707142
       },
       {
         "threshold": 0.75,
@@ -87,7 +87,7 @@
         "strong_calls_pct": 3.2,
         "cost_reduction_pct": 91.75874940637345,
         "quality_retained_pct": 73.40286831812254,
-        "latency_ms": 0.07563704000494909
+        "latency_ms": 0.05883683399588335
       },
       {
         "threshold": 0.85,
@@ -97,7 +97,7 @@
         "strong_calls_pct": 1.7999999999999998,
         "cost_reduction_pct": 94.40593825062264,
         "quality_retained_pct": 73.46805736636244,
-        "latency_ms": 0.07543808600166813
+        "latency_ms": 0.058230979993822984
       }
     ],
     "domain_distribution": {
