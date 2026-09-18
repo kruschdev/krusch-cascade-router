@@ -17,6 +17,14 @@ export interface CustomSpecialistRule {
   pattern: RegExp;
 }
 
+export interface PreRouteResult {
+  isFastPath: boolean;
+  role: SpecialistRole;
+  confidence: 'high' | 'borderline' | 'unstructured';
+  complexityScore: number;
+  suggestedAction: 'dispatch_specialist' | 'delegate_to_l2';
+}
+
 export interface ClassifierOptions {
   lengthThreshold?: number; // String length, not tokens, for speed. Default 2000.
   customRules?: RegExp[];   // Custom Regex patterns to mark a prompt as complex
@@ -172,10 +180,13 @@ export function isComplexPrompt(messages: Message[] | string, options?: Classifi
 }
 
 /**
- * Classifies a prompt into one of 7 domain specialist roles optimized
- * for sub-50ms multi-model swarm routing.
+ * L1 Pre-Router Gate.
+ * Evaluates in <15 microseconds whether an incoming prompt has a deterministic
+ * structural or domain footprint (code, SQL, math, chess, closed-world transform)
+ * suitable for immediate fast-path dispatch, or whether it should be delegated
+ * to an L2 neural/embedding router or frontier model.
  */
-export function classifySpecialistRole(messages: Message[] | string, options?: ClassifierOptions): SpecialistRole {
+export function classifyPreRoute(messages: Message[] | string, options?: ClassifierOptions): PreRouteResult {
   let fullText = Array.isArray(messages) 
     ? messages.map(m => m.content).join('\n') 
     : messages;
@@ -184,16 +195,22 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
     fullText = pruneText(fullText);
   }
 
+  const complexityScore = evaluateComplexityScore(fullText, options);
+
   // 0. Custom Specialist Overrides (User-defined domain rules)
   if (options?.customSpecialistRules && options.customSpecialistRules.length > 0) {
     for (const rule of options.customSpecialistRules) {
       if (rule.pattern.test(fullText)) {
-        return rule.role;
+        return {
+          isFastPath: true,
+          role: rule.role,
+          confidence: 'high',
+          complexityScore,
+          suggestedAction: 'dispatch_specialist'
+        };
       }
     }
   }
-
-  const p = fullText.toLowerCase();
 
   // 1. Paragraph Reading Comprehension & Verification (qwen3-235b)
   const isReadingComprehension = 
@@ -209,7 +226,13 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
     /\b(?:information provided in (?:the|this)\s+["']?(?:preceding|provided|following)?\s*(?:text|case study|article|passage)["']?)/i.test(fullText);
 
   if (isReadingComprehension) {
-    return 'comprehension_rc';
+    return {
+      isFastPath: true,
+      role: 'comprehension_rc',
+      confidence: 'high',
+      complexityScore,
+      suggestedAction: 'dispatch_specialist'
+    };
   }
 
   // 2. Chess & Spatial Board Games (Qwen3-Coder-Next via games_spatial)
@@ -221,7 +244,13 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
     /(?:1\.|\b(?:e4|d4|nf3|c4))\s+[a-z0-9+#=-]+/i.test(fullText);
 
   if (isChess) {
-    return 'games_spatial';
+    return {
+      isFastPath: true,
+      role: 'games_spatial',
+      confidence: 'high',
+      complexityScore,
+      suggestedAction: 'dispatch_specialist'
+    };
   }
 
   // 3. Code Generation, Refactoring & Algorithm Synthesis (Qwen3-Coder-Next)
@@ -248,7 +277,13 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
     /\b(?:generic type|type alias|interface\s+[a-zA-Z_]|struct\s+[a-zA-Z_]|impl\s+[a-zA-Z_]|Arc<Mutex<|RwLock<|flexbox layout|token bucket|lru cache|event emitter|pull request|git commit|git diff)\b/i.test(fullText);
 
   if (isCode) {
-    return 'code';
+    return {
+      isFastPath: true,
+      role: 'code',
+      confidence: 'high',
+      complexityScore,
+      suggestedAction: 'dispatch_specialist'
+    };
   }
 
   // 4. Financial Statements, Balance Sheets & Formal Proofs (deepseek-v4-pro)
@@ -257,7 +292,13 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
     /\b(?:formal (?:deductive )?logic proof|formal mathematical proof|deductive reasoning|proof by contradiction|mathematical proof|game theory|nash equilibrium|prisoner's dilemma|pareto optimal(?:ity|)?|counterfactual analysis|formal logic proof|first-order logic|syllogism proof|grim trigger|tit-for-tat|first fundamental theorem)\b/i.test(fullText);
 
   if (isDeepReasoning) {
-    return 'reasoning_deep';
+    return {
+      isFastPath: true,
+      role: 'reasoning_deep',
+      confidence: 'high',
+      complexityScore,
+      suggestedAction: 'dispatch_specialist'
+    };
   }
 
   // 5. Linguistics, Translation, Geography, Medicine, Open-ended Trivia, Entailment
@@ -280,17 +321,72 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
 
   for (const pattern of generalFastPatterns) {
     if (pattern.test(fullText)) {
-      return 'general_fast';
+      return {
+        isFastPath: true,
+        role: 'general_fast',
+        confidence: 'high',
+        complexityScore,
+        suggestedAction: 'dispatch_specialist'
+      };
     }
   }
 
   // Open-ended trivia without multiple choice options
   const hasOptions = /\b(?:options|selections|choices|alternatives):\s*\n?\s*[a-d]\./i.test(fullText) || /\n\s*[a-d]\.\s+\S+/i.test(fullText);
   if (!hasOptions && /\b(?:who (?:was|wrote|directed|composed|invented|discovered)|what is the (?:capital of|[\w-]+\s+capital)|which country|what city)\b/i.test(fullText)) {
-    return 'general_fast';
+    return {
+      isFastPath: true,
+      role: 'general_fast',
+      confidence: 'high',
+      complexityScore,
+      suggestedAction: 'dispatch_specialist'
+    };
   }
 
-  // 6. Default STEM / Science / Math / Logic / Ethics
-  // (Empirically highest accuracy & throughput on deepseek/deepseek-v4-flash)
-  return 'factual_stem';
+  // 6. Explicit STEM / Math / Logic / Science
+  const isExplicitStem = 
+    /(?:\\frac|\\sum|\\sqrt|\\int|\\times|\\pm|equation|theorem|polynomial|integral|derivative|matrix|vector|logarithm|physics|chemistry|biology|astronomy|thermodynamics|quantum|velocity|acceleration|voltage|current|resistance|molecule|atom|gravit|calculus|algebra|geometry|trigonometry|logarithmic|exponential|mitochondria|photosynthesis|eukaryot|orbital|fluid flow|navier-stokes|stefan-boltzmann|heisenberg|half-life|carbon-14|kinetic energy|entropy|eigenvalue|eigenvector)\b/i.test(fullText) ||
+    /\b(?:utilitarianism|deontolog|epistemolog|syllogism|deductive logic|inductive logic|probability|calculate|derivative|integral|force|newtons|mass|acceleration|speed of sound|blackbody|dark energy|cosmological constant|mitosis|meiosis|dna|crispr)\b/i.test(fullText) ||
+    /\b\d+\s*[+\-*/^=]\s*\d+\b/.test(fullText) ||
+    hasOptions;
+
+  if (isExplicitStem) {
+    return {
+      isFastPath: true,
+      role: 'factual_stem',
+      confidence: 'high',
+      complexityScore,
+      suggestedAction: 'dispatch_specialist'
+    };
+  }
+
+  // 7. Knowledge Boundary: Closed-World Transformations (unit conversion, regex, translation, formatting)
+  if (detectKnowledgeBoundary(fullText) === 'closed') {
+    return {
+      isFastPath: true,
+      role: 'general_fast',
+      confidence: 'high',
+      complexityScore,
+      suggestedAction: 'dispatch_specialist'
+    };
+  }
+
+  // 8. Default Unstructured / Ambiguous Chat
+  // When queries lack clear structural/syntactic domain signatures,
+  // pass through to L2 Neural / Embedding Router (or fall back to factual_stem).
+  return {
+    isFastPath: false,
+    role: 'factual_stem',
+    confidence: complexityScore >= 0.35 && complexityScore <= 0.65 ? 'borderline' : 'unstructured',
+    complexityScore,
+    suggestedAction: 'delegate_to_l2'
+  };
+}
+
+/**
+ * Classifies a prompt into one of 7 domain specialist roles optimized
+ * for sub-50ms multi-model swarm routing.
+ */
+export function classifySpecialistRole(messages: Message[] | string, options?: ClassifierOptions): SpecialistRole {
+  return classifyPreRoute(messages, options).role;
 }

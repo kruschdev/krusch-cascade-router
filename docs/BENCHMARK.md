@@ -101,10 +101,10 @@ Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K 
  9    Weave Router                             72.82        76.32%          $0.94          100.00%     Published
  10   Nadir Router                             72.29        75.01%          $0.68           25.48%     Published
 
---- Candidate Submissions Awaiting Merge ---
- *    Krusch Cascade (PR #169 Candidate)       80.27        82.72%          $0.26           92.62%     Offline / In Review
- *    Krusch Cascade (5-Model Baseline)        77.93        81.53%          $0.61           92.62%     Offline / In Review
- *    Krusch Cascade (7-Model Baseline)        74.13        76.14%          $0.37           93.10%     Offline / In Review
+--- Candidate Submissions Evaluated in Official PR #169 CI (Awaiting Merge) ---
+ *    Krusch Cascade (PR #169 Run 3 - Retune)  77.93        81.53%          $0.61           92.62%     Official CI Bot
+ *    Krusch Cascade (PR #169 Run 1 - Initial) 74.13        76.14%          $0.37           93.10%     Official CI Bot
+ *    Krusch Cascade (PR #169 Run 2 - Cheaper) 74.09        75.62%          $0.27           94.05%     Official CI Bot
 ```
  12   OrcaRouter-Adaptive                      72.08        75.54%          $1.00           22.62%
  13   Hybrid Router                            72.08        71.38%          $0.04           96.67%
@@ -407,20 +407,21 @@ The table below synthesizes the complete empirical evaluation of **Krusch Cascad
 
 | Benchmark | Sponsoring Organization / Publication | Dataset Size & Scope | Baseline Target | Krusch Cascade Router Performance | Primary Efficiency Metric | Cost Reduction vs Frontier | Routing Overhead / Latency |
 |:---|:---|:---|:---|:---|:---:|:---:|:---:|
-| **1. RouterArena** | RouterArena Consortium | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool (GPT-4o, Claude 3.5, Gemini 1.5, DeepSeek) | **Arena Score: 0.8027**<br>Accuracy: **82.72%**<br>Robustness: **92.62%** | **0.8027 Arena Score** | **$0.26 / 1K queries** (Top Tier) | < 0.15 ms<br>(6,600+ QPS) |
-| **2. LMSYS RouteLLM** | LMSYS Org / UC Berkeley (arXiv: 2406.18665) | 10,000+ Battles across GSM8K, MMLU, MT-Bench | `gpt-4-1106-preview` vs `mixtral-8x7b` / `llama-3-8b` | **GSM8K: 0.5602 APGR**<br>**MT-Bench: 0.6027 APGR**<br>**MMLU: 0.5060 APGR** | **>0.50–0.60 APGR** | **50%–75% Cost Savings** at 95% Quality | < 0.05 ms<br>(20,000+ QPS) |
-| **3. WithMartian RouterBench** | WithMartian / arXiv: 2403.12031 | 36,497 Inference Outcomes across 11 Frontier & Open LLMs | GPT-4 Single Model Oracle ($94.39 Total Cost) | **AIQ Score: 0.7200** (92.1% of Ceiling)<br>Frugal: 64.51% Acc @ $8.13<br>Balanced: 75.08% Acc @ $52.52 | **0.7200 AIQ Score** | **93.23% (Frugal)**<br>**56.29% (Balanced)** | 0.11 ms<br>(9,066 QPS) |
-| **4. Google AutoMix** | Google Research & CMU (NeurIPS 2024 / arXiv: 2310.12963) | 14,571 Validation Queries across CoQA, CNLI, NarrativeQA, Quality, QASPER | Speculative Cascade LLaMA-13B $\rightarrow$ LLaMA-70B | **CoQA Lift: +55.17%** (vs +43.68% POMDP)<br>**NarrativeQA Lift: +17.45%** (vs +6.44% POMDP) | **+55.17% IBC Lift** (Beats POMDP) | **82.40% on CoQA**<br>**68.39% on NarrativeQA** | 0.007 ms<br>(137,081 QPS) |
-| **5. LMSYS Arena-Hard-Auto** | LMSYS Org / UC Berkeley | 1,250 Real-World Prompts (v0.1: 500, v2.0: 750) | GPT-4-0613 & DeepSeek-R1 Frontier Reasoning | **v0.1 APGR: 0.4646**<br>Balanced: 76.0% Quality @ $4.47/1k<br>**v2.0 APGR: 0.3019**<br>92.6% Quality @ $11.66/1k | **0.4646 APGR (v0.1)**<br>**0.3019 APGR (v2.0)** | **82.92% (v0.1 Balanced)**<br>**20.17%–50.92% (v2.0)** | < 0.10 ms<br>(10,000+ QPS) |
+| **1. RouterArena** | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool | **Official PR #169 CI Bot**:<br>Workflow Score: **77.93**<br>Accuracy: **81.53%**<br>Robustness: **92.62%** | **77.93 (CI Bot)**<br>([Evaluated in PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.61 / 1K queries**<br>(vs $1.00 Orca, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
+| **2. LMSYS RouteLLM**<br>*(Offline Simulation)* | LMSYS Org / UC Berkeley (arXiv: 2406.18665) | 10,000+ Battles across GSM8K, MMLU, MT-Bench | `gpt-4-1106-preview` vs `mixtral-8x7b` / `llama-3-8b` | **GSM8K: 0.5602 APGR**<br>**MT-Bench: 0.6027 APGR**<br>**MMLU: 0.5060 APGR** | **>0.50–0.60 APGR** | **50%–75% Cost Savings** at 95% Quality | < 0.05 ms<br>(20,000+ QPS) |
+| **3. WithMartian RouterBench**<br>*(Offline Simulation)* | WithMartian / arXiv: 2403.12031 | 36,497 Inference Outcomes across 11 Frontier & Open LLMs | GPT-4 Single Model Oracle ($94.39 Total Cost) | **AIQ Score: 0.7200** (92.1% of Ceiling)<br>Frugal: 64.51% Acc @ $8.13<br>Balanced: 75.08% Acc @ $52.52 | **0.7200 AIQ Score** | **93.23% (Frugal)**<br>**56.29% (Balanced)** | 0.11 ms<br>(9,066 QPS) |
+| **4. Google AutoMix**<br>*(Offline Simulation)* | Google Research & CMU (NeurIPS 2024 / arXiv: 2310.12963) | 14,571 Validation Queries across CoQA, CNLI, NarrativeQA, Quality, QASPER | Speculative Cascade LLaMA-13B $\rightarrow$ LLaMA-70B | **CoQA Lift: +55.17%** (vs +43.68% POMDP)<br>**NarrativeQA Lift: +17.45%** (vs +6.44% POMDP) | **+55.17% IBC Lift** (Beats POMDP) | **82.40% on CoQA**<br>**68.39% on NarrativeQA** | 0.007 ms<br>(137,081 QPS) |
+| **5. LMSYS Arena-Hard-Auto**<br>*(Offline Simulation)* | LMSYS Org / UC Berkeley | 1,250 Real-World Prompts (v0.1: 500, v2.0: 750) | GPT-4-0613 & DeepSeek-R1 Frontier Reasoning | **v0.1 APGR: 0.4646**<br>Balanced: 76.0% Quality @ $4.47/1k<br>**v2.0 APGR: 0.3019**<br>92.6% Quality @ $11.66/1k | **0.4646 APGR (v0.1)**<br>**0.3019 APGR (v2.0)** | **82.92% (v0.1 Balanced)**<br>**20.17%–50.92% (v2.0)** | < 0.10 ms<br>(10,000+ QPS) |
 
 ---
 
-### Key Architectural Strengths
+### Architectural Strengths & Engineering Trade-offs
 
-1. **Deterministic Sub-Millisecond Routing**: Unlike vector embedding routers (which incur 15–50ms latency and additional embedding token costs), Krusch Cascade Router runs pure string semantics and structural heuristics in 7–150 microseconds (6,600 to 137,000 QPS) on standard CPU threads.
-2. **Zero Contamination**: The router operates with zero learned weights and zero training on benchmark labels or evaluation datasets, ensuring 100% generalizability across novel workloads.
-3. **Multi-Specialist Frontier Synergy**: Rather than simple strong-weak binary gating, Krusch seamlessly dispatches across specialized cognitive domains (code, chess/spatial, accounting, translation/general, and factual STEM), extracting maximum capability per dollar.
-4. **OpenRouter & Local Engine Compatibility**: Built natively to operate over OpenRouter unified endpoints and local high-throughput inference engines (vLLM / Ollama), guaranteeing zero vendor lock-in.
+1. **Deterministic Sub-Millisecond Routing**: Unlike vector embedding routers (which incur 15–50ms latency and auxiliary embedding token costs), Krusch Cascade Router runs pure string semantics and structural heuristics in 7–150 microseconds (6,600 to 137,000 QPS) on standard CPU threads.
+2. **Zero Training Overhead with Lexical Gating**: Operates with zero learned weights or vector index lookups, eliminating cold starts and database dependencies. However, regex heuristics are fundamentally lexical: while they excel at syntactic domains (code fences, LaTeX math, PGN chess moves, JSON schemas), they do not capture subtle conversational nuances or mixed ambiguous prompts. To mitigate this, `customSpecialistRules` and `customModels` provide direct runtime extensibility.
+3. **Multi-Specialist Frontier Synergy**: Rather than simple strong-weak binary gating, Krusch dispatches across specialized cognitive domains (code, chess/spatial, complex reasoning, general fast, and factual STEM), extracting maximum capability per dollar from open-weight models.
+4. **Satisficing Dispatch vs. Instance-Optimal Selection (`Opt.Sel`)**: RouterArena CI evaluation recorded an `Opt.Sel` of ~0.06. Krusch Cascade Router acts as a *satisficing* router—dispatching to a competent domain specialist that clears quality thresholds at low cost—rather than computing a per-instance cost-optimal oracle. This trades mathematical cost-minimization for microsecond CPU latency with zero token overhead.
+5. **OpenRouter & Local Engine Compatibility**: Built natively to operate over OpenRouter unified endpoints and local high-throughput inference engines (vLLM / Ollama), guaranteeing zero vendor lock-in.
 
 
 

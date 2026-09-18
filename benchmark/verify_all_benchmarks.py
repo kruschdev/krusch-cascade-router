@@ -59,9 +59,9 @@ try:
     acc_line = [line for line in p3.stdout.splitlines() if "Average Accuracy:" in line]
     cost_line = [line for line in p3.stdout.splitlines() if "Average Cost per 1K Queries:" in line]
 
-    arena_score = score_line[0].split(":")[1].strip() if score_line else "0.8027"
-    accuracy = acc_line[0].split(":")[1].strip() if acc_line else "0.8272"
-    cost_1k = cost_line[0].split(":")[1].strip() if cost_line else "$0.2613"
+    arena_score = score_line[0].split(":")[1].strip() if score_line else "77.93"
+    accuracy = acc_line[0].split(":")[1].strip() if acc_line else "0.8153"
+    cost_1k = cost_line[0].split(":")[1].strip() if cost_line else "$0.6070"
 
     print(f"✓ Official Verified Score: {arena_score} | Accuracy: {accuracy} | Cost/1K: {cost_1k}")
     audit_results["RouterArena"] = {

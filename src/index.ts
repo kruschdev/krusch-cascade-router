@@ -4,6 +4,8 @@ export {
   detectKnowledgeBoundary, 
   evaluateComplexityScore, 
   classifySpecialistRole,
+  classifyPreRoute,
+  PreRouteResult,
   SpecialistRole,
   Message, 
   ClassifierOptions,

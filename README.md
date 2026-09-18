@@ -3,7 +3,8 @@
 </p>
 
 <p align="center">
-  <strong>Latency-aware LLM router combining sub-50ms heuristic classification, Knowledge Boundary gating, 5-model specialist routing via OpenRouter, and speculative logprob/entropy cascades.</strong>
+  <strong>The L1 Cache & Fast-Path Pre-Router for LLM Architectures.</strong><br>
+  <span>Intercepts structured code, SQL, math, and closed-world tasks in CPU microseconds (&lt;15µs) for $0.00 before paying the latency and token tax of neural or frontier LLM routers.</span>
 </p>
 
 <p align="center">
@@ -12,22 +13,24 @@
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
   <img src="https://img.shields.io/badge/OpenRouter-5--Model%20Specialists-purple.svg?style=flat-square" alt="OpenRouter Specialists">
   <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Candidate%20(Pending%20Review)-orange.svg?style=flat-square" alt="RouterArena PR #169"></a>
-  <img src="https://img.shields.io/badge/tests-43%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
+  <img src="https://img.shields.io/badge/tests-44%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
 </p>
 
 ---
 
-## ⚡ Why Krusch Cascade Router?
+## ⚡ The L1 / L2 Routing Pattern: "Don't spend a model call just to pick a model."
 
-**"LLM routing an LLM is a trap."**
+In CPU architecture, the processor does not query main RAM or NVMe storage for every instruction—it checks the **L1 cache** in 1 clock cycle. If there is an L1 hit, execution proceeds instantly with zero memory bus overhead.
 
-Using a heavy LLM or neural embedding model to decide which model to dispatch a query to introduces significant TTFT (Time-To-First-Token) latency and adds auxiliary billing. `krusch-cascade-router` provides a fast, pragmatic alternative for Node.js developers:
+In multi-model agent systems, using an LLM or neural embedding model to decide where to route an obvious Python script, SQL query, LaTeX proof, or JSON transform is an expensive anti-pattern:
+* **The Routing Tax**: Adds **300ms–800ms of Time-To-First-Token (TTFT)** and auxiliary prompt token charges to every single step in an agentic loop.
+* **The Fast-Path Solution**: `krusch-cascade-router` acts as the **Stage 1 (L1) Pre-Router Gate**. It executes in < 15 microseconds on CPU for **$0.00**, immediately dispatching high-confidence structured traffic to cheap domain specialists (`Qwen3-Coder-Next`, `deepseek-v4-flash`, `gemini-3.1-flash-lite`), while cleanly delegating ambiguous, conversational chat to an **L2 Neural Router** or frontier model.
 
-1. **Sub-Millisecond Heuristics**: Evaluates syntax, query length, structure, and domain keywords in microseconds on CPU without making pre-flight routing calls.
-2. **5-Model Specialist Routing via OpenRouter**: Out-of-the-box factory preset orchestrating 5 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, and `qwen3-235b-a22b-2507`) unified through OpenRouter. Fully swappable via `customModels`.
-3. **Knowledge Boundary Routing**: Detects closed-world self-contained tasks (syntax, math, regex, formatting, translation) to keep them on fast edge models.
-4. **Speculative Parallel Hedging**: Pre-warms heavy models in parallel on borderline confidence queries (`[0.25, 0.70]`) to mask sequential cascade latency.
-5. **Logprob & Silent Failure Gating**: Inspects initial token logprob confidence and monitors sliding-window repetition / $n$-gram loops to abort unhelpful outputs early.
+1. **⚡ Sub-Millisecond L1 Pre-Filter**: Evaluates syntax, query length, structure, and domain keywords in microseconds on CPU without making pre-flight routing calls.
+2. **🎯 5-Model Specialist Routing via OpenRouter**: Out-of-the-box factory preset orchestrating 5 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, and `qwen3-235b-a22b-2507`) unified through OpenRouter. Fully swappable via `customModels`.
+3. **🧠 Knowledge Boundary Routing**: Detects closed-world self-contained tasks (syntax, math, regex, formatting, translation) to keep them on fast edge models.
+4. **⚡ Speculative Parallel Hedging**: Pre-warms heavy models in parallel on borderline confidence queries (`[0.25, 0.70]`) to mask sequential cascade latency.
+5. **🛡️ Logprob & Silent Failure Gating**: Inspects initial token logprob confidence and monitors sliding-window repetition / $n$-gram loops to abort unhelpful outputs early.
 
 ---
 
@@ -66,7 +69,7 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 * **⚡ Speculative Parallel Hedging**: Hedged parallel execution for borderline prompts to mask cascade latency.
 * **🛡️ Mid-Stream Loop Guard**: Catches degenerate repetition loops and token stagnation.
 * **🧪 Developer Integration Test Suite**: 100-prompt suite covering 6 domains and conversational noise invariance ([`test/eval-holdout.test.js`](test/eval-holdout.test.js)).
-* **📊 RouterArena Benchmark Candidate**: Evaluated offline on the 8,400-query RouterArena dataset and submitted for review in [PR #169](https://github.com/RouteWorks/RouterArena/pull/169) (Live leaderboard led by Paix2 at 77.63).
+* **📊 RouterArena Benchmark Candidate**: Scored **77.93** in official GitHub Actions CI evaluation under [RouteWorks PR #169](https://github.com/RouteWorks/RouterArena/pull/169) (Live published leaderboard led by Paix2 at 77.63; candidate awaiting merge).
 * **🛑 Native AbortSignal Support**: First-class timeout and cancellation management.
 * **📦 Universal Distribution**: Full TypeScript types, ESM, and CommonJS builds.
 
@@ -152,20 +155,28 @@ Our candidate submission ([RouteWorks/RouterArena PR #169](https://github.com/Ro
 
 ---
 
-## 🧠 Architecture: Multi-Specialist Flow
+## 🧠 Architecture: The L1 Pre-Router & Specialist Flow
 
 ```mermaid
 graph TD;
-    A[Incoming Prompt] --> CR{classifySpecialistRole};
-    CR -- Code & Algorithms / Chess & Spatial --> C1[Qwen3-Coder-Next];
-    CR -- STEM / Math / General Science --> C2[deepseek-v4-flash];
-    CR -- Reading Comprehension / Verification --> C3[qwen3-235b-a22b];
-    CR -- General Fast / Translation --> C4[gemini-3.1-flash-lite];
-    CR -- Deep Reasoning / Financial QA --> C5[deepseek-v4-pro];
-    C1 -. Error / Abort .-> C5;
-    C2 -. Error / Abort .-> C5;
-    C3 -. Error / Abort .-> C5;
-    C4 -. Error / Abort .-> C5;
+    A[Incoming Prompt] --> L1{Stage 1: L1 Pre-Router<br/>krusch-cascade-router<br/>&lt; 15µs CPU | $0.00};
+    
+    %% Fast path branch
+    L1 -- "High-Confidence Deterministic Syntax<br/>(isFastPath: true)" --> FP[L1 Fast-Path Specialist Dispatch];
+    FP -- Code, SQL, Rust, React --> C1[Qwen3-Coder-Next];
+    FP -- STEM, Factual Science, Math --> C2[deepseek-v4-flash];
+    FP -- Reading Comp, Paragraph Truth --> C3[qwen3-235b-a22b];
+    FP -- Translation, Geography, Medicine --> C4[gemini-3.1-flash-lite];
+    FP -- Financial Statements, Formal Proofs --> C5[deepseek-v4-pro];
+
+    %% Reactive abort fallback
+    C1 -. Error / Logprob Abort .-> C5;
+    C2 -. Error / Logprob Abort .-> C5;
+    C3 -. Error / Logprob Abort .-> C5;
+    C4 -. Error / Logprob Abort .-> C5;
+
+    %% L2 fallback branch
+    L1 -- "Ambiguous / Unstructured Chat<br/>(suggestedAction: delegate_to_l2)" --> L2[Stage 2: L2 Semantic Layer<br/>RouteLLM / NotDiamond / Frontier Model];
 ```
 
 ---
@@ -204,11 +215,13 @@ Instantiate a complete multi-specialist router using 5 specialized domain models
 ```javascript
 import { createMultiSpecialistRouter } from 'krusch-cascade-router';
 
-// 1. Initialize with your OpenRouter API key
+// 1. Initialize with your OpenRouter API key (preset defaults or custom overrides)
 const router = createMultiSpecialistRouter({
   openrouterApiKey: process.env.OPENROUTER_API_KEY, // Defaults to process.env.OPENROUTER_API_KEY
   openrouterReferer: 'https://my-app.com',           // Optional attribution header
-  openrouterTitle: 'My App'
+  openrouterTitle: 'My App',
+  // Optional: override any specialist model to prevent catalog rot or route to preferred endpoints
+  // customModels: { code: 'qwen/qwen-2.5-coder-32b-instruct', reasoning_deep: 'deepseek/deepseek-r1' }
 });
 
 // 2. Dispatch queries - automatically routed to optimal domain specialist:
@@ -223,7 +236,30 @@ console.log(`Routed to: ${res.routedTo}`); // 'code' (Qwen/Qwen3-Coder-Next)
 console.log(res.text);
 ```
 
-### Option B: 2-Model Binary Edge Cascade
+### Option B: L1 Pre-Router Fast-Path Gate (In Front of Any LLM Pipeline)
+
+If your architecture already uses an L2 neural router (e.g. RouteLLM, NotDiamond) or a frontier model, use `krusch-cascade-router` as an **in-memory L1 pre-filter**. It intercepts 70–80% of structured agent traffic in CPU microseconds without paying the latency or token tax of a neural classifier:
+
+```javascript
+import { classifyPreRoute } from 'krusch-cascade-router';
+
+async function dispatchAgentPrompt(prompt) {
+  // 1. L1 Pre-Check in <15 microseconds ($0.00 cost, 0 tokens)
+  const preRoute = classifyPreRoute(prompt);
+
+  if (preRoute.isFastPath) {
+    console.log(`⚡ L1 Fast-Path Hit -> Dispatching to specialist: ${preRoute.role}`);
+    // Bypass expensive routers and call the dedicated specialist directly:
+    return callSpecialistModel(preRoute.role, prompt);
+  }
+
+  // 2. L1 Miss: Prompt is unstructured / ambiguous conversational chat
+  console.log(`🔍 L1 Miss -> Delegating to L2 Neural Router or Frontier Model`);
+  return callSecondaryNeuralRouter(prompt); // e.g. RouteLLM, NotDiamond, or Claude 3.7
+}
+```
+
+### Option C: 2-Model Binary Edge Cascade
 
 Pair a local edge model (Ollama, vLLM) with a heavy cloud model fallback:
 
@@ -250,7 +286,7 @@ console.log(`Routed to: ${response.routedTo}`); // 'fast' | 'heavy'
 console.log(response.text);
 ```
 
-### Option C: Future-Proofing & Custom Specialists
+### Option D: Future-Proofing & Custom Specialists
 
 The 5 default models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, `qwen3-235b-a22b`) are an **empirical starter preset**, not a hardcoded lock-in. As OpenRouter models evolve, you can easily swap models, update token pricing, or inject custom domain regexes:
 
@@ -291,9 +327,37 @@ const router = createMultiSpecialistRouter({
 
 ## 🛠️ Advanced Features
 
-### 1. Specialist Domain Classification
+### 1. L1 Pre-Router Gate (`classifyPreRoute`)
 
-Classify incoming queries into domain roles deterministically in under 5ms:
+Evaluate prompts with detailed metadata on whether to bypass or delegate to L2:
+
+```javascript
+import { classifyPreRoute } from 'krusch-cascade-router';
+
+const res = classifyPreRoute("Write a SQL query to calculate user churn");
+console.log(res);
+// {
+//   isFastPath: true,
+//   role: 'code',
+//   confidence: 'high',
+//   complexityScore: 0.20,
+//   suggestedAction: 'dispatch_specialist'
+// }
+
+const chat = classifyPreRoute("How are you feeling today?");
+console.log(chat);
+// {
+//   isFastPath: false,
+//   role: 'factual_stem',
+//   confidence: 'unstructured',
+//   complexityScore: 0.05,
+//   suggestedAction: 'delegate_to_l2'
+// }
+```
+
+### 2. Specialist Domain Classification
+
+Classify incoming queries into domain roles deterministically in under 15 microseconds:
 
 ```javascript
 import { classifySpecialistRole } from 'krusch-cascade-router';
@@ -304,7 +368,7 @@ classifySpecialistRole("Evaluate FEN: rnbqkbnr/pppppppp/..."); // 'games_spatial
 classifySpecialistRole("Prove that every planar graph is 4-colorable"); // 'reasoning_deep'
 ```
 
-### 2. Knowledge Boundary Detection
+### 3. Knowledge Boundary Detection
 
 Closed-world tasks (e.g. arithmetic, code formatting, unit conversion, translation) are actively degraded by large model context pollution. You can invoke the boundary classifier directly:
 

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { 
   classifySpecialistRole, 
+  classifyPreRoute,
   detectKnowledgeBoundary, 
   evaluateComplexityScore,
   createMultiSpecialistRouter 
@@ -231,3 +232,39 @@ test('Holdout Evaluation - Knowledge Boundary Gating on Closed-World Tasks', () 
     assert.ok(complexity <= 0.35, `Closed-world query "${query}" should have low complexity (got ${complexity})`);
   }
 });
+
+test('L1 Pre-Router - classifyPreRoute Fast-Path vs L2 Delegation', () => {
+  // Fast-Path queries (code, math, translation, chess, comprehension)
+  const fastPathSamples = [
+    { query: 'Write a Python function to compute the Fibonacci sequence using memoization.', expectedRole: 'code' },
+    { query: 'Calculate \\frac{5}{8} + \\sqrt{64} and solve the resulting quadratic equation.', expectedRole: 'factual_stem' },
+    { query: 'Translate "Good morning, hope you have a productive day" into German.', expectedRole: 'general_fast' },
+    { query: 'White to move: 1. e4 e5 2. Nf3 Nc6 3. Bb5. Is this the Ruy Lopez opening?', expectedRole: 'games_spatial' },
+    { query: 'Based on the provided passage, what was the primary thesis of the author?', expectedRole: 'comprehension_rc' },
+    { query: 'Analyze the 10-K balance sheet and calculate the diluted EPS and EBITDA.', expectedRole: 'reasoning_deep' },
+    { query: 'Convert 120 km to miles.', expectedRole: 'general_fast' }
+  ];
+
+  for (const item of fastPathSamples) {
+    const res = classifyPreRoute(item.query);
+    assert.equal(res.isFastPath, true, `Expected query "${item.query}" to be Fast-Path`);
+    assert.equal(res.role, item.expectedRole, `Expected role ${item.expectedRole} for query "${item.query}"`);
+    assert.equal(res.confidence, 'high', `Expected high confidence for query "${item.query}"`);
+    assert.equal(res.suggestedAction, 'dispatch_specialist', `Expected dispatch_specialist for query "${item.query}"`);
+  }
+
+  // Unstructured / Conversational queries requiring L2 delegation
+  const unstructuredSamples = [
+    'Hey, how are you feeling today?',
+    'Tell me what you think about modern abstract art in contemporary galleries.',
+    'Can we brainstorm some fun themes for an upcoming family reunion?',
+    'I feel a little overwhelmed with work lately, what advice do you have for unwinding?'
+  ];
+
+  for (const query of unstructuredSamples) {
+    const res = classifyPreRoute(query);
+    assert.equal(res.isFastPath, false, `Expected query "${query}" to NOT be Fast-Path`);
+    assert.equal(res.suggestedAction, 'delegate_to_l2', `Expected delegate_to_l2 for query "${query}"`);
+  }
+});
+
