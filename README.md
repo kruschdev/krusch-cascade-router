@@ -9,6 +9,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/krusch-cascade-router"><img src="https://img.shields.io/github/package-json/v/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="NPM Version"></a>
+  <a href="https://github.com/kruschdev/krusch-pre-router"><img src="https://img.shields.io/badge/Powered%20By-krusch--pre--router-green.svg?style=flat-square" alt="Powered By krusch-pre-router"></a>
   <a href="https://github.com/kruschdev/krusch-cascade-router/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
   <img src="https://img.shields.io/badge/OpenRouter-5--Model%20Specialists-purple.svg?style=flat-square" alt="OpenRouter Specialists">
@@ -20,11 +21,13 @@
 
 ## ⚡ The L1 / L2 Routing Pattern: "Don't spend a model call just to pick a model."
 
+> 💡 **Looking for just the zero-dependency L1 pre-filter?** If you already have an LLM client or neural router and only need the fast microsecond gate function, install [`krusch-pre-router`](https://github.com/kruschdev/krusch-pre-router) (`npm install krusch-pre-router`, 0 dependencies, <20KB).
+
 In CPU architecture, the processor does not query main RAM or NVMe storage for every instruction—it checks the **L1 cache** in 1 clock cycle. If there is an L1 hit, execution proceeds instantly with zero memory bus overhead.
 
 In multi-model agent systems, using an LLM or neural embedding model to decide where to route an obvious Python script, SQL query, LaTeX proof, or JSON transform is an expensive anti-pattern:
 * **The Routing Tax**: Adds **300ms–800ms of Time-To-First-Token (TTFT)** and auxiliary prompt token charges to every single step in an agentic loop.
-* **The Fast-Path Solution**: `krusch-cascade-router` acts as the **Stage 1 (L1) Pre-Router Gate**. It executes in < 15 microseconds on CPU for **$0.00**, immediately dispatching high-confidence structured traffic to cheap domain specialists (`Qwen3-Coder-Next`, `deepseek-v4-flash`, `gemini-3.1-flash-lite`), while cleanly delegating ambiguous, conversational chat to an **L2 Neural Router** or frontier model.
+* **The Fast-Path Solution**: `krusch-cascade-router` acts as the **Stage 1 (L1) Pre-Router Gate**, powered internally by [`krusch-pre-router`](https://github.com/kruschdev/krusch-pre-router). It executes in < 15 microseconds on CPU for **$0.00**, immediately dispatching high-confidence structured traffic to cheap domain specialists (`Qwen3-Coder-Next`, `deepseek-v4-flash`, `gemini-3.1-flash-lite`), while cleanly delegating ambiguous, conversational chat to an **L2 Neural Router** or frontier model.
 
 1. **⚡ Sub-Millisecond L1 Pre-Filter**: Evaluates syntax, query length, structure, and domain keywords in microseconds on CPU without making pre-flight routing calls.
 2. **🎯 5-Model Specialist Routing via OpenRouter**: Out-of-the-box factory preset orchestrating 5 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, and `qwen3-235b-a22b-2507`) unified through OpenRouter. Fully swappable via `customModels`.

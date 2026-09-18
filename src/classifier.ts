@@ -72,7 +72,7 @@ export function pruneText(text: string): string {
   while (changed) {
     const before = cleaned;
     cleaned = cleaned
-      .replace(/^(?:hey|hello|hi|greetings|dear|please)[,.\s]+/i, '')
+      .replace(/^(?:hey|hello|hi|greetings|dear|please)[,!.\s]+/i, '')
       .replace(/^(?:could you please|can you please|would you kindly|would you please|i want you to|i need you to|tell me|show me)[,.\s]+/i, '')
       .replace(/\b(?:as we discussed earlier|like i mentioned before|as you know)\b/gi, '')
       .replace(/\b(?:thanks in advance|thank you very much|thank you|thanks|let me know what you think)[.!?\s]*$/gi, '')
