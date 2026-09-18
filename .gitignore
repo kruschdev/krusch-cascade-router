@@ -6,11 +6,17 @@ spec.md
 logs/
 
 benchmark/RouterArena/
-
-benchmark/
-scratch/
-
+benchmark/data/
 benchmark/venv/
+benchmark/scratch/
+benchmark/*/repo/
+benchmark/*/RouteLLM/
+*.pkl
+*.parquet
+*.csv
+*.pt
+*.bin
+scratch/
 *.pyc
 __pycache__/
 .env

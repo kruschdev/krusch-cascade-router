@@ -1,0 +1,507 @@
+{
+  "dataset": "benchmark/data/routerbench/routerbench_5shot.pkl",
+  "num_queries": 36483,
+  "aiq": 0.7172157611294364,
+  "routing_latency_us": 131.9465856999159,
+  "qps": 7578.824375753722,
+  "results": [
+    {
+      "Router / Model": "mistralai/mistral-7b-chat",
+      "Type": "Standalone Model",
+      "Accuracy (%)": 49.9825946331168,
+      "Total Cost ($)": 5.0662072,
+      "Cost / 1K ($)": 0.13886487405092782,
+      "Cost Red. vs GPT-4 (%)": 98.25188185882297,
+      "Acc. vs GPT-4 (%)": 62.10935038615793,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 46.4374053668832
+    },
+    {
+      "Router / Model": "WizardLM/WizardLM-13B-V1.2",
+      "Type": "Standalone Model",
+      "Accuracy (%)": 53.909629142340265,
+      "Total Cost ($)": 7.7543073,
+      "Cost / 1K ($)": 0.21254576926239618,
+      "Cost Red. vs GPT-4 (%)": 97.32434053163253,
+      "Acc. vs GPT-4 (%)": 66.98916033004367,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 42.51037085765973
+    },
+    {
+      "Router / Model": "mistralai/mixtral-8x7b-chat",
+      "Type": "Standalone Model",
+      "Accuracy (%)": 65.03316613217115,
+      "Total Cost ($)": 15.105743999999998,
+      "Cost / 1K ($)": 0.41404884466737923,
+      "Cost Red. vs GPT-4 (%)": 94.78769342036071,
+      "Acc. vs GPT-4 (%)": 80.81148511141954,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 31.386833867828845
+    },
+    {
+      "Router / Model": "meta/code-llama-instruct-34b-chat",
+      "Type": "Standalone Model",
+      "Accuracy (%)": 50.40895759668887,
+      "Total Cost ($)": 19.463264952000003,
+      "Cost / 1K ($)": 0.5334886098182716,
+      "Cost Red. vs GPT-4 (%)": 93.28411073492491,
+      "Acc. vs GPT-4 (%)": 62.63915734977308,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 46.01104240331112
+    },
+    {
+      "Router / Model": "zero-one-ai/Yi-34B-Chat",
+      "Type": "Standalone Model",
+      "Accuracy (%)": 71.51961187402351,
+      "Total Cost ($)": 20.3568968,
+      "Cost / 1K ($)": 0.5579830825315901,
+      "Cost Red. vs GPT-4 (%)": 92.97575894761106,
+      "Acc. vs GPT-4 (%)": 88.8716695475949,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 24.90038812597648
+    },
+    {
+      "Router / Model": "meta/llama-2-70b-chat",
+      "Type": "Standalone Model",
+      "Accuracy (%)": 60.58479291724913,
+      "Total Cost ($)": 22.6931418,
+      "Cost / 1K ($)": 0.6220196200970315,
+      "Cost Red. vs GPT-4 (%)": 92.16962684414436,
+      "Acc. vs GPT-4 (%)": 75.28384948781921,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 35.83520708275086
+    },
+    {
+      "Router / Model": "claude-instant-v1",
+      "Type": "Standalone Model",
+      "Accuracy (%)": 58.99268152290108,
+      "Total Cost ($)": 22.0992304,
+      "Cost / 1K ($)": 0.605740492832278,
+      "Cost Red. vs GPT-4 (%)": 92.37455870966139,
+      "Acc. vs GPT-4 (%)": 73.30546070726079,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 37.427318477098915
+    },
+    {
+      "Router / Model": "gpt-3.5-turbo-1106",
+      "Type": "Standalone Model",
+      "Accuracy (%)": 68.66855795850122,
+      "Total Cost ($)": 25.848721,
+      "Cost / 1K ($)": 0.708514129868706,
+      "Cost Red. vs GPT-4 (%)": 91.08077969919519,
+      "Acc. vs GPT-4 (%)": 85.32889414930304,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 27.751442041498777
+    },
+    {
+      "Router / Model": "claude-v1",
+      "Type": "Standalone Model",
+      "Accuracy (%)": 64.78743524381218,
+      "Total Cost ($)": 214.1884,
+      "Cost / 1K ($)": 5.870909738782446,
+      "Cost Red. vs GPT-4 (%)": 26.09330552653264,
+      "Acc. vs GPT-4 (%)": 80.50613509992421,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 31.632564756187808
+    },
+    {
+      "Router / Model": "claude-v2",
+      "Type": "Standalone Model",
+      "Accuracy (%)": 51.16081462599019,
+      "Total Cost ($)": 224.501584,
+      "Cost / 1K ($)": 6.153594386426555,
+      "Cost Red. vs GPT-4 (%)": 22.53469386065039,
+      "Acc. vs GPT-4 (%)": 63.573429610265755,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 45.2591853740098
+    },
+    {
+      "Router / Model": "gpt-4-1106-preview",
+      "Type": "Standalone Model",
+      "Accuracy (%)": 80.47515281089824,
+      "Total Cost ($)": 289.80920000000003,
+      "Cost / 1K ($)": 7.943677877367541,
+      "Cost Red. vs GPT-4 (%)": 0.0,
+      "Acc. vs GPT-4 (%)": 100.0,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 15.944847189101763
+    },
+    {
+      "Router / Model": "Oracle (Cheapest Correct LLM)",
+      "Type": "Oracle Upper Bound",
+      "Accuracy (%)": 97.05068113916072,
+      "Total Cost ($)": 17.736134532,
+      "Cost / 1K ($)": 0.48614791908560157,
+      "Cost Red. vs GPT-4 (%)": 93.8800650455541,
+      "Acc. vs GPT-4 (%)": 120.59707592878004,
+      "Opt.Sel (%)": 100.0,
+      "Regret (%)": 0.0
+    },
+    {
+      "Router / Model": "Random Uniform Router",
+      "Type": "Baseline Router",
+      "Accuracy (%)": 61.69585834498259,
+      "Total Cost ($)": 78.401683848,
+      "Cost / 1K ($)": 2.148992238796152,
+      "Cost Red. vs GPT-4 (%)": 72.94713768645026,
+      "Acc. vs GPT-4 (%)": 76.66448113488704,
+      "Opt.Sel (%)": 8.930186662281063,
+      "Regret (%)": 35.35482279417812
+    },
+    {
+      "Router / Model": "krusch (WTP=0.0001)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 49.9825946331168,
+      "Total Cost ($)": 5.0662072,
+      "Cost / 1K ($)": 0.13886487405092782,
+      "Cost Red. vs GPT-4 (%)": 98.25188185882297,
+      "Acc. vs GPT-4 (%)": 62.10935038615793,
+      "Opt.Sel (%)": 46.94789353945673,
+      "Regret (%)": 47.06808650604391,
+      "WTP": 0.0001,
+      "Model Distribution": {
+        "mistralai/mistral-7b-chat": 36483
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=0.0005)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 55.85834498259463,
+      "Total Cost ($)": 8.7252783,
+      "Cost / 1K ($)": 0.23916011018830685,
+      "Cost Red. vs GPT-4 (%)": 96.98930251351578,
+      "Acc. vs GPT-4 (%)": 69.41067277480222,
+      "Opt.Sel (%)": 19.65024806074062,
+      "Regret (%)": 41.19233615656608,
+      "WTP": 0.0005,
+      "Model Distribution": {
+        "WizardLM/WizardLM-13B-V1.2": 31036,
+        "mistralai/mixtral-8x7b-chat": 4547,
+        "mistralai/mistral-7b-chat": 900
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=0.001)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 64.52703999122879,
+      "Total Cost ($)": 14.645877452,
+      "Cost / 1K ($)": 0.40144389035989364,
+      "Cost Red. vs GPT-4 (%)": 94.94637249197058,
+      "Acc. vs GPT-4 (%)": 80.18256286242219,
+      "Opt.Sel (%)": 12.627799248965271,
+      "Regret (%)": 32.52364114793191,
+      "WTP": 0.001,
+      "Model Distribution": {
+        "WizardLM/WizardLM-13B-V1.2": 15784,
+        "zero-one-ai/Yi-34B-Chat": 15233,
+        "meta/code-llama-instruct-34b-chat": 1873,
+        "mistralai/mixtral-8x7b-chat": 1467,
+        "claude-instant-v1": 1226,
+        "mistralai/mistral-7b-chat": 453,
+        "gpt-3.5-turbo-1106": 447
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=0.002)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 67.82131403667462,
+      "Total Cost ($)": 22.1609236,
+      "Cost / 1K ($)": 0.60743150508456,
+      "Cost Red. vs GPT-4 (%)": 92.35327118669801,
+      "Acc. vs GPT-4 (%)": 84.27609226917804,
+      "Opt.Sel (%)": 5.339473179288984,
+      "Regret (%)": 29.229367102486094,
+      "WTP": 0.002,
+      "Model Distribution": {
+        "zero-one-ai/Yi-34B-Chat": 17123,
+        "claude-instant-v1": 16129,
+        "gpt-3.5-turbo-1106": 2753,
+        "mistralai/mistral-7b-chat": 453,
+        "mistralai/mixtral-8x7b-chat": 14,
+        "WizardLM/WizardLM-13B-V1.2": 11
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=0.005)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 67.82131403667462,
+      "Total Cost ($)": 22.1609236,
+      "Cost / 1K ($)": 0.60743150508456,
+      "Cost Red. vs GPT-4 (%)": 92.35327118669801,
+      "Acc. vs GPT-4 (%)": 84.27609226917804,
+      "Opt.Sel (%)": 5.339473179288984,
+      "Regret (%)": 29.229367102486094,
+      "WTP": 0.005,
+      "Model Distribution": {
+        "zero-one-ai/Yi-34B-Chat": 17123,
+        "claude-instant-v1": 16129,
+        "gpt-3.5-turbo-1106": 2753,
+        "mistralai/mistral-7b-chat": 453,
+        "mistralai/mixtral-8x7b-chat": 14,
+        "WizardLM/WizardLM-13B-V1.2": 11
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=0.01)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 67.8130910286983,
+      "Total Cost ($)": 22.1628318,
+      "Cost / 1K ($)": 0.6074838088972947,
+      "Cost Red. vs GPT-4 (%)": 92.35261275349437,
+      "Acc. vs GPT-4 (%)": 84.26587419852008,
+      "Opt.Sel (%)": 5.339473179288984,
+      "Regret (%)": 29.237590110462406,
+      "WTP": 0.01,
+      "Model Distribution": {
+        "zero-one-ai/Yi-34B-Chat": 17123,
+        "claude-instant-v1": 16143,
+        "gpt-3.5-turbo-1106": 2753,
+        "mistralai/mistral-7b-chat": 453,
+        "WizardLM/WizardLM-13B-V1.2": 11
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=0.02)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 68.30030425129512,
+      "Total Cost ($)": 29.512838600000002,
+      "Cost / 1K ($)": 0.80894769070526,
+      "Cost Red. vs GPT-4 (%)": 89.816459035807,
+      "Acc. vs GPT-4 (%)": 84.87129488500412,
+      "Opt.Sel (%)": 4.49524436038703,
+      "Regret (%)": 28.750376887865592,
+      "WTP": 0.02,
+      "Model Distribution": {
+        "zero-one-ai/Yi-34B-Chat": 16346,
+        "claude-instant-v1": 16129,
+        "gpt-3.5-turbo-1106": 2753,
+        "gpt-4-1106-preview": 1244,
+        "WizardLM/WizardLM-13B-V1.2": 11
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=0.05)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 73.56344050653729,
+      "Total Cost ($)": 162.56844439999998,
+      "Cost / 1K ($)": 4.456005383329222,
+      "Cost Red. vs GPT-4 (%)": 43.9050090887384,
+      "Acc. vs GPT-4 (%)": 91.41137100963053,
+      "Opt.Sel (%)": 2.247622180193515,
+      "Regret (%)": 23.48724063262342,
+      "WTP": 0.05,
+      "Model Distribution": {
+        "gpt-4-1106-preview": 21569,
+        "claude-instant-v1": 14903,
+        "WizardLM/WizardLM-13B-V1.2": 11
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=0.1)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 73.56344050653729,
+      "Total Cost ($)": 162.56844439999998,
+      "Cost / 1K ($)": 4.456005383329222,
+      "Cost Red. vs GPT-4 (%)": 43.9050090887384,
+      "Acc. vs GPT-4 (%)": 91.41137100963053,
+      "Opt.Sel (%)": 2.247622180193515,
+      "Regret (%)": 23.48724063262342,
+      "WTP": 0.1,
+      "Model Distribution": {
+        "gpt-4-1106-preview": 21569,
+        "claude-instant-v1": 14903,
+        "WizardLM/WizardLM-13B-V1.2": 11
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=0.5)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 80.47515281089824,
+      "Total Cost ($)": 289.80920000000003,
+      "Cost / 1K ($)": 7.943677877367541,
+      "Cost Red. vs GPT-4 (%)": 0.0,
+      "Acc. vs GPT-4 (%)": 100.0,
+      "Opt.Sel (%)": 1.367760326727517,
+      "Regret (%)": 16.57552832826248,
+      "WTP": 0.5,
+      "Model Distribution": {
+        "gpt-4-1106-preview": 36483
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=1.0)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 80.47515281089824,
+      "Total Cost ($)": 289.80920000000003,
+      "Cost / 1K ($)": 7.943677877367541,
+      "Cost Red. vs GPT-4 (%)": 0.0,
+      "Acc. vs GPT-4 (%)": 100.0,
+      "Opt.Sel (%)": 1.367760326727517,
+      "Regret (%)": 16.57552832826248,
+      "WTP": 1.0,
+      "Model Distribution": {
+        "gpt-4-1106-preview": 36483
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=5.0)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 80.47515281089824,
+      "Total Cost ($)": 289.80920000000003,
+      "Cost / 1K ($)": 7.943677877367541,
+      "Cost Red. vs GPT-4 (%)": 0.0,
+      "Acc. vs GPT-4 (%)": 100.0,
+      "Opt.Sel (%)": 1.367760326727517,
+      "Regret (%)": 16.57552832826248,
+      "WTP": 5.0,
+      "Model Distribution": {
+        "gpt-4-1106-preview": 36483
+      }
+    },
+    {
+      "Router / Model": "krusch (WTP=10.0)",
+      "Type": "Krusch Cascade Router",
+      "Accuracy (%)": 80.47515281089824,
+      "Total Cost ($)": 289.80920000000003,
+      "Cost / 1K ($)": 7.943677877367541,
+      "Cost Red. vs GPT-4 (%)": 0.0,
+      "Acc. vs GPT-4 (%)": 100.0,
+      "Opt.Sel (%)": 1.367760326727517,
+      "Regret (%)": 16.57552832826248,
+      "WTP": 10.0,
+      "Model Distribution": {
+        "gpt-4-1106-preview": 36483
+      }
+    },
+    {
+      "Router / Model": "Cascade Router (Err=0%)",
+      "Type": "RouterBench Cascade",
+      "Accuracy (%)": 90.26382150590685,
+      "Total Cost ($)": 64.08485878799999,
+      "Cost / 1K ($)": 1.7565676832497326,
+      "Cost Red. vs GPT-4 (%)": 77.88722415023402,
+      "Acc. vs GPT-4 (%)": 112.1635913112339,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 6.7868596332538615
+    },
+    {
+      "Router / Model": "Cascade Router (Err=5%)",
+      "Type": "RouterBench Cascade",
+      "Accuracy (%)": 85.12183756818244,
+      "Total Cost ($)": 50.013682032000006,
+      "Cost / 1K ($)": 1.3708763542471838,
+      "Cost Red. vs GPT-4 (%)": 82.7425485346911,
+      "Acc. vs GPT-4 (%)": 105.77406142763476,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 11.928843570978264
+    },
+    {
+      "Router / Model": "Cascade Router (Err=10%)",
+      "Type": "RouterBench Cascade",
+      "Accuracy (%)": 80.47871611435463,
+      "Total Cost ($)": 38.918057544,
+      "Cost / 1K ($)": 1.0667449920236822,
+      "Cost Red. vs GPT-4 (%)": 86.57114489671136,
+      "Acc. vs GPT-4 (%)": 100.00442783061845,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 16.57196502480608
+    },
+    {
+      "Router / Model": "Cascade Router (Err=20%)",
+      "Type": "RouterBench Cascade",
+      "Accuracy (%)": 72.74936271688183,
+      "Total Cost ($)": 26.846236083999997,
+      "Cost / 1K ($)": 0.7358560448428034,
+      "Cost Red. vs GPT-4 (%)": 90.73658252257002,
+      "Acc. vs GPT-4 (%)": 90.39978201449263,
+      "Opt.Sel (%)": NaN,
+      "Regret (%)": 24.30131842227887
+    }
+  ],
+  "domain_breakdown": [
+    {
+      "Benchmark": "grade-school-math",
+      "Queries": 7450,
+      "GPT-4 Acc (%)": 65.87919463087249,
+      "GPT-4 Cost ($)": 63.67755,
+      "Krusch Frugal Acc (%)": 62.69798657718121,
+      "Krusch Frugal Cost ($)": 4.341846799999999,
+      "Krusch Frugal Savings (%)": 93.1815109092608,
+      "Krusch Balanced Acc (%)": 62.7248322147651,
+      "Krusch Balanced Cost ($)": 4.5552268,
+      "Krusch Balanced Savings (%)": 92.84641635866959
+    },
+    {
+      "Benchmark": "hellaswag",
+      "Queries": 10042,
+      "GPT-4 Acc (%)": 90.23102967536347,
+      "GPT-4 Cost ($)": 77.76247000000001,
+      "Krusch Frugal Acc (%)": 86.01872137024496,
+      "Krusch Frugal Cost ($)": 6.135231800000001,
+      "Krusch Frugal Savings (%)": 92.1102920213311,
+      "Krusch Balanced Acc (%)": 89.45429197371043,
+      "Krusch Balanced Cost ($)": 72.7209308,
+      "Krusch Balanced Savings (%)": 6.48325496862433
+    },
+    {
+      "Benchmark": "arc-challenge",
+      "Queries": 1456,
+      "GPT-4 Acc (%)": 95.39835164835165,
+      "GPT-4 Cost ($)": 7.32081,
+      "Krusch Frugal Acc (%)": 89.28571428571429,
+      "Krusch Frugal Cost ($)": 0.5862376,
+      "Krusch Frugal Savings (%)": 91.99217572918843,
+      "Krusch Balanced Acc (%)": 94.43681318681318,
+      "Krusch Balanced Cost ($)": 6.7327808,
+      "Krusch Balanced Savings (%)": 8.03229697260276
+    },
+    {
+      "Benchmark": "winogrande",
+      "Queries": 1267,
+      "GPT-4 Acc (%)": 85.87213891081295,
+      "GPT-4 Cost ($)": 4.473330000000001,
+      "Krusch Frugal Acc (%)": 75.37490134175216,
+      "Krusch Frugal Cost ($)": 0.3542366,
+      "Krusch Frugal Savings (%)": 92.08114313050903,
+      "Krusch Balanced Acc (%)": 85.79321231254933,
+      "Krusch Balanced Cost ($)": 4.4537732000000005,
+      "Krusch Balanced Savings (%)": 0.43718661489315913
+    },
+    {
+      "Benchmark": "mbpp",
+      "Queries": 427,
+      "GPT-4 Acc (%)": 68.61826697892272,
+      "GPT-4 Cost ($)": 4.00404,
+      "Krusch Frugal Acc (%)": 65.10538641686182,
+      "Krusch Frugal Cost ($)": 0.1430486,
+      "Krusch Frugal Savings (%)": 96.42739333273394,
+      "Krusch Balanced Acc (%)": 68.38407494145198,
+      "Krusch Balanced Cost ($)": 3.9821276,
+      "Krusch Balanced Savings (%)": 0.547257270157131
+    },
+    {
+      "Benchmark": "mmlu-professional-law",
+      "Queries": 1534,
+      "GPT-4 Acc (%)": 69.16558018252934,
+      "GPT-4 Cost ($)": 27.88522,
+      "Krusch Frugal Acc (%)": 49.152542372881356,
+      "Krusch Frugal Cost ($)": 2.2613198000000003,
+      "Krusch Frugal Savings (%)": 91.89061517176482,
+      "Krusch Balanced Acc (%)": 50.651890482398954,
+      "Krusch Balanced Cost ($)": 3.7976924,
+      "Krusch Balanced Savings (%)": 86.38098462196102
+    },
+    {
+      "Benchmark": "mmlu-moral-scenarios",
+      "Queries": 895,
+      "GPT-4 Acc (%)": 87.26256983240224,
+      "GPT-4 Cost ($)": 7.486270000000001,
+      "Krusch Frugal Acc (%)": 63.79888268156425,
+      "Krusch Frugal Cost ($)": 0.5971564,
+      "Krusch Frugal Savings (%)": 92.0233120098527,
+      "Krusch Balanced Acc (%)": 87.0391061452514,
+      "Krusch Balanced Cost ($)": 7.4090384,
+      "Krusch Balanced Savings (%)": 1.0316432615975812
+    }
+  ]
+}

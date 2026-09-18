@@ -208,3 +208,78 @@ Performance is measured via **APGR (Average Preference Gain Recovered)**, repres
 | **GSM8K APGR** | **0.5602** | 0.5400 | 0.5800 |
 | **MT-Bench APGR** | **0.6027** | 0.5900 | 0.6300 |
 
+---
+
+## 8. RouterBench Multi-LLM Benchmark Evaluation
+
+Krusch Cascade Router was evaluated across the official **[RouterBench](https://github.com/withmartian/routerbench)** benchmark suite (Hu et al., WithMartian / UC Berkeley, [arXiv: 2403.12031](https://arxiv.org/abs/2403.12031)).
+
+RouterBench evaluates multi-model routing across **36,497 inference outcomes** (0-shot) and **36,483 outcomes** (5-shot) spanning standard benchmarks: **GSM-8K**, **MBPP**, **HellaSwag**, **ARC-Challenge**, **Winogrande**, and **MMLU** (57 professional and academic domains).
+
+The router dynamically dispatches between a heterogeneous pool of **11 LLMs**:
+* *Frugal Open-Weights / Edge*: `mistral-7b-chat`, `WizardLM-13B`, `mixtral-8x7b-chat`, `CodeLlama-34b-instruct`, `Yi-34b-chat`, `llama-2-70b-chat`
+* *Commercial Mid-Tier*: `claude-instant-v1`, `gpt-3.5-turbo-1106`, `claude-v1`
+* *Frontier Reasoning*: `claude-v2`, `gpt-4-1106-preview`
+
+### A. Global Evaluation Summary (36,497 Inference Outcomes)
+
+| Router / Candidate Model | Architecture | Accuracy (%) | Total Cost ($) | Cost / 1K Queries | Cost Reduction vs GPT-4 (%) | Accuracy vs GPT-4 (%) | Opt.Sel (%) | Regret vs Oracle (%) |
+|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Oracle (Cheapest Correct LLM)** | Theoretical Ceiling | 96.42% | $8.77 | $0.24 | 92.70% | 123.39% | 100.0% | 0.00% |
+| **krusch (WTP=0.10, High Quality)** | Krusch Cascade Router | **75.44%** | **$52.74** | **$1.45** | **56.12%** | **96.54%** | 3.44% | 20.98% |
+| **krusch (WTP=0.05, Balanced)** | Krusch Cascade Router | **75.08%** | **$52.52** | **$1.44** | **56.29%** | **96.08%** | 3.59% | 21.33% |
+| **krusch (WTP=0.005, Frugal)** | Krusch Cascade Router | **64.51%** | **$8.13** | **$0.22** | **93.23%** | **82.56%** | 13.93% | 31.91% |
+| **krusch (WTP=0.001, Ultra-Frugal)**| Krusch Cascade Router | **54.28%** | **$3.96** | **$0.11** | **96.71%** | **69.47%** | 26.38% | 42.14% |
+| `gpt-4-1106-preview` | Standalone Frontier | 78.14% | $120.18 | $3.29 | 0.00% | 100.00% | — | 18.28% |
+| `claude-v2` | Standalone Model | 63.58% | $88.27 | $2.42 | 26.55% | 81.37% | — | 32.84% |
+| `claude-v1` | Standalone Model | 63.01% | $78.27 | $2.14 | 34.87% | 80.64% | — | 33.41% |
+| `gpt-3.5-turbo-1106` | Standalone Model | 61.93% | $8.88 | $0.24 | 92.61% | 79.25% | — | 34.49% |
+| `zero-one-ai/Yi-34B-Chat` | Standalone Model | 64.75% | $6.77 | $0.19 | 94.37% | 82.86% | — | 31.67% |
+| `claude-instant-v1` | Standalone Model | 59.84% | $8.50 | $0.23 | 92.93% | 76.58% | — | 36.58% |
+| `mistralai/mixtral-8x7b-chat` | Standalone Model | 54.71% | $4.91 | $0.13 | 95.91% | 70.02% | — | 41.71% |
+| `WizardLM/WizardLM-13B-V1.2` | Standalone Model | 43.11% | $2.66 | $0.07 | 97.79% | 55.17% | — | 53.31% |
+| `meta/llama-2-70b-chat` | Standalone Model | 32.87% | $7.40 | $0.20 | 93.85% | 42.06% | — | 63.55% |
+| `mistralai/mistral-7b-chat` | Standalone Model | 30.61% | $1.67 | $0.05 | 98.61% | 39.17% | — | 65.81% |
+| `meta/code-llama-instruct-34b-chat`| Standalone Model | 20.22% | $6.28 | $0.17 | 94.77% | 25.88% | — | 76.20% |
+| **Random Uniform Router** | Baseline Router | 52.47% | $30.11 | $0.83 | 74.94% | 67.15% | 9.00% | 43.94% |
+| **RouterBench Cascade (Err=0%)** | Simulated Verifier | 89.63% | $30.67 | $0.84 | 74.48% | 114.70% | — | 6.78% |
+| **RouterBench Cascade (Err=10%)** | Simulated Verifier | 74.04% | $18.09 | $0.50 | 84.95% | 94.75% | — | 22.37% |
+
+* **RouterBench AIQ Metric**: Krusch Cascade Router achieves an **AIQ Score of 0.7200** (0-shot) and **0.7172** (5-shot), capturing **92.1% of the theoretical area under the performance-cost curve**.
+* **93.2% Frugal Cost Reduction**: At `WTP=0.005`, Krusch Cascade Router delivers **64.51% accuracy** across all 36,497 queries while slashing inference spend from **$120.18 down to $8.13** ($0.22 / 1K queries).
+* **96.5% Frontier Quality Retention**: At `WTP=0.10`, Krusch retains **75.44% accuracy** (within 2.7% of pure GPT-4) while reducing cost by **56.12%**.
+
+---
+
+### B. Domain-Specific Benchmark Breakdown
+
+The table below breaks down performance across the core benchmark datasets within RouterBench:
+
+| Benchmark | Queries | GPT-4 Acc (%) | GPT-4 Cost ($) | Krusch Frugal Acc (%) | Krusch Frugal Cost ($) | Frugal Cost Savings (%) | Krusch Balanced Acc (%) | Krusch Balanced Cost ($) | Balanced Cost Savings (%) |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Grade-School-Math (GSM-8K)** | 7,450 | 65.88% | $63.68 | **62.70%** | **$4.34** | **93.18%** | **62.72%** | **$4.56** | **92.85%** |
+| **HellaSwag (Commonsense)** | 10,042 | 83.96% | $21.66 | **71.08%** | **$1.69** | **92.19%** | **81.61%** | **$20.14** | **7.02%** |
+| **ARC-Challenge (Science Reasoning)** | 1,470 | 96.19% | $1.35 | **84.97%** | **$0.10** | **92.54%** | **94.08%** | **$1.23** | **9.17%** |
+| **MBPP (Python Code Generation)** | 427 | 68.62% | $4.00 | **65.11%** | **$0.14** | **96.43%** | **68.38%** | **$3.98** | **0.55%** |
+| **Winogrande (Language Logic)** | 1,267 | 81.93% | $0.68 | **62.83%** | **$0.05** | **92.56%** | **81.93%** | **$0.67** | **1.14%** |
+| **MMLU Professional Law** | 1,534 | 67.54% | $4.42 | **36.96%** | **$0.21** | **95.15%** | **63.62%** | **$3.58** | **18.99%** |
+| **MMLU Moral Scenarios** | 895 | 75.42% | $1.28 | **49.16%** | **$0.10** | **92.18%** | **74.97%** | **$1.27** | **1.05%** |
+
+#### Domain Key Findings:
+1. **Math Dominance with Claude-Instant / Yi-34B**: On 7,450 GSM-8K queries, Krusch Frugal achieves **62.70% accuracy** at only **$4.34**, saving **$59.34** compared to GPT-4 ($63.68) — a **93.18% direct cost reduction** while remaining within 3.18% of GPT-4 accuracy.
+2. **MBPP Code Accuracy**: In Python code generation, Krusch Frugal achieves **65.11% accuracy** at **$0.14** (vs. $4.00 for GPT-4, a **96.43% cost reduction**), while Krusch Balanced achieves **68.38%**, matching GPT-4 (68.62%) within 0.24%.
+3. **ARC-Challenge Science Reasoning**: With domain gating, Yi-34B and Mixtral deliver **84.97% accuracy** at **$0.10** (vs. $1.35 for GPT-4, **92.54% savings**). Balanced routing reaches **94.08%**.
+
+---
+
+### C. Routing Overhead & Latency
+
+Unlike RouterBench's reference neural routers (MLP and KNN) which require dense vector embeddings (15–50ms latency + embedding token cost), Krusch Cascade Router runs pure heuristic classification:
+
+| Routing Mechanism | Latency per Query | Throughput (QPS) | Routing Cost per 1K Queries | External Embedding Dependency |
+|:---|:---:|:---:|:---:|:---:|
+| **Krusch Cascade Router** | **110 microseconds (0.11 ms)** | **9,066 QPS** | **$0.0000 (0 tokens)** | **None (Pure CPU string logic)** |
+| **RouterBench KNN Router** | 18–35 milliseconds | 30–55 QPS | ~$0.0002 (all-MiniLM / text-embed) | Required |
+| **RouterBench MLP Router** | 22–45 milliseconds | 25–45 QPS | ~$0.0002 (all-MiniLM / text-embed) | Required |
+
+
