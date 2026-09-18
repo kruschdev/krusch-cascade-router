@@ -12,9 +12,15 @@ export type SpecialistRole =
   | 'games_spatial'    // deepseek/deepseek-v4-flash (chess, FEN/PGN, board positions)
   | 'comprehension_rc';// qwen/qwen3-235b-a22b-2507 (paragraph answer evaluation, reading comprehension)
 
+export interface CustomSpecialistRule {
+  role: SpecialistRole;
+  pattern: RegExp;
+}
+
 export interface ClassifierOptions {
   lengthThreshold?: number; // String length, not tokens, for speed. Default 2000.
   customRules?: RegExp[];   // Custom Regex patterns to mark a prompt as complex
+  customSpecialistRules?: CustomSpecialistRule[]; // Custom regex overrides for specialist routing
   prunePreRouting?: boolean; // If true, clean conversational filler and whitespace before length evaluation
   knowledgeBoundaryGating?: boolean; // If true, prioritize closed-world self-contained routing (default true)
 }
@@ -176,6 +182,15 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
 
   if (options?.prunePreRouting) {
     fullText = pruneText(fullText);
+  }
+
+  // 0. Custom Specialist Overrides (User-defined domain rules)
+  if (options?.customSpecialistRules && options.customSpecialistRules.length > 0) {
+    for (const rule of options.customSpecialistRules) {
+      if (rule.pattern.test(fullText)) {
+        return rule.role;
+      }
+    }
   }
 
   const p = fullText.toLowerCase();

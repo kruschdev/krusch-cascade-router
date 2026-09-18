@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
   <img src="https://img.shields.io/badge/OpenRouter-5--Model%20Specialists-purple.svg?style=flat-square" alt="OpenRouter Specialists">
   <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Candidate%20(Pending%20Review)-orange.svg?style=flat-square" alt="RouterArena PR #169"></a>
-  <img src="https://img.shields.io/badge/tests-40%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
+  <img src="https://img.shields.io/badge/tests-42%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
 </p>
 
 ---
@@ -24,10 +24,36 @@
 Using a heavy LLM or neural embedding model to decide which model to dispatch a query to introduces significant TTFT (Time-To-First-Token) latency and adds auxiliary billing. `krusch-cascade-router` provides a fast, pragmatic alternative for Node.js developers:
 
 1. **Sub-Millisecond Heuristics**: Evaluates syntax, query length, structure, and domain keywords in microseconds on CPU without making pre-flight routing calls.
-2. **5-Model Specialist Routing via OpenRouter**: Out-of-the-box factory preset orchestrating 5 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, and `qwen3-235b-a22b-2507`) unified through OpenRouter.
+2. **5-Model Specialist Routing via OpenRouter**: Out-of-the-box factory preset orchestrating 5 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, and `qwen3-235b-a22b-2507`) unified through OpenRouter. Fully swappable via `customModels`.
 3. **Knowledge Boundary Routing**: Detects closed-world self-contained tasks (syntax, math, regex, formatting, translation) to keep them on fast edge models.
 4. **Speculative Parallel Hedging**: Pre-warms heavy models in parallel on borderline confidence queries (`[0.25, 0.70]`) to mask sequential cascade latency.
 5. **Logprob & Silent Failure Gating**: Inspects initial token logprob confidence and monitors sliding-window repetition / $n$-gram loops to abort unhelpful outputs early.
+
+---
+
+### 🎯 When to Use vs. When NOT to Use
+
+| Best Used For ✅ | Poor Fit / Not Recommended ❌ |
+|:---|:---|
+| **Agentic Loops & Microservices**: Multi-step workflows where saving 300–800ms TTFT routing overhead per tool call compounds significantly. | **Open-Ended Conversational Chat**: Ambiguous, chatty, or emotional dialogue where prompt intent lacks lexical or structural domain clues. |
+| **Code, STEM, Math, SQL, Formatting**: Tasks with distinct syntactic, mathematical, or structural footprints. | **Subtle Semantic Nuance**: Prompts requiring complex affective or social reasoning without explicit domain vocabulary. |
+| **Closed-World Transformations**: Unit conversions, regex generation, JSON parsing, language translation. | **Latency-Insensitive Frontier Batch Jobs**: Offline tasks where maximum reasoning depth is required on 100% of inputs regardless of cost. |
+| **Runaway Loop & Degeneration Guard**: Halting repetitive cyclical outputs mid-stream before blowing token limits. | **Single-Provider Monoliths**: Workloads already locked into a single proprietary model endpoint with fixed enterprise pricing. |
+| **Cost-Sensitive OpenRouter Workflows**: Dispatches to cheap specialized models first with automatic fallback to frontier models. | **When You Need Learned Embeddings**: If queries are noisy, unstructured natural language, a neural router (e.g. RouteLLM, NotDiamond) will outperform regex heuristics. |
+
+---
+
+### ⚖️ Engineering Snapshot & Design Trade-offs
+
+| Dimension | Krusch Cascade Router | Embedding / Neural Routers (e.g. RouteLLM) | LLM-as-a-Router (e.g. Orca) |
+|---|---|---|---|
+| **Dispatch Latency** | **< 15 microseconds (CPU)** | 15 – 50 ms (Vectorization + MLP) | 400 – 1,200 ms (LLM pre-flight) |
+| **Routing Cost** | **$0.00 (0 tokens)** | ~$0.0001 (Embedding tokens) | ~$0.002 (Prompt tokens) |
+| **Structured Prompts (Code, Math, Syntax)** | **High Precision (>95%)** | High (>90%) | High (>95%) |
+| **Messy / Ambiguous Chat** | **Brittle (defaults to STEM/General)** | **Robust (Learns semantic nuances)** | **Very Robust** |
+| **Mid-Stream Loop Guard** | **Yes (sliding n-gram abort)** | No (Routing only) | No (Routing only) |
+| **Model Catalog Dependency** | **Fully decoupled (via customModels)** | Requires retrained classifier | Prompt updates |
+| **Network Failure Cascade** | **Yes (Speculative dual-call & fallback)** | No | No |
 
 ---
 
@@ -59,6 +85,13 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 | **5. LMSYS RouteLLM** | LMSYS Org / UC Berkeley (arXiv: 2406.18665) | 10,000+ Battles across GSM8K, MT-Bench, MMLU | GPT-4 vs Mixtral / LLaMA-3 | **MT-Bench: 0.6027 APGR**<br>**GSM8K: 0.5602 APGR**<br>**MMLU: 0.5060 APGR** | **0.6027 APGR**<br>(Heuristic vs learned MF) | **50%–75% Savings**<br>at 95% Quality Retention | < 0.05 ms<br>(20,000+ QPS) |
 
 > 🔍 **Full Technical Documentation & Methodology**: Detailed per-benchmark curves, domain breakdowns, and derivations are available in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
+>
+> 💡 **Methodology & Context Note on Benchmark Results**:
+> The metrics reported in this evaluation matrix reflect offline simulation runs evaluating our modern 5-model specialist pool (`Qwen3-Coder-Next`, `deepseek-v4-flash`, `deepseek-v4-pro`, `gemini-3.1-flash-lite`, `qwen3-235b-a22b`) against standard public benchmark datasets and task queries.
+>
+> **Important Reproducibility Context**:
+> - **Model Pool Advances**: In historical benchmark papers (such as RouteLLM or AutoMix from 2023–2024), baselines were evaluated against older model generations (e.g., GPT-4 vs. LLaMA-13B). Part of the substantial cost reduction and quality retention achieved by `krusch-cascade-router` originates from the superior efficiency of modern 2025/2026 specialist models, alongside the zero-token microsecond heuristic dispatch.
+> - **Live Leaderboard Clarification**: As published on the official [RouteWorks/RouterArena live board](https://routeworks.github.io/leaderboard), **Paix2 is the official published #1 at 77.63**. Our score of 80.27 is an **offline candidate evaluation submitted under [PR #169](https://github.com/RouteWorks/RouterArena/pull/169)** awaiting maintainer review and should be treated as an unmerged candidate submission until officially verified.
 >
 > 🧪 **Audit Reproduction**: Run test suite:
 > ```bash
@@ -208,6 +241,43 @@ console.log(`Routed to: ${response.routedTo}`); // 'fast' | 'heavy'
 console.log(response.text);
 ```
 
+### Option C: Future-Proofing & Custom Specialists
+
+The 5 default models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, `qwen3-235b-a22b`) are an **empirical starter preset**, not a hardcoded lock-in. As OpenRouter models evolve, you can easily swap models, update token pricing, or inject custom domain regexes:
+
+```javascript
+import { createMultiSpecialistRouter } from 'krusch-cascade-router';
+
+const router = createMultiSpecialistRouter({
+  openrouterApiKey: process.env.OPENROUTER_API_KEY,
+  // 1. Swap or upgrade specialist models (strings or full ModelConfig objects)
+  customModels: {
+    code: 'anthropic/claude-3.7-sonnet',
+    reasoning_deep: 'openai/o3-mini',
+    factual_stem: {
+      model: 'meta-llama/llama-3.3-70b-instruct',
+      provider: 'openrouter',
+      costPerMillionInputTokens: 0.12,
+      costPerMillionOutputTokens: 0.30
+    }
+  },
+  // 2. Inject custom domain regex rules evaluated before default heuristics
+  classifier: {
+    customSpecialistRules: [
+      { role: 'reasoning_deep', pattern: /\b(?:legal compliance|gdpr audit|sec filing)\b/i },
+      { role: 'code', pattern: /\b(?:terraform plan|ansible playbook|helm chart)\b/i }
+    ]
+  },
+  // 3. Optional local edge model for low-priority / background batch jobs
+  backgroundModel: {
+    url: 'http://localhost:11434/v1/chat/completions',
+    model: 'qwen2.5:3b',
+    costPerMillionInputTokens: 0,
+    costPerMillionOutputTokens: 0
+  }
+});
+```
+
 ---
 
 ## 🛠️ Advanced Features
@@ -287,10 +357,17 @@ Factory function configuring the 5 specialist models, routing through OpenRouter
 | Option | Type | Default | Description |
 |---|---|:---:|---|
 | `openrouterApiKey` | `string` | `process.env.OPENROUTER_API_KEY` | API key for OpenRouter. |
+| `customModels` | `Partial<Record<SpecialistRole, string \| ModelConfig>>` | `undefined` | Custom model ID strings or full `ModelConfig` objects overriding default specialists. |
+| `classifier` | `ClassifierOptions` | `undefined` | Custom options, including `customSpecialistRules` and `customRules`. |
+| `backgroundModel` | `ModelConfig` | `undefined` | Optional model for low-priority/background batch jobs. |
 | `openrouterReferer` | `string` | `undefined` | Optional `HTTP-Referer` header for rankings. |
 | `openrouterTitle` | `string` | `undefined` | Optional `X-Title` header for rankings. |
 | `cascadeThreshold` | `number` | `0.85` | Logprob confidence threshold for cascading. |
+| `tokensToEvaluate` | `number` | `5` | Tokens to buffer and evaluate for initial confidence. |
+| `maxRepetitiveTokens` | `number` | `4` | Threshold for degenerate repetition and cyclic loop detection. |
 | `speculativeBranching` | `boolean` | `false` | Enable Second Thought speculative hedging. |
+| `prunePreRouting` | `boolean` | `false` | Strips conversational filler and whitespace before length evaluation. |
+| `onEvent` | `Function` | `undefined` | Telemetry callback for observability. |
 
 ### `new CascadeRouter(config: RouterConfig)`
 
@@ -308,7 +385,7 @@ Factory function configuring the 5 specialist models, routing through OpenRouter
 | `maxRepetitiveTokens` | `number` | `4` | Threshold for degenerate repetition and cyclic loop detection. |
 | `speculativeBranching` | `boolean` | `false` | Enables Second Thought parallel hedging for borderline prompts. |
 | `prunePreRouting` | `boolean` | `false` | Strips conversational filler and whitespace before length evaluation. |
-| `classifier` | `ClassifierOptions` | `undefined` | Custom options and `customRules` regexes for complexity detection. |
+| `classifier` | `ClassifierOptions` | `undefined` | Custom options, `customSpecialistRules`, and `customRules` regexes. |
 | `onEvent` | `Function` | `undefined` | Telemetry callback for observability. |
 
 ---

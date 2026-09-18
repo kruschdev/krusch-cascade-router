@@ -6,7 +6,8 @@ export {
   classifySpecialistRole,
   SpecialistRole,
   Message, 
-  ClassifierOptions 
+  ClassifierOptions,
+  CustomSpecialistRule 
 } from './classifier.js';
 
 export { 

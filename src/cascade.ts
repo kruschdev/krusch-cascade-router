@@ -97,12 +97,14 @@ export interface MultiSpecialistRouterOptions {
   openrouterApiKey?: string;
   siteUrl?: string;
   appName?: string;
-  customModels?: Partial<Record<SpecialistRole, string>>;
+  customModels?: Partial<Record<SpecialistRole, string | ModelConfig>>;
+  backgroundModel?: ModelConfig;
   cascadeThreshold?: number;
   tokensToEvaluate?: number;
   maxRepetitiveTokens?: number;
   speculativeBranching?: boolean;
   prunePreRouting?: boolean;
+  classifier?: ClassifierOptions;
   fetch?: typeof fetch;
   onEvent?: (event: TelemetryEvent, metadata?: Record<string, any>) => void;
   jeanSREGate?: JeanSREGateConfig;
@@ -133,19 +135,38 @@ export function createMultiSpecialistRouter(options?: MultiSpecialistRouterOptio
 
   for (const [roleKey, def] of Object.entries(defaultModels)) {
     const role = roleKey as SpecialistRole;
-    const modelName = options?.customModels?.[role] || def.model;
-    specialistModels[role] = {
-      model: modelName,
-      provider: 'openrouter',
-      apiKey,
-      costPerMillionInputTokens: def.inputCost,
-      costPerMillionOutputTokens: def.outputCost
-    };
+    const userOverride = options?.customModels?.[role];
+    if (typeof userOverride === 'string') {
+      specialistModels[role] = {
+        model: userOverride,
+        provider: 'openrouter',
+        apiKey,
+        costPerMillionInputTokens: def.inputCost,
+        costPerMillionOutputTokens: def.outputCost
+      };
+    } else if (userOverride && typeof userOverride === 'object') {
+      specialistModels[role] = {
+        provider: 'openrouter',
+        apiKey,
+        costPerMillionInputTokens: def.inputCost,
+        costPerMillionOutputTokens: def.outputCost,
+        ...userOverride
+      };
+    } else {
+      specialistModels[role] = {
+        model: def.model,
+        provider: 'openrouter',
+        apiKey,
+        costPerMillionInputTokens: def.inputCost,
+        costPerMillionOutputTokens: def.outputCost
+      };
+    }
   }
 
   return new CascadeRouter({
     fastModel: specialistModels.factual_stem,
     heavyModel: specialistModels.reasoning_deep,
+    backgroundModel: options?.backgroundModel,
     specialistModels,
     openrouterApiKey: apiKey,
     openrouterReferer: referer,
@@ -155,6 +176,7 @@ export function createMultiSpecialistRouter(options?: MultiSpecialistRouterOptio
     maxRepetitiveTokens: options?.maxRepetitiveTokens,
     speculativeBranching: options?.speculativeBranching,
     prunePreRouting: options?.prunePreRouting,
+    classifier: options?.classifier,
     fetch: options?.fetch,
     onEvent: options?.onEvent,
     jeanSREGate: options?.jeanSREGate

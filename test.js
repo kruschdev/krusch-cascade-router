@@ -59,3 +59,51 @@ test('classifySpecialistRole - language name disambiguation', async () => {
     assert.equal(classifySpecialistRole('Analyze the themes of Russian literature in the 19th century.'), 'factual_stem');
 });
 
+test('classifySpecialistRole - supports customSpecialistRules', async () => {
+    const { classifySpecialistRole } = await import('./dist/index.js');
+    const customRules = [
+        { role: 'reasoning_deep', pattern: /\b(?:legal compliance|gdpr audit)\b/i },
+        { role: 'code', pattern: /\b(?:terraform plan|ansible playbook)\b/i }
+    ];
+
+    // Matches custom rule 1
+    assert.equal(classifySpecialistRole('Conduct a legal compliance review for our policy', { customSpecialistRules: customRules }), 'reasoning_deep');
+    // Matches custom rule 2
+    assert.equal(classifySpecialistRole('Review this terraform plan for VPC peering', { customSpecialistRules: customRules }), 'code');
+    // Without custom rules, "legal compliance" defaults to general_fast or factual_stem
+    assert.notEqual(classifySpecialistRole('Conduct a legal compliance review for our policy'), 'reasoning_deep');
+});
+
+test('createMultiSpecialistRouter - supports customModels (string & ModelConfig), classifier, and backgroundModel', async () => {
+    const { createMultiSpecialistRouter } = await import('./dist/index.js');
+    const router = createMultiSpecialistRouter({
+        openrouterApiKey: 'test-key',
+        customModels: {
+            code: 'anthropic/claude-3.7-sonnet',
+            factual_stem: {
+                model: 'meta-llama/llama-3.3-70b-instruct',
+                provider: 'openrouter',
+                costPerMillionInputTokens: 0.12,
+                costPerMillionOutputTokens: 0.30
+            }
+        },
+        backgroundModel: {
+            model: 'qwen2.5:3b',
+            url: 'http://localhost:11434/v1/chat/completions',
+            costPerMillionInputTokens: 0,
+            costPerMillionOutputTokens: 0
+        },
+        classifier: {
+            customSpecialistRules: [
+                { role: 'reasoning_deep', pattern: /\bquantum mechanics\b/i }
+            ]
+        }
+    });
+
+    assert.equal(router.config.specialistModels.code.model, 'anthropic/claude-3.7-sonnet');
+    assert.equal(router.config.specialistModels.factual_stem.model, 'meta-llama/llama-3.3-70b-instruct');
+    assert.equal(router.config.specialistModels.factual_stem.costPerMillionInputTokens, 0.12);
+    assert.equal(router.config.backgroundModel.model, 'qwen2.5:3b');
+    assert.equal(router.config.classifier.customSpecialistRules.length, 1);
+});
+
