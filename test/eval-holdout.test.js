@@ -264,6 +264,7 @@ test('L1 Pre-Router - classifyPreRoute Fast-Path vs L2 Delegation', () => {
   for (const query of unstructuredSamples) {
     const res = classifyPreRoute(query);
     assert.equal(res.isFastPath, false, `Expected query "${query}" to NOT be Fast-Path`);
+    assert.equal(res.role, undefined, `Expected role to be undefined on miss for query "${query}"`);
     assert.equal(res.suggestedAction, 'delegate_to_l2', `Expected delegate_to_l2 for query "${query}"`);
   }
 });

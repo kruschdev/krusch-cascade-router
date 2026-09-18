@@ -19,7 +19,7 @@ export interface CustomSpecialistRule {
 
 export interface PreRouteResult {
   isFastPath: boolean;
-  role: SpecialistRole;
+  role?: SpecialistRole;
   confidence: 'high' | 'borderline' | 'unstructured';
   complexityScore: number;
   suggestedAction: 'dispatch_specialist' | 'delegate_to_l2';
@@ -40,7 +40,7 @@ export interface ClassifierOptions {
  * that does not require open-world reasoning and is degraded by cognitive context bloat.
  */
 export function detectKnowledgeBoundary(text: string): 'closed' | 'open' {
-  if (!text) return 'closed';
+  if (!text || !text.trim()) return 'open';
   const clean = text.trim().toLowerCase();
 
   // Closed-world signals: self-contained transformations and lookup queries
@@ -86,8 +86,7 @@ export function pruneText(text: string): string {
 
 /**
  * Continuous complexity scorer [0.0, 1.0].
- * Provides fine-grained probability for speculative hedging.
- * Scores between 0.35 and 0.65 represent the uncertainty boundary suitable for speculative pre-warming.
+ * Provides fine-grained probability for speculative hedging or routing gates.
  */
 export function evaluateComplexityScore(messages: Message[] | string, options?: ClassifierOptions): number {
   const lengthThreshold = options?.lengthThreshold || 2000;
@@ -258,15 +257,15 @@ export function classifyPreRoute(messages: Message[] | string, options?: Classif
     // Markdown code blocks
     /```/i.test(fullText) ||
     // Intent to write / implement / refactor / debug / optimize code
-    /\b(?:write|create|implement|build|refactor|debug|fix|optimize|convert)\b[\s\S]{0,60}\b(?:code|script|function|class|method|algorithm|api|endpoint|query|component|hook|test|handler|decorator|type|interface|schema|middleware|resolver|generator|workflow|pipeline|dockerfile|regex|callback|promise|async\/await)\b/i.test(fullText) ||
+    /\b(?:write|create|implement|build|refactor|debug|fix|optimize|convert)\b[\s\S]{0,60}\b(?:code|script|function|class|method|algorithm|program|solution|api|endpoint|query|component|hook|test|handler|decorator|type|interface|schema|middleware|resolver|generator|workflow|pipeline|dockerfile|regex|callback|promise|async\/await|binary search|quicksort|sorting|bfs|dfs)\b/i.test(fullText) ||
     /\b(?:how (?:do|can) I (?:implement|code|write|program|fix|debug|test|optimize|refactor))\b/i.test(fullText) ||
     /\b(?:fix this (?:code|bug|error|issue|exception|stack trace|syntax|crash|warning))\b/i.test(fullText) ||
     /\b(?:unit test|test suite|test case|pytest|jest|vitest|mocha|cargo test)\b/i.test(fullText) ||
     // Stack traces and runtime errors
     /(?:Traceback \(most recent call last\)|TypeError:|SyntaxError:|ReferenceError:|NullPointerException|IndexOutOfBoundsException|ModuleNotFoundError:|panic:|Segmentation fault|SIGSEGV|Uncaught Error:)/i.test(fullText) ||
     // Language & Framework specific terms combined with coding keywords
-    (/\b(?:typescript|javascript|python|rust|golang|react|vue|angular|svelte|next\.js|node\.js|express|fastapi|django|flask|graphql|dockerfile|github actions|kubernetes|k8s|css flexbox|css grid|tailwind|sql query|postgresql|sqlite|redis|mongodb)\b/i.test(fullText) &&
-     /\b(?:error|bug|issue|exception|function|class|component|hook|query|schema|type|import|export|install|build|compile|syntax|loop|re-render|memory leak|thread|mutex|deadlock|concurrency|async|await|promise|callback|iterator|package|module|resolver|endpoint|route|layout|generic|workflow)\b/i.test(fullText)) ||
+    (/\b(?:typescript|javascript|python|rust|golang|c\+\+|cpp|c#|java|scala|kotlin|swift|ruby|php|react|vue|angular|svelte|next\.js|node\.js|express|fastapi|django|flask|graphql|dockerfile|github actions|kubernetes|k8s|css flexbox|css grid|tailwind|sql query|postgresql|sqlite|redis|mongodb)\b/i.test(fullText) &&
+     /\b(?:error|bug|issue|exception|function|class|component|hook|query|schema|type|import|export|install|build|compile|syntax|loop|re-render|memory leak|thread|mutex|deadlock|concurrency|async|await|promise|callback|iterator|package|module|resolver|endpoint|route|layout|generic|workflow|search|sort|algorithm)\b/i.test(fullText)) ||
     // Programming keywords and signatures
     /\b(?:def\s+[a-zA-Z_]\w*|function\s+[a-zA-Z_]\w*|const\s+[a-zA-Z_]\w*\s*=|let\s+[a-zA-Z_]\w*\s*=|var\s+[a-zA-Z_]\w*\s*=|fn\s+[a-zA-Z_]\w*|func\s+[a-zA-Z_]\w*|class\s+[a-zA-Z_]\w*|public\s+(?:static\s+)?void|import\s+.*\s+from|from\s+.*\s+import|#include\s+<|require\(['"].*['"]\)|package\s+main|console\.log\(|println!|std::|fmt\.Println)\b/.test(fullText) ||
     // SQL DDL / DML
@@ -373,10 +372,10 @@ export function classifyPreRoute(messages: Message[] | string, options?: Classif
 
   // 8. Default Unstructured / Ambiguous Chat
   // When queries lack clear structural/syntactic domain signatures,
-  // pass through to L2 Neural / Embedding Router (or fall back to factual_stem).
+  // pass through to L2 Neural / Embedding Router.
   return {
     isFastPath: false,
-    role: 'factual_stem',
+    role: undefined,
     confidence: complexityScore >= 0.35 && complexityScore <= 0.65 ? 'borderline' : 'unstructured',
     complexityScore,
     suggestedAction: 'delegate_to_l2'
@@ -388,5 +387,5 @@ export function classifyPreRoute(messages: Message[] | string, options?: Classif
  * for sub-50ms multi-model swarm routing.
  */
 export function classifySpecialistRole(messages: Message[] | string, options?: ClassifierOptions): SpecialistRole {
-  return classifyPreRoute(messages, options).role;
+  return classifyPreRoute(messages, options).role ?? 'factual_stem';
 }
