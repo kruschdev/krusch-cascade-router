@@ -53,13 +53,14 @@ class KruschCascadeRouter(BaseRouter):
             or re.search(r"\b(?:in (?:the|this)\s+(?:provided|following)?\s*[\"']?(?:text|passage|article|excerpt|document|paragraph|case study)[\"']?\s+(?:above|below|provided)?)", p)
             or re.search(r"\b(?:reading comprehension|comprehension question|evaluate (?:whether|if) (?:the|this) (?:statement|claim|assertion) is (?:true|false|accurate|supported))\b", p)
             or re.search(r"\b(?:summarize (?:the|this)\s+[\"']?(?:text|passage|article|excerpt|document|chapter|section)[\"']?)", p)
+            or re.search(r"\b(?:what does the author (?:mean|state|imply|claim|conclude|suggest|argue))\b", p)
             or re.search(r"\b(?:main thesis of the author|author's main argument)\b", p)
         )
         if is_rc:
             return self.model_map.get("comprehension_rc", "qwen/qwen3-235b-a22b-2507")
 
-        # 2. Financial statements / balance sheets -> deepseek-v4-pro
-        if any(
+        # 2. Financial statements, balance sheets & formal proofs -> deepseek-v4-pro
+        is_deep = any(
             k in p
             for k in (
                 "net income",
@@ -70,8 +71,17 @@ class KruschCascadeRouter(BaseRouter):
                 "balance sheet",
                 "sec filing",
                 "earnings per share",
+                "ebitda",
+                "capital expenditure",
+                "dcf model",
             )
-        ):
+        ) or bool(
+            re.search(
+                r"\b(?:formal (?:deductive )?logic proof|formal mathematical proof|deductive reasoning|proof by contradiction|mathematical proof|game theory|nash equilibrium|prisoner's dilemma|pareto optimal(?:ity|)?|counterfactual analysis|first-order logic|syllogism proof)\b",
+                p,
+            )
+        )
+        if is_deep:
             return self.model_map.get("reasoning_deep", "deepseek/deepseek-v4-pro")
 
         # 3. Chess & spatial board positions -> Qwen3-Coder-Next

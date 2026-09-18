@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
   <img src="https://img.shields.io/badge/OpenRouter-5--Model%20Specialists-purple.svg?style=flat-square" alt="OpenRouter Specialists">
   <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Candidate%20(Pending%20Review)-orange.svg?style=flat-square" alt="RouterArena PR #169"></a>
-  <img src="https://img.shields.io/badge/tests-42%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
+  <img src="https://img.shields.io/badge/tests-43%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
 </p>
 
 ---
@@ -80,9 +80,9 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 |:---|:---|:---|:---|:---|:---:|:---:|:---:|
 | **1. RouterArena** | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool | **Official PR #169 Bot Eval**:<br>Workflow Score: **77.93**<br>Accuracy: **81.53%**<br>*(Official live #1: Paix2 @ 77.63)* | **77.93 (CI Bot)**<br>([Evaluated in PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.61 / 1K queries**<br>(vs $1.00 Orca, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
 | **2. Integration Suite** | Real-World Developer Prompts | 100 Diverse Queries across 6 Domains | Multi-Model Pool | **Routing Precision: 100.0%**<br>Noise Invariance: **100.0%**<br>*(Classifier routing precision, not LLM output)* | **100.0% Routing**<br>(Classification test suite) | **~75% Savings**<br>vs Frontier Oracle | 0.02 ms<br>(50,000+ QPS) |
-| **3. WithMartian RouterBench** | WithMartian (arXiv: 2403.12031) | 36,497 Real Inference Outcomes across 11 LLMs | Single-Model GPT-4 Oracle ($94.39 Total Cost) | **AIQ Score: 0.7200** (92.1% of Ceiling)<br>Frugal: 64.51% Acc @ $8.13<br>Balanced: 75.08% Acc @ $52.52 | **0.7200 AIQ Score**<br>(vs Martian MLP 0.6830) | **93.23% (Frugal)**<br>**56.29% (Balanced)** | 0.11 ms<br>(9,066 QPS) |
-| **4. Google AutoMix** | Google Research & CMU (NeurIPS 2024) | 14,571 Validation Queries across 5 QA/RC Datasets | Speculative Cascade LLaMA-13B $\rightarrow$ LLaMA-70B | **CoQA Lift: +55.17%** (vs +43.68% POMDP)<br>**NarrativeQA: +17.45%** (vs +6.44% POMDP) | **+55.17% IBC Lift**<br>(vs Google RL POMDP) | **82.40% on CoQA**<br>**68.39% on NarrativeQA** | 0.007 ms<br>(137,081 QPS) |
-| **5. LMSYS RouteLLM** | LMSYS Org / UC Berkeley (arXiv: 2406.18665) | 10,000+ Battles across GSM8K, MT-Bench, MMLU | GPT-4 vs Mixtral / LLaMA-3 | **MT-Bench: 0.6027 APGR**<br>**GSM8K: 0.5602 APGR**<br>**MMLU: 0.5060 APGR** | **0.6027 APGR**<br>(Heuristic vs learned MF) | **50%–75% Savings**<br>at 95% Quality Retention | < 0.05 ms<br>(20,000+ QPS) |
+| **3. WithMartian RouterBench**<br>*(Offline Simulation)* | WithMartian (arXiv: 2403.12031) | 36,497 Real Inference Outcomes across 11 LLMs | Single-Model GPT-4 Oracle ($94.39 Total Cost) | **AIQ Score: 0.7200** (92.1% of Ceiling)<br>Frugal: 64.51% Acc @ $8.13<br>Balanced: 75.08% Acc @ $52.52 | **0.7200 AIQ Score**<br>(Offline Simulation) | **93.23% (Frugal)**<br>**56.29% (Balanced)** | 0.11 ms<br>(9,066 QPS) |
+| **4. Google AutoMix**<br>*(Offline Simulation)* | Google Research & CMU (NeurIPS 2024) | 14,571 Validation Queries across 5 QA/RC Datasets | Speculative Cascade LLaMA-13B $\rightarrow$ LLaMA-70B | **CoQA Lift: +55.17%** (vs +43.68% POMDP)<br>**NarrativeQA: +17.45%** (vs +6.44% POMDP) | **+55.17% IBC Lift**<br>(Offline Simulation) | **82.40% on CoQA**<br>**68.39% on NarrativeQA** | 0.007 ms<br>(137,081 QPS) |
+| **5. LMSYS RouteLLM**<br>*(Offline Simulation)* | LMSYS Org / UC Berkeley (arXiv: 2406.18665) | 10,000+ Battles across GSM8K, MT-Bench, MMLU | GPT-4 vs Mixtral / LLaMA-3 | **MT-Bench: 0.6027 APGR**<br>**GSM8K: 0.5602 APGR**<br>**MMLU: 0.5060 APGR** | **0.6027 APGR**<br>(Offline Simulation) | **50%–75% Savings**<br>at 95% Quality Retention | < 0.05 ms<br>(20,000+ QPS) |
 
 > 🔍 **Full Technical Documentation & Methodology**: Detailed per-benchmark curves, domain breakdowns, and derivations are available in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
 >
@@ -90,8 +90,8 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 > The metrics reported in this evaluation matrix reflect offline simulation runs evaluating our modern 5-model specialist pool (`Qwen3-Coder-Next`, `deepseek-v4-flash`, `deepseek-v4-pro`, `gemini-3.1-flash-lite`, `qwen3-235b-a22b`) against standard public benchmark datasets and task queries.
 >
 > **Important Reproducibility Context**:
-> - **Model Pool Advances**: In historical benchmark papers (such as RouteLLM or AutoMix from 2023–2024), baselines were evaluated against older model generations (e.g., GPT-4 vs. LLaMA-13B). Part of the substantial cost reduction and quality retention achieved by `krusch-cascade-router` originates from the superior efficiency of modern 2025/2026 specialist models, alongside the zero-token microsecond heuristic dispatch.
 > - **Live Leaderboard Clarification**: As published on the official [RouteWorks/RouterArena live board](https://routeworks.github.io/leaderboard), **Paix2 is the official published #1 at 77.63**. Our candidate submission achieved **77.93 in official GitHub Actions CI evaluation under [PR #169](https://github.com/RouteWorks/RouterArena/pull/169)** awaiting maintainer review and should be treated as an unmerged candidate submission until officially merged.
+> - **Reconstructed Simulation Methodology (Suites 3–5)**: RouterBench, AutoMix, and RouteLLM figures represent reconstructed offline simulations evaluating our specialist models on those public benchmark datasets against historical baseline oracles (e.g. GPT-4 vs LLaMA-13B from 2023/2024 literature). They are local simulations, NOT independent official leaderboard submissions to those platforms.
 > - **Classifier Accuracy vs Generation Quality**: The 100% precision figure reported in the Developer Integration Suite measures *prompt domain routing classification* (ensuring code/math/trivia queries land on the correct model bucket), NOT generative correctness of the LLM responses.
 >
 > 🧪 **Audit Reproduction**: Run test suite:
@@ -157,10 +157,10 @@ Our candidate submission ([RouteWorks/RouterArena PR #169](https://github.com/Ro
 ```mermaid
 graph TD;
     A[Incoming Prompt] --> CR{classifySpecialistRole};
-    CR -- Code Syntax / Algorithms --> C1[Qwen3-Coder-Next];
-    CR -- STEM / Math / Chess & Spatial --> C2[deepseek-v4-flash];
+    CR -- Code & Algorithms / Chess & Spatial --> C1[Qwen3-Coder-Next];
+    CR -- STEM / Math / General Science --> C2[deepseek-v4-flash];
     CR -- Reading Comprehension / Verification --> C3[qwen3-235b-a22b];
-    CR -- General Closed-World --> C4[gemini-3.1-flash-lite];
+    CR -- General Fast / Translation --> C4[gemini-3.1-flash-lite];
     CR -- Deep Reasoning / Financial QA --> C5[deepseek-v4-pro];
     C1 -. Error / Abort .-> C5;
     C2 -. Error / Abort .-> C5;
@@ -212,12 +212,12 @@ const router = createMultiSpecialistRouter({
 });
 
 // 2. Dispatch queries - automatically routed to optimal domain specialist:
-// - Code prompt -> Qwen/Qwen3-Coder-Next
-// - STEM / Trivia -> deepseek/deepseek-v4-flash
-// - Chess / Games -> deepseek/deepseek-v4-flash
-// - Complex proofs -> deepseek/deepseek-v4-pro
-// - General fast / Translation -> google/gemini-3.1-flash-lite
-// - Reading comprehension -> qwen/qwen3-235b-a22b-2507
+// - Code & Algorithms -> Qwen/Qwen3-Coder-Next
+// - Chess & Spatial Games -> Qwen/Qwen3-Coder-Next
+// - STEM & Factual Science -> deepseek/deepseek-v4-flash
+// - Complex Proofs & Financial QA -> deepseek/deepseek-v4-pro
+// - General Fast & Translation -> google/gemini-3.1-flash-lite
+// - Reading Comprehension & Verification -> qwen/qwen3-235b-a22b-2507
 const res = await router.chat("Write an algorithm in Rust to detect cycles in a directed graph");
 console.log(`Routed to: ${res.routedTo}`); // 'code' (Qwen/Qwen3-Coder-Next)
 console.log(res.text);
