@@ -30,7 +30,7 @@ class KruschRouteLLMRouter(Router):
 
     def detect_knowledge_boundary(self, text: str) -> str:
         """
-        Knowledge Boundary Router (arXiv: 2608.23982).
+        Knowledge Boundary Router.
         Determines if a query is a self-contained closed-world task that can be easily
         solved by the weak model without requiring open-world frontier reasoning.
         """

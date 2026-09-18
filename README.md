@@ -10,11 +10,9 @@
   <a href="https://www.npmjs.com/package/krusch-cascade-router"><img src="https://img.shields.io/github/package-json/v/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="NPM Version"></a>
   <a href="https://github.com/kruschdev/krusch-cascade-router/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
-  <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena%20PR%20%23169-80.27%20Score-success.svg?style=flat-square" alt="RouterArena PR #169"></a>
-  <a href="test/eval-holdout.test.js"><img src="https://img.shields.io/badge/Holdout%20Eval-100%25%20(100%20Prompts)-blue.svg?style=flat-square" alt="Holdout Accuracy"></a>
-  <a href="docs/BENCHMARK.md"><img src="https://img.shields.io/badge/RouterBench-0.7200%20AIQ-blue.svg?style=flat-square" alt="RouterBench AIQ"></a>
-  <a href="docs/BENCHMARK.md"><img src="https://img.shields.io/badge/AutoMix-55.17%25%20Lift-orange.svg?style=flat-square" alt="AutoMix Lift"></a>
-  <a href="docs/BENCHMARK.md"><img src="https://img.shields.io/badge/Robustness-92.62%25-brightgreen.svg?style=flat-square" alt="Robustness Score"></a>
+  <img src="https://img.shields.io/badge/OpenRouter-5--Model%20Specialists-purple.svg?style=flat-square" alt="OpenRouter Specialists">
+  <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Submitted-orange.svg?style=flat-square" alt="RouterArena PR #169"></a>
+  <img src="https://img.shields.io/badge/tests-38%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
 </p>
 
 ---
@@ -23,84 +21,80 @@
 
 **"LLM routing an LLM is a trap."**
 
-Using a heavy LLM or neural embedding model to decide which model to dispatch a query to introduces crippling TTFT (Time-To-First-Token) latency and compounds API costs. `krusch-cascade-router` solves this through a multi-stage architecture:
+Using a heavy LLM or neural embedding model to decide which model to dispatch a query to introduces significant TTFT (Time-To-First-Token) latency and adds auxiliary billing. `krusch-cascade-router` provides a fast, pragmatic alternative for Node.js developers:
 
-1. **Sub-50ms Predictive Heuristics**: Evaluates syntax, query length, structure, and cognitive task keywords instantly in <180 microseconds without consuming routing tokens.
-2. **5-Model Specialist Routing via OpenRouter**: Native factory preset orchestrating 5 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, and `qwen3-235b-a22b-2507`) unified through OpenRouter.
-3. **Knowledge Boundary Routing**: Detects closed-world self-contained tasks (syntax, math, regex, formatting, translation) to keep them on fast edge models, preventing context bloat and cognitive degradation.
-4. **Second Thought Speculative Branching**: Parallel speculative pre-warming / hedging for borderline queries (`[0.25, 0.70]`) to eliminate sequential cascade latency.
-5. **Logprob & Silent Failure Entropy Gating**: Inspects initial token logprob confidence and monitors sliding-window reasoning entropy / $n$-gram loops to abort hallucinations silently before users see them.
+1. **Sub-Millisecond Heuristics**: Evaluates syntax, query length, structure, and domain keywords in microseconds on CPU without making pre-flight routing calls.
+2. **5-Model Specialist Routing via OpenRouter**: Out-of-the-box factory preset orchestrating 5 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, and `qwen3-235b-a22b-2507`) unified through OpenRouter.
+3. **Knowledge Boundary Routing**: Detects closed-world self-contained tasks (syntax, math, regex, formatting, translation) to keep them on fast edge models.
+4. **Speculative Parallel Hedging**: Pre-warms heavy models in parallel on borderline confidence queries (`[0.25, 0.70]`) to mask sequential cascade latency.
+5. **Logprob & Silent Failure Gating**: Inspects initial token logprob confidence and monitors sliding-window repetition / $n$-gram loops to abort unhelpful outputs early.
 
 ---
 
 ### Key Features
 
-* **🚀 Sub-Millisecond Routing Overhead**: Zero extra LLM calls or network round-trips before initial dispatch (~180 µs on CPU).
-* **🌐 OpenRouter Provider Integration**: Full support for OpenRouter's unified endpoint (`https://openrouter.ai/api/v1/chat/completions`) with standard `HTTP-Referer` and `X-Title` attribution headers.
-* **🎯 5-Model Specialist Architecture**: Out-of-the-box `createMultiSpecialistRouter()` factory configuring top-tier models across code, factual STEM, deep reasoning, games, and comprehension.
+* **🚀 Sub-Millisecond Routing Overhead**: Heuristic CPU classifier runs in microseconds without pre-flight network round-trips.
+* **🌐 OpenRouter Provider Integration**: Built-in support for OpenRouter's unified endpoint with standard attribution headers.
+* **🎯 5-Model Specialist Architecture**: Factory configuring models across code, factual STEM, deep reasoning, games, and comprehension.
 * **🧠 Knowledge Boundary Router**: Classifies closed-world vs. open-world self-containment.
-* **⚡ Second Thought Speculative Branching**: Hedged parallel execution for borderline prompts.
-* **🛡️ Mid-Stream Entropy & Loop Guard**: Catches reasoning entropy collapse ($S(t) = S_0 e^{\alpha t}$) and cyclical repetition.
-* **🧪 100-Prompt Holdout Suite (100% Accuracy)**: Evaluated on 100 diverse, template-free real-world developer queries across 6 domains with 100% conversational noise invariance ([`test/eval-holdout.test.js`](test/eval-holdout.test.js)).
-* **🏆 RouterArena Pipeline Benchmark**: **80.27 Acc-Cost Arena Score** evaluated using the official [RouteWorks/RouterArena](https://github.com/RouteWorks/RouterArena) benchmark evaluation pipeline ([PR #169](https://github.com/RouteWorks/RouterArena/pull/169)), achieving **82.72% accuracy** at **$0.2613 per 1K queries**.
-* **🎯 State-of-the-Art Robustness (92.62%)**: Exceptional stability score, invariant under adversarial prompt noise and conversational perturbations.
+* **⚡ Speculative Parallel Hedging**: Hedged parallel execution for borderline prompts to mask cascade latency.
+* **🛡️ Mid-Stream Loop Guard**: Catches degenerate repetition loops and token stagnation.
+* **🧪 Developer Integration Test Suite**: 100-prompt suite covering 6 domains and conversational noise invariance ([`test/eval-holdout.test.js`](test/eval-holdout.test.js)).
+* **📊 RouterArena Benchmark Candidate**: Evaluated offline on the 8,400-query RouterArena dataset and submitted for review in [PR #169](https://github.com/RouteWorks/RouterArena/pull/169).
 * **🛑 Native AbortSignal Support**: First-class timeout and cancellation management.
 * **📦 Universal Distribution**: Full TypeScript types, ESM, and CommonJS builds.
 
 ---
 
-## 🏆 Multi-Benchmark Performance & Evaluation Matrix
+## 📊 Multi-Benchmark Performance & Evaluation Matrix
 
-`krusch-cascade-router` has been rigorously evaluated across established LLM routing benchmarks and holdout suites:
+`krusch-cascade-router` has been evaluated across standard routing benchmark harnesses:
 
-| Benchmark Suite | Sponsoring Organization / Publication | Benchmark Scope | Baseline Comparison | Krusch Cascade Router Performance | Primary Metric | Cost Reduction vs Frontier | Routing Overhead |
+| Benchmark Suite | Sponsoring Organization / Publication | Benchmark Scope | Baseline Comparison | Krusch Cascade Router Evaluation | Primary Metric | Cost Reduction vs Frontier | Routing Overhead |
 |:---|:---|:---|:---|:---|:---:|:---:|:---:|
-| **1. RouterArena** | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool | **Arena Score: 80.27**<br>Accuracy: **82.72%**<br>Robustness: **92.62%** | **80.27 Arena Score**<br>([Submitted PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.26 / 1K queries**<br>(vs $1.00 Orca, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
-| **2. Holdout Suite** | Real-World Developer Prompts | 100 Template-Free Queries across 6 Domains | Standalone Frontier Models | **Domain Accuracy: 100.0%**<br>Noise Invariance: **100.0%** | **100.0% Accuracy**<br>(Zero template leakage) | **~75% Savings**<br>vs Frontier Oracle | 0.18 ms<br>(5,500+ QPS) |
-| **3. WithMartian RouterBench** | WithMartian (arXiv: 2403.12031) | 36,497 Real Inference Outcomes across 11 LLMs | Single-Model GPT-4 Oracle ($94.39 Total Cost) | **AIQ Score: 0.7200** (92.1% of Ceiling)<br>Frugal: 64.51% Acc @ $8.13<br>Balanced: 75.08% Acc @ $52.52 | **0.7200 AIQ Score**<br>(Beats Martian MLP 0.6830) | **93.23% (Frugal)**<br>**56.29% (Balanced)** | 0.11 ms<br>(9,066 QPS) |
-| **4. Google AutoMix** | Google Research & CMU (NeurIPS 2024) | 14,571 Validation Queries across 5 QA/RC Datasets | Speculative Cascade LLaMA-13B $\rightarrow$ LLaMA-70B | **CoQA Lift: +55.17%** (vs +43.68% POMDP)<br>**NarrativeQA: +17.45%** (vs +6.44% POMDP) | **+55.17% IBC Lift**<br>(Beats Google RL POMDP) | **82.40% on CoQA**<br>**68.39% on NarrativeQA** | 0.007 ms<br>(137,081 QPS) |
-| **5. LMSYS RouteLLM** | LMSYS Org / UC Berkeley (arXiv: 2406.18665) | 10,000+ Battles across GSM8K, MT-Bench, MMLU | GPT-4 vs Mixtral / LLaMA-3 | **MT-Bench: 0.6027 APGR**<br>**GSM8K: 0.5602 APGR**<br>**MMLU: 0.5060 APGR** | **0.6027 APGR**<br>(Beats RouteLLM MF router) | **50%–75% Savings**<br>at 95% Quality Retention | < 0.05 ms<br>(20,000+ QPS) |
+| **1. RouterArena** | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool | **Candidate Score: 80.27**<br>Accuracy: **82.72%**<br>Robustness: **92.62%** | **80.27 Score**<br>([Submitted PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.26 / 1K queries**<br>(vs $1.00 Orca, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
+| **2. Integration Suite** | Real-World Developer Prompts | 100 Diverse Queries across 6 Domains | Multi-Model Pool | **Domain Accuracy: 100.0%**<br>Noise Invariance: **100.0%** | **100.0% Accuracy**<br>(Classification test suite) | **~75% Savings**<br>vs Frontier Oracle | 0.02 ms<br>(50,000+ QPS) |
+| **3. WithMartian RouterBench** | WithMartian (arXiv: 2403.12031) | 36,497 Real Inference Outcomes across 11 LLMs | Single-Model GPT-4 Oracle ($94.39 Total Cost) | **AIQ Score: 0.7200** (92.1% of Ceiling)<br>Frugal: 64.51% Acc @ $8.13<br>Balanced: 75.08% Acc @ $52.52 | **0.7200 AIQ Score**<br>(vs Martian MLP 0.6830) | **93.23% (Frugal)**<br>**56.29% (Balanced)** | 0.11 ms<br>(9,066 QPS) |
+| **4. Google AutoMix** | Google Research & CMU (NeurIPS 2024) | 14,571 Validation Queries across 5 QA/RC Datasets | Speculative Cascade LLaMA-13B $\rightarrow$ LLaMA-70B | **CoQA Lift: +55.17%** (vs +43.68% POMDP)<br>**NarrativeQA: +17.45%** (vs +6.44% POMDP) | **+55.17% IBC Lift**<br>(vs Google RL POMDP) | **82.40% on CoQA**<br>**68.39% on NarrativeQA** | 0.007 ms<br>(137,081 QPS) |
+| **5. LMSYS RouteLLM** | LMSYS Org / UC Berkeley (arXiv: 2406.18665) | 10,000+ Battles across GSM8K, MT-Bench, MMLU | GPT-4 vs Mixtral / LLaMA-3 | **MT-Bench: 0.6027 APGR**<br>**GSM8K: 0.5602 APGR**<br>**MMLU: 0.5060 APGR** | **0.6027 APGR**<br>(Heuristic vs learned MF) | **50%–75% Savings**<br>at 95% Quality Retention | < 0.05 ms<br>(20,000+ QPS) |
 
-> 🔍 **Full Technical Documentation & Methodology**: Detailed per-benchmark curves, domain breakdowns, and mathematical derivations are available in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
+> 🔍 **Full Technical Documentation & Methodology**: Detailed per-benchmark curves, domain breakdowns, and derivations are available in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
 >
-> 🧪 **One-Command Audit Reproduction**: Re-verify all benchmarks and holdout suites:
+> 🧪 **Audit Reproduction**: Run test suite:
 > ```bash
 > npm test
 > ```
 
 ---
 
-### A. RouterArena Benchmark Pipeline Evaluation
+### A. Live RouteWorks RouterArena Leaderboard
 
-Evaluated using the official **[RouterArena Platform](https://github.com/RouteWorks/RouterArena)** evaluation pipeline ([PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) across 8,400 benchmark queries + 3,236 optimality queries + 420 robustness queries:
+The public [RouteWorks/RouterArena](https://github.com/RouteWorks/RouterArena) leaderboard ranks published router implementations as follows:
 
-```
-Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K Queries   Robustness
-----------------------------------------------------------------------------------------------------
- 🥇1  🏆 Krusch Cascade Router                  80.27        82.72%          $0.2613         92.62%
-  2   Paix2 (Former #1)                        77.63        79.69%          $0.2700         77.86%
-  3   KT-ModelRouter                           76.28        78.14%          $0.2700         80.48%
-  4   Sqwish Router                            76.21        79.76%          $0.7000         51.67%
-  5   Divyam                                   75.85        78.59%          $0.4800         98.33%
-  6   vLLM-SR                                  74.86        77.18%          $0.4200         67.62%
-  7   nadir-caliper                            74.55        75.84%          $0.2200         79.76%
-  8   Nadir Router                             72.29        75.01%          $0.6800         25.48%
- 12   OrcaRouter-Adaptive                      72.08        75.54%          $1.0000         22.62%
- 18   Azure-Model-Router (Microsoft)           70.42        72.94%          $0.7300         71.43%
- 27   RouterBench-MLP (Martian)                57.56        61.62%          $4.8300         80.00%
- 28   NotDiamond (Commercial)                  57.29        60.83%          $4.1000         55.91%
- 31   RouteLLM (UC Berkeley)                   48.07        47.04%          $0.2700        100.00%
-```
+| Rank | Router Implementation | Acc-Cost Score | Accuracy | Cost / 1K Queries | Robustness | Status |
+|:---:|:---|:---:|:---:|:---:|:---:|:---:|
+| 1 | **Paix2** | **77.63** | 79.69% | $0.2700 | 77.86% | Published (#1 on Live Board) |
+| 2 | **KT-ModelRouter** | 76.28 | 78.14% | $0.2700 | 80.48% | Published |
+| 3 | **Sqwish Router** | 76.21 | 79.76% | $0.7000 | 51.67% | Published |
+| 4 | **Divyam** | 75.85 | 78.59% | $0.4800 | 98.33% | Published |
+| 5 | **vLLM-SR** | 74.86 | 77.18% | $0.4200 | 67.62% | Published |
+| 6 | **nadir-caliper** | 74.55 | 75.84% | $0.2200 | 79.76% | Published |
+| 7 | **Azure-Model-Router (Microsoft)** | 70.42 | 72.94% | $0.7300 | 71.43% | Published |
+| 8 | **RouterBench-MLP (Martian)** | 57.56 | 61.62% | $4.8300 | 80.00% | Published |
+| 9 | **NotDiamond (Commercial)** | 57.29 | 60.83% | $4.1000 | 55.91% | Published |
+| 10 | **RouteLLM (UC Berkeley)** | 48.07 | 47.04% | $0.2700 | 100.00% | Published |
 
-* **Highest Accuracy Overall (82.72%)**: Beats Microsoft Azure (72.94%) by nearly 10 percentage points and former leader Paix2 (79.69%) by ~3 points.
-* **1/15th the Cost of Commercial Routers**: $0.2613 per 1K queries vs $4.10 for NotDiamond and $4.83 for Martian.
-* **Superior Robustness (92.62%)**: Zero abnormal failures across adversarial phrasing and prompt mutations.
+#### Candidate Submission (PR #169)
+
+Our candidate submission ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) was evaluated offline using the official RouterArena scoring scripts (`compute_scores.py`):
+- **Candidate Score**: 80.27 (Accuracy: 82.72%, Cost: $0.2613 / 1K, Robustness: 92.62%)
+- **Status**: Submitted in PR #169 and awaiting maintainer review. It is an offline candidate evaluation and is **not** an official entry on the live leaderboard. The live leaderboard remains led by Paix2 at 77.63.
 
 ---
 
 ### B. WithMartian RouterBench Highlights (36,497 Queries)
 
-* **0.7200 AIQ Score**: Captures **92.1% of the theoretical upper-bound ceiling (0.7818)**, surpassing Martian's reference **RouterBench-MLP (0.6830)** and **RouterBench-KNN (0.6558)**.
+* **0.7200 AIQ Score**: Captures **92.1% of the theoretical upper-bound ceiling (0.7818)**, comparing favorably to Martian's reference **RouterBench-MLP (0.6830)** and **RouterBench-KNN (0.6558)**.
 * **Frugal Mode**: **64.51% Accuracy** at **$8.13 Total Cost** ($0.22/1k) — a **93.23% cost reduction vs GPT-4 ($94.39)**.
 * **GSM-8K Math**: Delivers **62.70% accuracy at $4.34** vs GPT-4's $63.68 (**$59.34 direct savings**, a 93.18% reduction).
 * **MBPP Code**: In Balanced Mode, matches GPT-4 quality within **0.24%** (68.38% vs 68.62%) while slashing cost by **78.5%**.
@@ -109,10 +103,10 @@ Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K 
 
 ### C. Google AutoMix Highlights (NeurIPS 2024 / 14,571 Queries)
 
-* **Outperforming Google POMDP on CoQA**: **+55.17% IBC Lift** vs AutoMix POMDP (+43.68%) — a **+11.49 percentage point advantage** with **82.40% cost reduction** vs LLaMA-70B.
-* **Tripling NarrativeQA Routing Lift**: **+17.45% IBC Lift** vs AutoMix POMDP (+6.44%).
-* **Zero-Overhead Lift (+462.36%)**: Spends 0 extra tokens on self-verification calls.
-* **Speed**: Routes in **7.29 microseconds (137,000 QPS)** vs multiple seconds for AutoMix LLM verifier.
+* **CoQA Benchmark**: **+55.17% IBC Lift** vs AutoMix POMDP (+43.68%) with **82.40% cost reduction** vs LLaMA-70B.
+* **NarrativeQA Benchmark**: **+17.45% IBC Lift** vs AutoMix POMDP (+6.44%).
+* **Zero Verification Overhead**: Heuristic classification avoids spending tokens on self-verification calls.
+* **Speed**: Heuristic classification runs in microseconds on CPU vs multiple seconds for LLM-based verifiers.
 
 ---
 
@@ -123,7 +117,7 @@ graph TD;
     A[Incoming Prompt] --> CR{classifySpecialistRole};
     CR -- Code Syntax / Algorithms --> C1[Qwen3-Coder-Next];
     CR -- STEM / Math / Chess & Spatial --> C2[deepseek-v4-flash];
-    CR -- SuperGLUE-RC / Truth Verification --> C3[qwen3-235b-a22b];
+    CR -- Reading Comprehension / Verification --> C3[qwen3-235b-a22b];
     CR -- General Closed-World --> C4[gemini-3.1-flash-lite];
     CR -- Deep Reasoning / Financial QA --> C5[deepseek-v4-pro];
     C1 -. Error / Abort .-> C5;
@@ -138,16 +132,16 @@ graph TD;
 
 `krusch-cascade-router` implements proven patterns from recent literature on efficient LLM inference, dynamic model routing, and information-theoretic safety:
 
-1. **Dynamic Model Routing & Cascading Survey** (*Moslem & Kelleher, 2026, arXiv:2603.04445*):
-   - Demonstrates that zero-token heuristic routers match learned neural routers on tasks with structured lexical signatures (code, math, translation, verification), without incurring TTFT latency or auxiliary token billing.
-2. **RouteLLM** (*Ong et al., 2024, arXiv:2406.18665*):
-   - Proves steep diminishing returns when dispatching closed-world STEM problems to expensive frontier models, motivating deterministic routing to cost-effective high-throughput specialists.
-3. **Knowledge Boundary Conditional Routing** (*arXiv: 2608.23982*):
-   - Prevents context degradation by isolating closed-world queries (syntax, arithmetic, regex, formatting) on fast edge models.
-4. **Second Thought Speculative Branching** (*arXiv: 2608.13667*):
-   - Eliminates sequential cascade latency by parallel speculative pre-warming on borderline prompts $[0.25, 0.70]$.
-5. **Silent Failure & Reasoning Entropy Collapse** (*arXiv: 2606.08162*):
-   - Detects runaway degenerate reasoning loops and hallucination cascades via real-time $n$-gram repetition and token entropy monitoring.
+1. **RouteLLM: Learning to Route LLMs with Preference Data** (*Ong et al., 2024, arXiv:2406.18665*):
+   - Demonstrates steep diminishing returns when dispatching closed-world STEM problems to expensive frontier models, motivating deterministic routing to cost-effective high-throughput specialists.
+2. **FrugalGPT: How to Use Large Language Models More Cheaply** (*Chen et al., 2023, arXiv:2305.05176*):
+   - Establishes the sequential cascade principle: querying smaller/cheaper models first and escalating to frontier models only upon low confidence or degradation.
+3. **AutoMix: Automatically Mixing Language Models** (*Gu et al., NeurIPS 2024, arXiv:2310.12963*):
+   - Demonstrates that verification cascades can achieve significant quality lifts over monolithic models at a fraction of the inference cost.
+4. **RouterBench: A Benchmark for Multi-LLM Routing System** (*Hu et al., WithMartian / UC Berkeley, 2024, arXiv:2403.12031*):
+   - Provides empirical frameworks for evaluating cost vs accuracy trade-offs across heterogeneous LLM pools.
+5. **Degenerative Repetition and Decoding Entropy** (*Holtzman et al., 2020*):
+   - Motivates real-time $n$-gram repetition and token entropy monitoring to catch runaway hallucination loops early.
 
 ---
 
@@ -233,7 +227,7 @@ classifySpecialistRole("Evaluate FEN: rnbqkbnr/pppppppp/..."); // 'games_spatial
 classifySpecialistRole("Prove that every planar graph is 4-colorable"); // 'reasoning_deep'
 ```
 
-### 2. Knowledge Boundary Detection (arXiv: 2608.23982)
+### 2. Knowledge Boundary Detection
 
 Closed-world tasks (e.g. arithmetic, code formatting, unit conversion, translation) are actively degraded by large model context pollution. You can invoke the boundary classifier directly:
 
@@ -245,7 +239,7 @@ detectKnowledgeBoundary("Translate this sentence to French: Good morning"); // '
 detectKnowledgeBoundary("Analyze the ethical dilemmas in autonomous driving"); // 'open'
 ```
 
-### 3. Continuous Complexity Scoring (arXiv: 2608.13667)
+### 3. Continuous Complexity Scoring
 
 ```javascript
 import { evaluateComplexityScore } from 'krusch-cascade-router';

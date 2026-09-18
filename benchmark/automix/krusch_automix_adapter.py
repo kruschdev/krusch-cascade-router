@@ -23,7 +23,7 @@ class KruschAutomixAdapter:
 
     def detect_knowledge_boundary(self, text: str) -> str:
         """
-        Knowledge Boundary Router (arXiv: 2608.23982).
+        Knowledge Boundary Router.
         Flags self-contained, closed-world questions resolvable by lightweight models.
         """
         if not text:

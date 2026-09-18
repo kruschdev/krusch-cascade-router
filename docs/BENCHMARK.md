@@ -29,7 +29,7 @@ With the heuristic optimizations detailed below, Krusch Cascade Router achieves 
 
 ## 2. Academic Literature Synthesis: Zero-Cost Heuristic Routing vs. Heavy Routers
 
-### A. Taxonomy of LLM Routing (Moslem & Kelleher, 2026; arXiv:2603.04445)
+### A. Taxonomy of LLM Routing (Chen et al., 2023; Ong et al., 2024; Hu et al., 2024)
 Recent literature on dynamic LLM routing classifies dispatch mechanisms into four primary tiers:
 1. **Generative LLM-as-a-Router** (e.g. LLM-Router, OrcaRouter): Uses a preliminary LLM call to categorize queries. While highly expressive, it wastes 200–500 input/output tokens and adds 400–1,200ms latency per request, which in high-throughput production negates up to 40% of the cost savings.
 2. **Embedding & Classifier-Based Routers** (e.g. RouteLLM, RouterBench MLP/KNN; Ong et al., arXiv:2406.18665; Martian, 2024): Generates dense vector embeddings of incoming prompts to classify query complexity against pre-trained preference datasets. These incur vectorization latency (15–50ms), require ongoing fine-tuning when the model pool changes, and suffer sharp out-of-distribution (OOD) accuracy collapse under adversarial prompt formatting.

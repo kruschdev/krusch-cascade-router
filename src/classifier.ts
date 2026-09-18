@@ -20,7 +20,7 @@ export interface ClassifierOptions {
 }
 
 /**
- * Knowledge Boundary Router (arXiv: 2608.23982).
+ * Knowledge Boundary Router.
  * Determines if a query represents a self-contained "closed-world" task
  * (e.g. arithmetic, unit conversion, code syntax translation, regex, dictionary lookup)
  * that does not require open-world reasoning and is degraded by cognitive context bloat.
@@ -72,7 +72,7 @@ export function pruneText(text: string): string {
 
 /**
  * Continuous complexity scorer [0.0, 1.0].
- * Provides fine-grained probability for speculative hedging ("Second Thought" arXiv: 2608.13667).
+ * Provides fine-grained probability for speculative hedging.
  * Scores between 0.35 and 0.65 represent the uncertainty boundary suitable for speculative pre-warming.
  */
 export function evaluateComplexityScore(messages: Message[] | string, options?: ClassifierOptions): number {
@@ -182,19 +182,16 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
 
   // 1. Paragraph Reading Comprehension & Verification (qwen3-235b)
   const isReadingComprehension = 
-    /\b(?:based on (?:the|this|that) (?:text|passage|article|excerpt|document|context|paragraph|historical account|case study))\b/i.test(fullText) ||
-    /\b(?:according to (?:the|this|that) (?:text|passage|article|excerpt|document|context|historical account|case study))\b/i.test(fullText) ||
-    /\b(?:in (?:the|this) (?:text|passage|article|excerpt|document|paragraph|case study) (?:above|below|provided)?)\b/i.test(fullText) ||
+    /\b(?:based on (?:the|this|that)\s+["']?(?:text|passage|article|excerpt|document|context|paragraph|historical account|case study)["']?)/i.test(fullText) ||
+    /\b(?:according to (?:the|this|that)\s+["']?(?:text|passage|article|excerpt|document|context|historical account|case study)["']?)/i.test(fullText) ||
+    /\b(?:in (?:the|this)\s+["']?(?:text|passage|article|excerpt|document|paragraph|case study)["']?\s+(?:above|below|provided)?)/i.test(fullText) ||
     /\b(?:in paragraph \d+)\b/i.test(fullText) ||
-    /\b(?:summarize (?:the|this) (?:text|passage|article|excerpt|document|chapter|section))\b/i.test(fullText) ||
+    /\b(?:summarize (?:the|this)\s+["']?(?:text|passage|article|excerpt|document|chapter|section)["']?)/i.test(fullText) ||
     /\b(?:what does the author (?:mean|state|imply|claim|conclude|suggest|argue))\b/i.test(fullText) ||
     /\b(?:main thesis of the author|author's main argument)\b/i.test(fullText) ||
-    /\b(?:from the (?:text|passage|excerpt|article|document) (?:above|below)?)\b/i.test(fullText) ||
-    /\b(?:reading comprehension|evaluate if the (?:provided|given) (?:answer|statement))\b/i.test(fullText) ||
-    /\b(?:information provided in the (?:preceding|provided|following) (?:text|case study|article|passage))\b/i.test(fullText) ||
-    /based on the "paragraph"/i.test(p) ||
-    /provided answer" is a correct response/i.test(p) ||
-    /evaluate if the "provided answer"/i.test(p);
+    /\b(?:from the\s+["']?(?:text|passage|excerpt|article|document)["']?\s+(?:above|below)?)/i.test(fullText) ||
+    /\b(?:reading comprehension|evaluate if (?:the\s+)?["']?(?:provided|given)\s+(?:answer|statement|response)["']?)/i.test(fullText) ||
+    /\b(?:information provided in (?:the|this)\s+["']?(?:preceding|provided|following)?\s*(?:text|case study|article|passage)["']?)/i.test(fullText);
 
   if (isReadingComprehension) {
     return 'comprehension_rc';
@@ -233,11 +230,7 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
     // React hooks (strictly case-sensitive)
     /\buse[A-Z][a-zA-Z0-9_]+\b/.test(fullText) ||
     // Types, Generics & Systems programming constructs
-    /\b(?:generic type|type alias|interface\s+[a-zA-Z_]|struct\s+[a-zA-Z_]|impl\s+[a-zA-Z_]|Arc<Mutex<|RwLock<|flexbox layout|token bucket|lru cache|event emitter|pull request|git commit|git diff)\b/i.test(fullText) ||
-    // Benchmark backwards-compatibility
-    /generate an executable python function/i.test(p) ||
-    /craft a python/i.test(p) ||
-    /runnable python/i.test(p);
+    /\b(?:generic type|type alias|interface\s+[a-zA-Z_]|struct\s+[a-zA-Z_]|impl\s+[a-zA-Z_]|Arc<Mutex<|RwLock<|flexbox layout|token bucket|lru cache|event emitter|pull request|git commit|git diff)\b/i.test(fullText);
 
   if (isCode) {
     return 'code';
@@ -263,7 +256,9 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
     /\b(?:patient|symptom|clinic|diagnos|syndrome|treatment|disease|prescribe|prognosis|pharmacolog(?:y|ical)|lyme disease)\b/i,
     /\b(?:write (?:a|an)?(?:\s+\w+)?\s*(?:poem|story|haiku|essay|song|dialogue|letter|email))\b/i,
     /\b(?:grammar|proofread|correct the grammar|spelling|rephrase|paraphrase)\b/i,
-    /\b(?:narrative|protagonist|author's intent|storyline|allegory|metaphor)\b/i,
+    /\b(?:narrative|protagonist|storyline|allegory|metaphor)\b/i,
+    /\b(?:author|poet|novelist|playwright)\s+(?:wrote|penned|composed|published|authored)\b/i,
+    /\b(?:literary|novel|poem|playwright|poetry|biography|novelist)\b/i,
     /\b(?:does sentence a imply|same sense of the word|entailment)\b/i
   ];
 
@@ -275,7 +270,7 @@ export function classifySpecialistRole(messages: Message[] | string, options?: C
 
   // Open-ended trivia without multiple choice options
   const hasOptions = /\b(?:options|selections|choices|alternatives):\s*\n?\s*[a-d]\./i.test(fullText) || /\n\s*[a-d]\.\s+\S+/i.test(fullText);
-  if (!hasOptions && /\b(?:this author|this poet|this battle|name this|identify this|this composer|this novel|this leader|this president|who was|which country|what city|identify the nation)\b/i.test(fullText)) {
+  if (!hasOptions && /\b(?:who (?:was|wrote|directed|composed|invented|discovered)|what is the capital of|which country|what city)\b/i.test(fullText)) {
     return 'general_fast';
   }
 

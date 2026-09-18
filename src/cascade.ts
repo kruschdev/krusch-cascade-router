@@ -384,7 +384,7 @@ export class CascadeRouter {
       return { text, routedTo: 'heavy', aborted: false, usage, model: this.config.heavyModel!.model };
     }
 
-    // Speculative Branching ("Second Thought" arXiv: 2608.13667)
+    // Speculative Parallel Hedging
     // For borderline queries [0.25, 0.70], hedge heavy model in parallel to mask cascade latency
     let hedgedController: AbortController | null = null;
     let hedgedHeavyPromise: Promise<{ text: string; usage: UsageMetrics }> | null = null;
@@ -583,7 +583,7 @@ export class CascadeRouter {
 
   /**
    * Helper: Detects repetitive token degenerate loops and reasoning entropy collapse
-   * during speculative buffer evaluation (PIG Engine / Trajectory Guard arXiv: 2606.08162).
+   * during speculative buffer evaluation.
    */
   private detectRepetitiveLoop(tokens: string[]): boolean {
     const maxRep = this.config.maxRepetitiveTokens || 4;
