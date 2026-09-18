@@ -1,0 +1,4 @@
+# Treat benchmarks and docs as vendored/documentation so GitHub Linguist recognizes TypeScript as primary
+benchmark/** linguist-vendored
+test/** linguist-vendored
+docs/** linguist-documentation

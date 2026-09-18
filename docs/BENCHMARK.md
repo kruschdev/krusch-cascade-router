@@ -10,22 +10,29 @@ This evaluation analyzes the **Krusch Cascade Router** across multiple configura
 
 The official public RouterArena leaderboard ([routeworks.github.io/leaderboard](https://routeworks.github.io/leaderboard)) is currently led by **Paix2 (Score: 77.63)**.
 
-Our candidate submission ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) was evaluated offline using the official RouterArena benchmark dataset and evaluation harness (`compute_scores.py`). On the offline 8,400-query benchmark dataset, our candidate configuration scores **80.27** (with earlier 5-model baseline iterations scoring **77.93**).
+Our candidate submission ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) was evaluated across the official 8,400-query benchmark dataset plus 420 robustness perturbations by the RouteWorks GitHub Actions evaluation workflow:
+
+| Evaluation Run | Acc-Cost Score ($S_{i,\beta}$) | Benchmark Accuracy | Cost / 1K Queries | Robustness Score | Status & Notes |
+|:---|:---:|:---:|:---:|:---:|:---|
+| **Run 1: Initial Adapter** | 74.13 | 76.14% | $0.3700 | 93.10% | Baseline multi-model adapter |
+| **Run 2: Cheaper 5-Model Pool** | 74.09 | 75.62% | $0.2700 | 94.05% | Shifted budget to cheaper flash endpoints |
+| **Run 3: Heuristic Retune** | **77.93** | **81.53%** | **$0.6070** | **92.62%** | Disambiguated math operators & chess boundaries |
 
 > [!NOTE]
-> **Candidate Status**: The scores reported below are offline candidate evaluations submitted for community review in [PR #169](https://github.com/RouteWorks/RouterArena/pull/169) and are **not** yet merged entries on the live public leaderboard. The official live leaderboard remains led by Paix2 at 77.63.
+> **Candidate Status**: The official CI workflow score of **77.93** was evaluated directly by the RouteWorks GitHub Actions bot in [PR #169](https://github.com/RouteWorks/RouterArena/pull/169) and is currently awaiting maintainer review and merge. The published live leaderboard remains led by Paix2 at 77.63 until PR #169 is merged.
 
-| Metric | Krusch Cascade (PR #169 Candidate) | Paix2 (Live #1) | KT-ModelRouter (#2) | Sqwish Router (#3) | vLLM-SR (#5) |
+| Metric | Krusch Cascade (Official PR #169 Bot) | Paix2 (Live #1) | KT-ModelRouter (#2) | Sqwish Router (#3) | vLLM-SR (#5) |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **RouterArena Score ($S_{i,\beta}$)** | **80.27** (Candidate) | **77.63** | 76.28 | 76.21 | 74.86 |
-| **Benchmark Accuracy** | **82.72%** | 79.69% | 78.14% | 79.76% | 77.18% |
-| **Cost / 1K Queries** | **$0.2613** | $0.2700 | $0.2700 | $0.7000 | $0.4200 |
+| **RouterArena Score ($S_{i,\beta}$)** | **77.93** (PR #169 Bot) | **77.63** | 76.28 | 76.21 | 74.86 |
+| **Benchmark Accuracy** | **81.53%** | 79.69% | 78.14% | 79.76% | 77.18% |
+| **Cost / 1K Queries** | **$0.6070** | $0.2700 | $0.2700 | $0.7000 | $0.4200 |
 | **Robustness Score** | **92.62%** | 77.86% | 80.48% | 51.67% | 67.62% |
+| **Optimal Selection (`Opt.Sel`)** | **~0.06** (Domain-specialized) | ~0.11 | ~0.08 | ~0.07 | ~0.09 |
 | **Abnormal Entries** | **0** | 0 | 0 | 0 | 0 |
 | **Routing Token Overhead** | **0 tokens ($0.00)** | 0 tokens | ~Embed tokens | ~Embed tokens | ~Embed tokens |
 | **Routing Latency** | **<50 microseconds** | <50ms | ~15–40ms | ~20–50ms | ~15–30ms |
 | **Active Models** | **5 Models** | 7 Models | 4 Models | 5 Models | 4 Models |
-| **Status** | **Offline Candidate (PR #169)** | **Published #1** | Published | Published | Published |
+| **Status** | **Official PR #169 Bot Eval** | **Published #1** | Published | Published | Published |
 
 ---
 

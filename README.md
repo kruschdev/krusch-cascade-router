@@ -78,8 +78,8 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 
 | Benchmark Suite | Sponsoring Organization / Publication | Benchmark Scope | Baseline Comparison | Krusch Cascade Router Evaluation | Primary Metric | Cost Reduction vs Frontier | Routing Overhead |
 |:---|:---|:---|:---|:---|:---:|:---:|:---:|
-| **1. RouterArena** | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool | **Candidate Evaluation (PR #169)**:<br>Offline Score: **80.27**<br>Accuracy: **82.72%**<br>*(Official live #1: Paix2 @ 77.63)* | **80.27 (Candidate)**<br>([Submitted PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.26 / 1K queries**<br>(vs $1.00 Orca, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
-| **2. Integration Suite** | Real-World Developer Prompts | 100 Diverse Queries across 6 Domains | Multi-Model Pool | **Domain Accuracy: 100.0%**<br>Noise Invariance: **100.0%** | **100.0% Accuracy**<br>(Classification test suite) | **~75% Savings**<br>vs Frontier Oracle | 0.02 ms<br>(50,000+ QPS) |
+| **1. RouterArena** | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool | **Official PR #169 Bot Eval**:<br>Workflow Score: **77.93**<br>Accuracy: **81.53%**<br>*(Official live #1: Paix2 @ 77.63)* | **77.93 (CI Bot)**<br>([Evaluated in PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.61 / 1K queries**<br>(vs $1.00 Orca, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
+| **2. Integration Suite** | Real-World Developer Prompts | 100 Diverse Queries across 6 Domains | Multi-Model Pool | **Routing Precision: 100.0%**<br>Noise Invariance: **100.0%**<br>*(Classifier routing precision, not LLM output)* | **100.0% Routing**<br>(Classification test suite) | **~75% Savings**<br>vs Frontier Oracle | 0.02 ms<br>(50,000+ QPS) |
 | **3. WithMartian RouterBench** | WithMartian (arXiv: 2403.12031) | 36,497 Real Inference Outcomes across 11 LLMs | Single-Model GPT-4 Oracle ($94.39 Total Cost) | **AIQ Score: 0.7200** (92.1% of Ceiling)<br>Frugal: 64.51% Acc @ $8.13<br>Balanced: 75.08% Acc @ $52.52 | **0.7200 AIQ Score**<br>(vs Martian MLP 0.6830) | **93.23% (Frugal)**<br>**56.29% (Balanced)** | 0.11 ms<br>(9,066 QPS) |
 | **4. Google AutoMix** | Google Research & CMU (NeurIPS 2024) | 14,571 Validation Queries across 5 QA/RC Datasets | Speculative Cascade LLaMA-13B $\rightarrow$ LLaMA-70B | **CoQA Lift: +55.17%** (vs +43.68% POMDP)<br>**NarrativeQA: +17.45%** (vs +6.44% POMDP) | **+55.17% IBC Lift**<br>(vs Google RL POMDP) | **82.40% on CoQA**<br>**68.39% on NarrativeQA** | 0.007 ms<br>(137,081 QPS) |
 | **5. LMSYS RouteLLM** | LMSYS Org / UC Berkeley (arXiv: 2406.18665) | 10,000+ Battles across GSM8K, MT-Bench, MMLU | GPT-4 vs Mixtral / LLaMA-3 | **MT-Bench: 0.6027 APGR**<br>**GSM8K: 0.5602 APGR**<br>**MMLU: 0.5060 APGR** | **0.6027 APGR**<br>(Heuristic vs learned MF) | **50%–75% Savings**<br>at 95% Quality Retention | < 0.05 ms<br>(20,000+ QPS) |
@@ -91,7 +91,8 @@ Using a heavy LLM or neural embedding model to decide which model to dispatch a 
 >
 > **Important Reproducibility Context**:
 > - **Model Pool Advances**: In historical benchmark papers (such as RouteLLM or AutoMix from 2023–2024), baselines were evaluated against older model generations (e.g., GPT-4 vs. LLaMA-13B). Part of the substantial cost reduction and quality retention achieved by `krusch-cascade-router` originates from the superior efficiency of modern 2025/2026 specialist models, alongside the zero-token microsecond heuristic dispatch.
-> - **Live Leaderboard Clarification**: As published on the official [RouteWorks/RouterArena live board](https://routeworks.github.io/leaderboard), **Paix2 is the official published #1 at 77.63**. Our score of 80.27 is an **offline candidate evaluation submitted under [PR #169](https://github.com/RouteWorks/RouterArena/pull/169)** awaiting maintainer review and should be treated as an unmerged candidate submission until officially verified.
+> - **Live Leaderboard Clarification**: As published on the official [RouteWorks/RouterArena live board](https://routeworks.github.io/leaderboard), **Paix2 is the official published #1 at 77.63**. Our candidate submission achieved **77.93 in official GitHub Actions CI evaluation under [PR #169](https://github.com/RouteWorks/RouterArena/pull/169)** awaiting maintainer review and should be treated as an unmerged candidate submission until officially merged.
+> - **Classifier Accuracy vs Generation Quality**: The 100% precision figure reported in the Developer Integration Suite measures *prompt domain routing classification* (ensuring code/math/trivia queries land on the correct model bucket), NOT generative correctness of the LLM responses.
 >
 > 🧪 **Audit Reproduction**: Run test suite:
 > ```bash
@@ -117,11 +118,19 @@ The public [RouteWorks/RouterArena](https://github.com/RouteWorks/RouterArena) l
 | 9 | **NotDiamond (Commercial)** | 57.29 | 60.83% | $4.1000 | 55.91% | Published |
 | 10 | **RouteLLM (UC Berkeley)** | 48.07 | 47.04% | $0.2700 | 100.00% | Published |
 
-#### Candidate Submission (PR #169)
+#### Official Candidate Bot Runs (RouteWorks PR #169)
 
-Our candidate submission ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) was evaluated offline using the official RouterArena scoring scripts (`compute_scores.py`):
-- **Candidate Score**: 80.27 (Accuracy: 82.72%, Cost: $0.2613 / 1K, Robustness: 92.62%)
-- **Status**: Submitted in PR #169 and awaiting maintainer review. It is an offline candidate evaluation and is **not** an official entry on the live leaderboard. The live leaderboard remains led by Paix2 at 77.63.
+Our candidate submission ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) was evaluated directly by RouteWorks GitHub Actions CI workflows across the full 8,400-query benchmark dataset plus 420 robustness perturbations:
+
+| Evaluation Run | Acc-Cost Score | Accuracy | Cost / 1K | Robustness | Evaluation Notes |
+|:---|:---:|:---:|:---:|:---:|:---|
+| **Run 1: Initial Full Eval** | 74.13 | 76.14% | $0.3700 | 93.10% | Baseline multi-model adapter |
+| **Run 2: Cheaper 5-Model Pool** | 74.09 | 75.62% | $0.2700 | 94.05% | Shifted budget to cheaper flash endpoints |
+| **Run 3: Heuristic Retune** | **77.93** | **81.53%** | **$0.6070** | **92.62%** | Disambiguated math operators & chess boundaries |
+
+* **Official CI Bot Score**: **77.93** (Accuracy: 81.53%, Cost: $0.6070 / 1K, Robustness: 92.62%).
+* **Status**: Submitted in [PR #169](https://github.com/RouteWorks/RouterArena/pull/169) and awaiting maintainer review. It is an unmerged candidate evaluation; the live leaderboard remains led by Paix2 at 77.63.
+* **Optimal Selection (`Opt.Sel`) Note**: Across the official evaluation runs, `Opt.Sel` was ~0.05–0.07. `krusch-cascade-router` routes deterministically by domain specialization rather than attempting per-instance cost minimization, trading per-query oracle perfection for microsecond CPU latency and zero token overhead.
 
 ---
 
