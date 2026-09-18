@@ -47,14 +47,15 @@ class KruschCascadeRouter(BaseRouter):
         p = query.strip().lower()
 
         # 1. Reading comprehension / paragraph evaluation -> qwen3-235b-a22b-2507
-        if "paragraph" in p and any(
-            k in p
-            for k in (
-                "provided answer",
-                "evaluate",
-                "correct response",
-            )
-        ):
+        is_rc = bool(
+            re.search(r"\b(?:based on (?:the|this|that)\s+[\"']?(?:text|passage|article|excerpt|document|context|paragraph|historical account|case study)[\"']?)", p)
+            or re.search(r"\b(?:according to (?:the|this|that)\s+[\"']?(?:text|passage|article|excerpt|document|context|historical account|case study)[\"']?)", p)
+            or re.search(r"\b(?:in (?:the|this)\s+[\"']?(?:text|passage|article|excerpt|document|paragraph|case study)[\"']?\s+(?:above|below|provided)?)", p)
+            or re.search(r"\b(?:reading comprehension|evaluate if (?:the\s+)?[\"']?(?:provided|given)\s+(?:answer|statement|response)[\"']?)", p)
+            or re.search(r"\b(?:summarize (?:the|this)\s+[\"']?(?:text|passage|article|excerpt|document|chapter|section)[\"']?)", p)
+            or re.search(r"\b(?:main thesis of the author|author's main argument)\b", p)
+        )
+        if is_rc:
             return self.model_map.get("comprehension_rc", "qwen/qwen3-235b-a22b-2507")
 
         # 2. Financial statements / balance sheets -> deepseek-v4-pro
@@ -86,11 +87,10 @@ class KruschCascadeRouter(BaseRouter):
 
         # 4. Code generation & algorithms -> Qwen3-Coder-Next
         is_code = bool(
-            re.search(r"py[th]{2}[on]{1,2}", p)
-            or "```" in p
-            or "def " in p
-            or "executable function" in p
-            or "source code" in p
+            "```" in p
+            or re.search(r"\b(?:write|create|implement|build|refactor|debug|fix|optimize)\b[\s\S]{0,60}\b(?:code|script|function|class|algorithm|method|component|hook)\b", p)
+            or re.search(r"\b(?:def\s+[a-zA-Z_]\w*|function\s+[a-zA-Z_]\w*|const\s+[a-zA-Z_]\w*\s*=|class\s+[a-zA-Z_]\w*|import\s+.*\s+from)\b", p)
+            or re.search(r"\b(?:typescript|javascript|python|rust|golang|react|sql query)\b", p)
         )
         if is_code:
             return self.model_map.get("code", "Qwen/Qwen3-Coder-Next")
@@ -145,23 +145,10 @@ class KruschCascadeRouter(BaseRouter):
             )
             or re.search(r"\n\s*[a-d]\.\s+\S+", p)
         )
-        is_trivia = not has_options and any(
-            k in p
-            for k in (
-                "this author",
-                "this poet",
-                "this battle",
-                "name this",
-                "identify this",
-                "this composer",
-                "this novel",
-                "this leader",
-                "this president",
-                "who was",
-                "which country",
-                "what city",
-                "identify the nation",
-            )
+        is_trivia = not has_options and bool(
+            re.search(r"\b(?:who (?:was|wrote|directed|composed|invented|discovered)|what is the capital of|which country|what city)\b", p)
+            or re.search(r"\b(?:author|poet|novelist|playwright)\s+(?:wrote|penned|composed|published|authored)\b", p)
+            or re.search(r"\b(?:literary|novel|poem|playwright|poetry|biography|novelist)\b", p)
         )
         is_entailment = "does sentence a imply" in p or "entailment" in p
 
