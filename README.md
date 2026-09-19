@@ -203,8 +203,19 @@ graph TD;
 
 ## 📦 Installation
 
+From npm:
 ```bash
 npm install krusch-cascade-router
+```
+
+Or directly from GitHub:
+```bash
+npm install github:kruschdev/krusch-cascade-router
+```
+
+Or from local checkout:
+```bash
+npm install ../path/to/krusch-cascade-router
 ```
 
 > **Requirement**: Node.js 18+ (utilizes native `fetch` and `AbortSignal`).
