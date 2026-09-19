@@ -24,6 +24,8 @@ export {
   TelemetryEvent,
   CascadeTriggeredError,
   MultiSpecialistRouterOptions,
-  createMultiSpecialistRouter
+  createMultiSpecialistRouter,
+  SemanticRouteResult,
+  SemanticRouterL2
 } from './cascade.js';
 

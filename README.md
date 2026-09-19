@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
   <img src="https://img.shields.io/badge/OpenRouter-5--Model%20Specialists-purple.svg?style=flat-square" alt="OpenRouter Specialists">
   <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Candidate%20(Pending%20Review)-orange.svg?style=flat-square" alt="RouterArena PR #169"></a>
-  <img src="https://img.shields.io/badge/tests-44%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
+  <img src="https://img.shields.io/badge/tests-48%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
 </p>
 
 ---
@@ -262,7 +262,42 @@ async function dispatchAgentPrompt(prompt) {
 }
 ```
 
-### Option C: 2-Model Binary Edge Cascade
+### Option C: L1 Fast-Path + L2 Neural Semantic Router Cascade
+
+When an incoming prompt misses the Stage-0/L1 syntactic gate (`isFastPath: false`), `CascadeRouter` can query an **L2 Neural Semantic Router** (such as [`krusch-context-mcp`](https://github.com/kruschdev/krusch-context-mcp) or RouteLLM) to dynamically resolve the optimal domain specialist model rather than falling back to a generic default:
+
+```javascript
+import { CascadeRouter } from 'krusch-cascade-router';
+
+const router = new CascadeRouter({
+  fastModel: { model: 'gemini-3.1-flash-lite' },
+  heavyModel: { model: 'deepseek-v4-pro' },
+  specialistModels: {
+    code: { model: 'Qwen/Qwen3-Coder-Next' },
+    reasoning_deep: { model: 'deepseek/deepseek-v4-pro' },
+    factual_stem: { model: 'deepseek/deepseek-v4-flash' }
+  },
+  // 🧠 L2 Neural Semantic Router hook: called only on L1 misses
+  l2Router: async (prompt, context) => {
+    // Connect to krusch-context-mcp semantic router or local pgvector embeddings
+    const l2 = await mySemanticRouter.classify(prompt, { project: context?.project });
+    return {
+      recommendedRole: l2.recommendedRole, // e.g. 'reasoning_deep' | 'code' | 'factual_stem'
+      targetTier: l2.targetTier,           // 'specialist' | 'heavy' | 'frontier'
+      confidence: l2.confidence,
+      reason: l2.reason
+    };
+  }
+});
+
+// 1. Structured syntax -> Bypasses L2 entirely (<15µs L1 hit)
+await router.chat("```python\ndef fib(n): pass\n```");
+
+// 2. Unstructured/ambiguous query -> Evaluated by L2 in ~20ms, routed to optimal specialist
+await router.chat("Can you explain why the event loop hangs during concurrent queue drain?");
+```
+
+### Option D: 2-Model Binary Edge Cascade
 
 Pair a local edge model (Ollama, vLLM) with a heavy cloud model fallback:
 
@@ -415,7 +450,7 @@ try {
 const router = new CascadeRouter({
   // ...config
   onEvent: (event, meta) => {
-    // Events: 'route_specialist' | 'route_fast' | 'route_heavy' | 'cascade_triggered' | 
+    // Events: 'route_specialist' | 'route_l2_semantic' | 'route_fast' | 'route_heavy' | 'cascade_triggered' | 
     //         'speculative_branch_hedged' | 'repetition_loop_triggered' | 'entropy_collapse_triggered'
     console.log(`[Router Telemetry] ${event}`, meta);
   }
@@ -435,6 +470,7 @@ Factory function configuring the 5 specialist models, routing through OpenRouter
 | `openrouterApiKey` | `string` | `process.env.OPENROUTER_API_KEY` | API key for OpenRouter. |
 | `customModels` | `Partial<Record<SpecialistRole, string \| ModelConfig>>` | `undefined` | Custom model ID strings or full `ModelConfig` objects overriding default specialists. |
 | `classifier` | `ClassifierOptions` | `undefined` | Custom options, including `customSpecialistRules` and `customRules`. |
+| `l2Router` | `SemanticRouterL2` | `undefined` | Optional L2 Neural Semantic Router invoked dynamically when L1 fast-path misses. |
 | `backgroundModel` | `ModelConfig` | `undefined` | Optional model for low-priority/background batch jobs. |
 | `openrouterReferer` | `string` | `undefined` | Optional `HTTP-Referer` header for rankings. |
 | `openrouterTitle` | `string` | `undefined` | Optional `X-Title` header for rankings. |
@@ -452,6 +488,7 @@ Factory function configuring the 5 specialist models, routing through OpenRouter
 | `fastModel` | `ModelConfig` | *Required* | Fast edge model config (e.g., local Ollama, vLLM, `gemini-3.1-flash-lite`). |
 | `heavyModel` | `ModelConfig` | *Required* | Heavy cloud fallback config (e.g., `deepseek-v4-pro`, GPT-4o). |
 | `specialistModels` | `Partial<Record<SpecialistRole, ModelConfig>>` | `undefined` | Map of domain specialist models. |
+| `l2Router` | `SemanticRouterL2` | `undefined` | Optional L2 Neural Semantic Router hook (`(prompt, context) => Promise<SemanticRouteResult>`). |
 | `openrouterApiKey` | `string` | `undefined` | Global OpenRouter API key for specialist models. |
 | `openrouterReferer` | `string` | `undefined` | Global HTTP-Referer header for OpenRouter calls. |
 | `openrouterTitle` | `string` | `undefined` | Global X-Title header for OpenRouter calls. |

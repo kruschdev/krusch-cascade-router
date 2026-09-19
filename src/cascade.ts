@@ -3,6 +3,7 @@ import {
   pruneText, 
   evaluateComplexityScore, 
   classifySpecialistRole, 
+  classifyPreRoute,
   SpecialistRole, 
   Message, 
   ClassifierOptions 
@@ -22,6 +23,7 @@ export type TelemetryEvent =
   | 'route_fast' 
   | 'route_heavy' 
   | 'route_specialist'
+  | 'route_l2_semantic'
   | 'cascade_triggered' 
   | 'json_fallback_triggered' 
   | 'repetition_loop_triggered'
@@ -35,6 +37,19 @@ export interface JeanSREGateConfig {
   projectContext?: string;
 }
 
+export interface SemanticRouteResult {
+  recommendedRole: SpecialistRole;
+  targetTier?: 'specialist' | 'heavy' | 'frontier';
+  recommendedModel?: string;
+  confidence?: number;
+  reason?: string;
+}
+
+export type SemanticRouterL2 = (
+  prompt: string,
+  context?: { project?: string; metadata?: Record<string, any> }
+) => Promise<SemanticRouteResult | null>;
+
 export interface RouterConfig {
   fastModel?: ModelConfig;
   heavyModel?: ModelConfig;
@@ -47,6 +62,7 @@ export interface RouterConfig {
   tokensToEvaluate?: number; // Default 5
   maxRepetitiveTokens?: number; // Default 4 (catches degenerate repetitive loops)
   classifier?: ClassifierOptions;
+  l2Router?: SemanticRouterL2; // Optional L2 Neural Semantic Router
   prunePreRouting?: boolean; // If true, automatically prunes whitespace/filler before routing
   speculativeBranching?: boolean; // If true, enables Second Thought parallel hedging for borderline queries
   fetch?: typeof fetch;
@@ -86,6 +102,8 @@ export interface ChatOptions {
   urgency?: 'high' | 'medium' | 'low';
   prunePreRouting?: boolean;
   speculativeBranching?: boolean;
+  project?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface ChatJsonOptions extends ChatOptions {
@@ -314,8 +332,14 @@ export class CascadeRouter {
    * Complete a chat request, routing automatically between fast edge and heavy cloud models,
    * or across the 5-model specialist pool if configured.
    */
-  async chat(messages: Message[] | string, systemPrompt?: string, options?: ChatOptions): Promise<CascadeResponse> {
-    const formattedMessages = this.formatMessages(messages, systemPrompt, options);
+  async chat(
+    messages: Message[] | string, 
+    systemPromptOrOptions?: string | ChatOptions, 
+    options?: ChatOptions
+  ): Promise<CascadeResponse> {
+    const actualSystemPrompt = typeof systemPromptOrOptions === 'string' ? systemPromptOrOptions : undefined;
+    const actualOptions = typeof systemPromptOrOptions === 'object' ? systemPromptOrOptions : options;
+    const formattedMessages = this.formatMessages(messages, actualSystemPrompt, actualOptions);
 
     // Fetch SRE suggestions if gate is enabled
     if (this.config.jeanSREGate?.enabled) {
@@ -334,18 +358,43 @@ export class CascadeRouter {
     // 1. Predictive Classifier Options
     const classifierOpts = {
       ...this.config.classifier,
-      prunePreRouting: options?.prunePreRouting ?? this.config.prunePreRouting ?? this.config.classifier?.prunePreRouting
+      prunePreRouting: actualOptions?.prunePreRouting ?? this.config.prunePreRouting ?? this.config.classifier?.prunePreRouting
     };
     const isComplex = isComplexPrompt(formattedMessages, classifierOpts);
     const complexityScore = evaluateComplexityScore(formattedMessages, classifierOpts);
     const isBorderline = complexityScore >= 0.25 && complexityScore <= 0.70;
-    const shouldHedge = (options?.speculativeBranching ?? this.config.speculativeBranching) && isBorderline;
+    const shouldHedge = (actualOptions?.speculativeBranching ?? this.config.speculativeBranching) && isBorderline;
 
     // --- Path A: Multi-Specialist Pool Routing ---
     if (this.config.specialistModels && Object.keys(this.config.specialistModels).length > 0) {
-      const specialistRole = classifySpecialistRole(formattedMessages, classifierOpts);
-      let targetRole: SpecialistRole = specialistRole;
-      let targetModel = this.config.specialistModels[specialistRole] || this.config.fastModel!;
+      const preRoute = classifyPreRoute(formattedMessages, classifierOpts);
+      let targetRole: SpecialistRole = preRoute.role ?? 'factual_stem';
+
+      // If L0 gate missed (delegate_to_l2) and L2 semantic router is configured, query L2
+      if (!preRoute.isFastPath && this.config.l2Router) {
+        try {
+          const l2Prompt = typeof messages === 'string'
+            ? messages
+            : messages.filter(m => m.role === 'user').map(m => m.content).join('\n') || promptText;
+          const l2Result = await this.config.l2Router(l2Prompt, {
+            project: actualOptions?.project,
+            metadata: actualOptions?.metadata
+          });
+          if (l2Result?.recommendedRole) {
+            targetRole = l2Result.recommendedRole;
+            this.config.onEvent?.('route_l2_semantic', {
+              role: targetRole,
+              tier: l2Result.targetTier,
+              confidence: l2Result.confidence,
+              reason: l2Result.reason
+            });
+          }
+        } catch {
+          // Graceful fallback to default role
+        }
+      }
+
+      let targetModel = this.config.specialistModels[targetRole] || this.config.fastModel!;
       const heavyModel = this.config.specialistModels.reasoning_deep || this.config.heavyModel!;
 
       // Domain specialists (code, games_spatial, comprehension_rc) should retain their specialization
@@ -355,7 +404,7 @@ export class CascadeRouter {
         targetModel = heavyModel;
       }
 
-      const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
+      const modelToUse = (actualOptions?.speedPriority === 'low' || actualOptions?.urgency === 'low') && this.config.backgroundModel
         ? this.config.backgroundModel
         : targetModel;
 
@@ -499,8 +548,14 @@ export class CascadeRouter {
    * Speculatively buffers the first N tokens from the fast model.
    * If confidence dips below threshold or a repetitive loop is detected, silent abort occurs and falls back to heavy.
    */
-  async *stream(messages: Message[] | string, systemPrompt?: string, options?: ChatOptions): AsyncGenerator<string, void, unknown> {
-    const formattedMessages = this.formatMessages(messages, systemPrompt, options);
+  async *stream(
+    messages: Message[] | string, 
+    systemPromptOrOptions?: string | ChatOptions, 
+    options?: ChatOptions
+  ): AsyncGenerator<string, void, unknown> {
+    const actualSystemPrompt = typeof systemPromptOrOptions === 'string' ? systemPromptOrOptions : undefined;
+    const actualOptions = typeof systemPromptOrOptions === 'object' ? systemPromptOrOptions : options;
+    const formattedMessages = this.formatMessages(messages, actualSystemPrompt, actualOptions);
 
     // Fetch SRE suggestions if gate is enabled
     if (this.config.jeanSREGate?.enabled) {
@@ -516,15 +571,40 @@ export class CascadeRouter {
     // 1. Predictive Classifier
     const classifierOpts = {
       ...this.config.classifier,
-      prunePreRouting: options?.prunePreRouting ?? this.config.prunePreRouting ?? this.config.classifier?.prunePreRouting
+      prunePreRouting: actualOptions?.prunePreRouting ?? this.config.prunePreRouting ?? this.config.classifier?.prunePreRouting
     };
     const isComplex = isComplexPrompt(formattedMessages, classifierOpts);
 
     // --- Path A: Multi-Specialist Pool Streaming ---
     if (this.config.specialistModels && Object.keys(this.config.specialistModels).length > 0) {
-      const specialistRole = classifySpecialistRole(formattedMessages, classifierOpts);
-      let targetRole: SpecialistRole = specialistRole;
-      let targetModel = this.config.specialistModels[specialistRole] || this.config.fastModel!;
+      const preRoute = classifyPreRoute(formattedMessages, classifierOpts);
+      let targetRole: SpecialistRole = preRoute.role ?? 'factual_stem';
+
+      // If L0 gate missed (delegate_to_l2) and L2 semantic router is configured, query L2
+      if (!preRoute.isFastPath && this.config.l2Router) {
+        try {
+          const l2Prompt = typeof messages === 'string'
+            ? messages
+            : messages.filter(m => m.role === 'user').map(m => m.content).join('\n') || formattedMessages.map(m => m.content).join('\n');
+          const l2Result = await this.config.l2Router(l2Prompt, {
+            project: actualOptions?.project,
+            metadata: actualOptions?.metadata
+          });
+          if (l2Result?.recommendedRole) {
+            targetRole = l2Result.recommendedRole;
+            this.config.onEvent?.('route_l2_semantic', {
+              role: targetRole,
+              tier: l2Result.targetTier,
+              confidence: l2Result.confidence,
+              reason: l2Result.reason
+            });
+          }
+        } catch {
+          // Graceful fallback to default role
+        }
+      }
+
+      let targetModel = this.config.specialistModels[targetRole] || this.config.fastModel!;
       const heavyModel = this.config.specialistModels.reasoning_deep || this.config.heavyModel!;
 
       // Domain specialists (code, games_spatial, comprehension_rc) should retain their specialization
@@ -534,7 +614,7 @@ export class CascadeRouter {
         targetModel = heavyModel;
       }
 
-      const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
+      const modelToUse = (actualOptions?.speedPriority === 'low' || actualOptions?.urgency === 'low') && this.config.backgroundModel
         ? this.config.backgroundModel
         : targetModel;
 
