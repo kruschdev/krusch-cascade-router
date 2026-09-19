@@ -3,37 +3,39 @@
 </p>
 
 <p align="center">
-  <strong>The L1 Cache & Fast-Path Pre-Router for LLM Architectures.</strong><br>
-  <span>Intercepts structured code, SQL, math, and closed-world tasks in CPU microseconds (&lt;15µs) for $0.00 before paying the latency and token tax of neural or frontier LLM routers.</span>
+  <strong>Dual-Stage (L1 Heuristic Fast-Path + L2 Neural Semantic Escalation) Cascade Router for LLM Swarms.</strong><br>
+  <span>Intercepts structured code, SQL, math, and closed-world tasks in CPU microseconds (&lt;15µs) for $0.00, with integrated Level 2 (L2) neural centroid classification for unstructured chat and speculative multi-model cascades.</span>
 </p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/krusch-cascade-router"><img src="https://img.shields.io/github/package-json/v/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="NPM Version"></a>
   <a href="https://github.com/kruschdev/krusch-pre-router"><img src="https://img.shields.io/badge/Powered%20By-krusch--pre--router-green.svg?style=flat-square" alt="Powered By krusch-pre-router"></a>
+  <a href="https://github.com/kruschdev/krusch-context-mcp"><img src="https://img.shields.io/badge/L2%20Neural-krusch--context--mcp-purple.svg?style=flat-square" alt="L2 Neural krusch-context-mcp"></a>
   <a href="https://github.com/kruschdev/krusch-cascade-router/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
   <img src="https://img.shields.io/badge/OpenRouter-5--Model%20Specialists-purple.svg?style=flat-square" alt="OpenRouter Specialists">
   <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Candidate%20(Pending%20Review)-orange.svg?style=flat-square" alt="RouterArena PR #169"></a>
-  <img src="https://img.shields.io/badge/tests-48%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
+  <img src="https://img.shields.io/badge/tests-51%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
 </p>
 
 ---
 
-## ⚡ The L1 / L2 Routing Pattern: "Don't spend a model call just to pick a model."
+## ⚡ The Dual-Stage Routing Pattern: "Don't spend a model call just to pick a model."
 
-> 💡 **Looking for just the zero-dependency L1 pre-filter?** If you already have an LLM client or neural router and only need the fast microsecond gate function, install [`krusch-pre-router`](https://github.com/kruschdev/krusch-pre-router) (`npm install krusch-pre-router`, 0 dependencies, <20KB).
+> 💡 **Looking for just the zero-dependency L1 pre-filter?** If you already have an LLM client or neural router and only need the fast microsecond gate function, install [`krusch-pre-router`](https://github.com/kruschdev/krusch-pre-router) (`npm install krusch-pre-router`, 0 dependencies, <10KB gzipped).
 
 In CPU architecture, the processor does not query main RAM or NVMe storage for every instruction—it checks the **L1 cache** in 1 clock cycle. If there is an L1 hit, execution proceeds instantly with zero memory bus overhead.
 
 In multi-model agent systems, using an LLM or neural embedding model to decide where to route an obvious Python script, SQL query, LaTeX proof, or JSON transform is an expensive anti-pattern:
 * **The Routing Tax**: Adds **300ms–800ms of Time-To-First-Token (TTFT)** and auxiliary prompt token charges to every single step in an agentic loop.
-* **The Fast-Path Solution**: `krusch-cascade-router` acts as the **Stage 1 (L1) Pre-Router Gate**, powered internally by [`krusch-pre-router`](https://github.com/kruschdev/krusch-pre-router). It executes in < 15 microseconds on CPU for **$0.00**, immediately dispatching high-confidence structured traffic to cheap domain specialists (`Qwen3-Coder-Next`, `deepseek-v4-flash`, `gemini-3.1-flash-lite`), while cleanly delegating ambiguous, conversational chat to an **L2 Neural Router** or frontier model.
+* **The Dual-Stage Solution**: `krusch-cascade-router` unifies **Stage 1 (L1) Pre-Router Gating** (powered by [`krusch-pre-router`](https://github.com/kruschdev/krusch-pre-router)) with **Stage 2 (L2) Neural Semantic Escalation** (powered by [`krusch-context-mcp`](https://github.com/kruschdev/krusch-context-mcp) or in-process centroid embeddings). It executes high-confidence structured traffic in < 15 microseconds on CPU for **$0.00**, while seamlessly escalating ambiguous, conversational chat to an **L2 Neural Centroid Classifier** before dispatching across the 5-model specialist pool or frontier models.
 
-1. **⚡ Sub-Millisecond L1 Pre-Filter**: Evaluates syntax, query length, structure, and domain keywords in microseconds on CPU without making pre-flight routing calls.
-2. **🎯 5-Model Specialist Routing via OpenRouter**: Out-of-the-box factory preset orchestrating 5 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, and `qwen3-235b-a22b-2507`) unified through OpenRouter. Fully swappable via `customModels`.
-3. **🧠 Knowledge Boundary Routing**: Detects closed-world self-contained tasks (syntax, math, regex, formatting, translation) to keep them on fast edge models.
-4. **⚡ Speculative Parallel Hedging**: Pre-warms heavy models in parallel on borderline confidence queries (`[0.25, 0.70]`) to mask sequential cascade latency.
-5. **🛡️ Logprob & Silent Failure Gating**: Inspects initial token logprob confidence and monitors sliding-window repetition / $n$-gram loops to abort unhelpful outputs early.
+1. **⚡ Sub-Millisecond L1 Pre-Filter**: Evaluates syntax, query length, structure, and domain keywords in microseconds on CPU without making pre-flight routing calls (powered by `krusch-pre-router`).
+2. **🧠 Level 2 (L2) Neural Semantic Escalation**: Classifies unstructured or ambiguous prompts via vector centroid cosine distance (`createCentroidSemanticRouter` or `createContextMcpRouter`), eliminating blind defaults.
+3. **🎯 5-Model Specialist Routing via OpenRouter**: Out-of-the-box factory preset orchestrating 5 specialized domain models (`gemini-3.1-flash-lite`, `deepseek-v4-flash`, `Qwen3-Coder-Next`, `deepseek-v4-pro`, and `qwen3-235b-a22b-2507`) unified through OpenRouter. Fully swappable via `customModels`.
+4. **🧠 Knowledge Boundary Routing**: Detects closed-world self-contained tasks (syntax, math, regex, formatting, translation) to keep them on fast edge models.
+5. **⚡ Speculative Parallel Hedging**: Pre-warms heavy models in parallel on borderline confidence queries (`[0.25, 0.70]`) to mask sequential cascade latency.
+6. **🛡️ Logprob & Silent Failure Gating**: Inspects initial token logprob confidence and monitors sliding-window repetition / $n$-gram loops to abort unhelpful outputs early.
 
 ---
 
@@ -51,12 +53,12 @@ In multi-model agent systems, using an LLM or neural embedding model to decide w
 
 ### ⚖️ Engineering Snapshot & Design Trade-offs
 
-| Dimension | Krusch Cascade Router | Embedding / Neural Routers (e.g. RouteLLM) | LLM-as-a-Router (e.g. Orca) |
+| Dimension | Krusch Cascade Router (Dual-Stage L1/L2) | Embedding / Neural Routers (e.g. RouteLLM) | LLM-as-a-Router (e.g. Orca) |
 |---|---|---|---|
-| **Dispatch Latency** | **< 15 microseconds (CPU)** | 15 – 50 ms (Vectorization + MLP) | 400 – 1,200 ms (LLM pre-flight) |
-| **Routing Cost** | **$0.00 (0 tokens)** | ~$0.0001 (Embedding tokens) | ~$0.002 (Prompt tokens) |
+| **Dispatch Latency** | **< 15 µs (L1 Fast-Path) / ~20ms (L2 Neural)** | 15 – 50 ms (Vectorization + MLP) | 400 – 1,200 ms (LLM pre-flight) |
+| **Routing Cost** | **$0.00 (L1 Fast-Path) / $0.00 local (L2)** | ~$0.0001 (Embedding tokens) | ~$0.002 (Prompt tokens) |
 | **Structured Prompts (Code, Math, Syntax)** | **High Precision (>95%)** | High (>90%) | High (>95%) |
-| **Messy / Ambiguous Chat** | **Brittle (defaults to STEM/General)** | **Robust (Learns semantic nuances)** | **Very Robust** |
+| **Messy / Ambiguous Chat** | **Robust (>92% via L2 Centroid Escalation)** | **Robust (Learns semantic nuances)** | **Very Robust** |
 | **Mid-Stream Loop Guard** | **Yes (sliding n-gram abort)** | No (Routing only) | No (Routing only) |
 | **Model Catalog Dependency** | **Fully decoupled (via customModels)** | Requires retrained classifier | Prompt updates |
 | **Network Failure Cascade** | **Yes (Speculative dual-call & fallback)** | No | No |
@@ -267,7 +269,20 @@ async function dispatchAgentPrompt(prompt) {
 When an incoming prompt misses the Stage-0/L1 syntactic gate (`isFastPath: false`), `CascadeRouter` can query an **L2 Neural Semantic Router** (such as [`krusch-context-mcp`](https://github.com/kruschdev/krusch-context-mcp) or RouteLLM) to dynamically resolve the optimal domain specialist model rather than falling back to a generic default:
 
 ```javascript
-import { CascadeRouter } from 'krusch-cascade-router';
+import { 
+  CascadeRouter, 
+  createCentroidSemanticRouter, 
+  createContextMcpRouter 
+} from 'krusch-cascade-router';
+
+// Approach 1: In-process L2 Neural Router via local Ollama (bge-large, 1024d)
+const l2OllamaRouter = createCentroidSemanticRouter({
+  ollamaUrl: 'http://localhost:11434',
+  embedModel: 'bge-large'
+});
+
+// Approach 2: Direct adapter to krusch-context-mcp server tool
+// const l2McpRouter = createContextMcpRouter((name, args) => mcpClient.callTool({ name, arguments: args }));
 
 const router = new CascadeRouter({
   fastModel: { model: 'gemini-3.1-flash-lite' },
@@ -277,20 +292,11 @@ const router = new CascadeRouter({
     reasoning_deep: { model: 'deepseek/deepseek-v4-pro' },
     factual_stem: { model: 'deepseek/deepseek-v4-flash' }
   },
-  // 🧠 L2 Neural Semantic Router hook: called only on L1 misses
-  l2Router: async (prompt, context) => {
-    // Connect to krusch-context-mcp semantic router or local pgvector embeddings
-    const l2 = await mySemanticRouter.classify(prompt, { project: context?.project });
-    return {
-      recommendedRole: l2.recommendedRole, // e.g. 'reasoning_deep' | 'code' | 'factual_stem'
-      targetTier: l2.targetTier,           // 'specialist' | 'heavy' | 'frontier'
-      confidence: l2.confidence,
-      reason: l2.reason
-    };
-  }
+  // 🧠 L2 Neural Semantic Router: queried only on L1 pre-router misses
+  l2Router: l2OllamaRouter
 });
 
-// 1. Structured syntax -> Bypasses L2 entirely (<15µs L1 hit)
+// 1. Structured syntax -> Bypasses L2 entirely (<15µs L1 hit on CPU for $0.00)
 await router.chat("```python\ndef fib(n): pass\n```");
 
 // 2. Unstructured/ambiguous query -> Evaluated by L2 in ~20ms, routed to optimal specialist

@@ -29,3 +29,12 @@ export {
   SemanticRouterL2
 } from './cascade.js';
 
+export {
+  createCentroidSemanticRouter,
+  createContextMcpRouter,
+  cosineSimilarity,
+  DEFAULT_L2_ARCHETYPES,
+  ArchetypeCentroid,
+  CentroidRouterOptions
+} from './l2-adapter.js';
+
