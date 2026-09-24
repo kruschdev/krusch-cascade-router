@@ -1,7 +1,7 @@
 {
   "name": "krusch-cascade-router",
   "version": "1.1.0",
-  "description": "Latency-aware LLM router combining sub-50ms heuristic classification, 5-model specialist routing via OpenRouter, and speculative logprob cascades.",
+  "description": "Dual-Stage (L1 Heuristic Fast-Path + L2 Neural Semantic Escalation) Cascade Router for LLM Swarms. Intercepts structured tasks in CPU microseconds (<15µs) for $0.00, with integrated L2 neural centroid classification and speculative cascades.",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
