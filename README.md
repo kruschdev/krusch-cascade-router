@@ -43,11 +43,12 @@ In multi-model agent systems, using an LLM or neural embedding model to decide w
 
 | Best Used For ✅ | Poor Fit / Not Recommended ❌ |
 |:---|:---|
-| **Agentic Loops & Microservices**: Multi-step workflows where saving 300–800ms TTFT routing overhead per tool call compounds significantly. | **Open-Ended Conversational Chat**: Ambiguous, chatty, or emotional dialogue where prompt intent lacks lexical or structural domain clues. |
-| **Code, STEM, Math, SQL, Formatting**: Tasks with distinct syntactic, mathematical, or structural footprints. | **Subtle Semantic Nuance**: Prompts requiring complex affective or social reasoning without explicit domain vocabulary. |
-| **Closed-World Transformations**: Unit conversions, regex generation, JSON parsing, language translation. | **Latency-Insensitive Frontier Batch Jobs**: Offline tasks where maximum reasoning depth is required on 100% of inputs regardless of cost. |
-| **Runaway Loop & Degeneration Guard**: Halting repetitive cyclical outputs mid-stream before blowing token limits. | **Single-Provider Monoliths**: Workloads already locked into a single proprietary model endpoint with fixed enterprise pricing. |
-| **Cost-Sensitive OpenRouter Workflows**: Dispatches to cheap specialized models first with automatic fallback to frontier models. | **When You Need Learned Embeddings**: If queries are noisy, unstructured natural language, a neural router (e.g. RouteLLM, NotDiamond) will outperform regex heuristics. |
+| **Agentic Loops & Microservices**: Multi-step workflows where saving 300–800ms TTFT routing overhead per tool call compounds significantly. | **Latency-Insensitive Frontier Monoliths**: Offline tasks where maximum reasoning depth is required on 100% of inputs (e.g., formal legal briefs, theorem proving) regardless of cost. |
+| **Code, STEM, Math, SQL, Formatting**: Tasks with distinct syntactic, mathematical, or structural footprints (intercepted in &lt;15µs via L1 fast-path). | **Single-Provider Monoliths**: Workloads already locked into a single proprietary model endpoint with fixed enterprise flat-rate pricing. |
+| **Closed-World Transformations**: Unit conversions, regex generation, JSON parsing, language translation (safely constrained to fast edge models). | **Standalone L1 on Purely Affective Dialogue**: Running in L1-only mode without the L2 neural classifier on unstructured social chat (which defaults to `general_fast`). |
+| **Unstructured Chat with Dual-Stage L2**: Escalates ambiguous prompts to vector centroid cosine distance, eliminating blind fallback defaults. | **Zero-Variance Workloads**: Pipelines where all candidate models perform identically with no accuracy or cost divergence. |
+| **Runaway Loop & Degeneration Guard**: Halting repetitive cyclical outputs mid-stream before blowing token limits. | **Unconstrained Batch Budgets**: Large offline processing where compute budget is unlimited and parallel throughput matters more than per-query optimization. |
+| **Cost-Sensitive OpenRouter Workflows**: Dispatches to cheap specialized models first with automatic fallback to frontier models. | **Dynamic Heavy Re-training Pipelines**: If your workload strictly mandates continually retraining an end-to-end multi-layer neural network on black-box label files. |
 
 ---
 
