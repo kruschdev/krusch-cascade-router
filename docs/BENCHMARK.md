@@ -8,7 +8,7 @@ This document provides a comprehensive technical breakdown and academic literatu
 
 This evaluation analyzes the **Krusch Cascade Router** across multiple configurations, focusing on a **4-Model Multi-Specialist Architecture** utilizing unified **OpenRouter** API routing across domain-specialized frontier and fast models.
 
-In official automated CI evaluation on **[RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)**, Krusch Cascade Router achieved **Rank 🥇 #1 globally** on the RouterArena benchmark with an official score of **0.7883 (78.83)**, surpassing previous leaderboard leader Paix2 (77.63) and KT-ModelRouter (76.28).
+In official automated CI evaluation on **[RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)**, Krusch Cascade Router scored **0.7883 (78.83)** on the RouterArena benchmark (submission pending merge), comparing favorably against published leaderboard leader Paix2 (77.63) and KT-ModelRouter (76.28).
 
 Our submission ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) was evaluated across the official 8,400-query benchmark dataset plus 420 robustness perturbations by the RouteWorks GitHub Actions evaluation workflow:
 
@@ -17,14 +17,14 @@ Our submission ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/R
 | **Run 1: Initial Adapter** | 74.13 | 76.14% | $0.3700 | 93.10% | Baseline multi-model adapter |
 | **Run 2: Cheaper 5-Model Pool** | 74.09 | 75.62% | $0.2700 | 94.05% | Shifted budget to cheaper flash endpoints |
 | **Run 3: Heuristic Retune** | 77.93 | 81.53% | $0.6070 | 92.62% | Disambiguated math operators & chess boundaries |
-| **Run 4: Literature Refinement** | **78.83 (0.7883)** | **80.72%** | **$0.2117** | **90.48%** | **Rank 🥇 #1 Winner**: Clean 4-model specialist pool, stripped harness fingerprints, 65.1% cost drop |
+| **Run 4: Literature Refinement** | **78.83 (0.7883)** | **80.72%** | **$0.2117** | **90.48%** | **PR #169 Evaluation**: Clean 4-model specialist pool, stripped harness fingerprints, 65.1% cost drop |
 
 > [!NOTE]
-> **Official CI Evaluation Outcome**: The official CI workflow score of **0.7883 (78.83)** was evaluated directly by `github-actions[bot]` on the upstream [RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169). Krusch Cascade Router achieved **Rank 🥇 #1 globally**, breaking the 80% accuracy threshold (80.72%) at a blended cost of **$0.2117 / 1K queries** ($1.7785 total cost across 8,400 queries; 0 abnormal failures; 90.48% robustness score).
+> **Official CI Evaluation Outcome**: The official CI workflow score of **0.7883 (78.83)** was evaluated directly by `github-actions[bot]` on the upstream [RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169). Krusch Cascade Router broke the 80% accuracy threshold (80.72%) at a blended cost of **$0.2117 / 1K queries** ($1.7785 total cost across 8,400 queries; 0 abnormal failures; 90.48% robustness score).
 
 | Metric | Krusch Cascade (Official PR #169 CI) | Paix2 (#2) | KT-ModelRouter (#3) | Sqwish Router (#4) | Divyam (#5) | vLLM-SR (#8) |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **RouterArena Score ($S_{i,\beta}$)** | **78.83 (0.7883)** 🥇 | 77.63 | 76.28 | 76.21 | 75.85 | 74.86 |
+| **RouterArena Score ($S_{i,\beta}$)** | **78.83 (0.7883)** | 77.63 | 76.28 | 76.21 | 75.85 | 74.86 |
 | **Benchmark Accuracy** | **80.72%** | 79.69% | 78.14% | 79.76% | 78.59% | 77.18% |
 | **Cost / 1K Queries** | **$0.2117** | $0.2700 | $0.2700 | $0.7000 | $0.4800 | $0.4200 |
 | **Total Benchmark Cost (8,400 Qs)**| **$1.7785** | $2.2680 | $2.2680 | $5.8800 | $4.0320 | $3.5280 |
@@ -35,7 +35,7 @@ Our submission ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/R
 | **Routing Token Overhead** | **0 tokens ($0.00)** | 0 tokens | ~Embed tokens | ~Embed tokens | ~Embed tokens | ~Embed tokens |
 | **Routing Latency** | **<50 microseconds** | <50ms | ~15–40ms | ~20–50ms | ~15–30ms | ~15–30ms |
 | **Active Models** | **4 Models** | 7 Models | 4 Models | 5 Models | 5 Models | 4 Models |
-| **Status** | **Official PR #169 CI Bot (Rank #1)** | Published | Published | Published | Published | Published |
+| **Status** | **Official PR #169 CI Bot (Pending Merge)** | Published | Published | Published | Published | Published |
 
 ---
 
@@ -80,7 +80,7 @@ Our empirical investigation revealed four key root causes and refinements:
   - `Qwen/Qwen3-Coder-Next` for code, algorithms, and chess.
   - `google/gemini-3.1-flash-lite` for multilingual, translation, clinical/medical, geography, and general knowledge/trivia.
   - `deepseek/deepseek-v4-pro` for complex financial statements (FinQA), balance sheets, and formal proofs.
-* **Result**: Dropped the blended cost from **$0.6070 down to $0.2117 / 1K queries** (a 65.1% cost reduction) while keeping benchmark accuracy at **80.72%** (first router on the leaderboard to break 80%), propelling the RouterArena score to **0.7883 (Rank 🥇 #1 globally)**.
+* **Result**: Dropped the blended cost from **$0.6070 down to $0.2117 / 1K queries** (a 65.1% cost reduction) while keeping benchmark accuracy at **80.72%** (first router on the benchmark to break 80%), reaching a RouterArena evaluation score of **0.7883**.
 
 ### 4. Empirical Domain Allocation Across the Specialist Models
 
@@ -101,8 +101,8 @@ The public [RouteWorks/RouterArena Leaderboard](https://routeworks.github.io/lea
 ```
 Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K Queries   Robustness   Status
 -----------------------------------------------------------------------------------------------------------------
- 🥇 1 Krusch Cascade Router (Run 4)            78.83        80.72%          $0.21           90.48%     Official PR #169 CI (#1 Global)
- 2    Paix2                                    77.63        79.69%          $0.27           77.86%     Published
+ —    Krusch Cascade Router (Run 4)            78.83        80.72%          $0.21           90.48%     Official PR #169 CI (Pending Merge)
+ 1    Paix2                                    77.63        79.69%          $0.27           77.86%     Published
  3    KT-ModelRouter                           76.28        78.14%          $0.27           80.48%     Published
  4    Sqwish Router                            76.21        79.76%          $0.70           51.67%     Published
  5    Divyam                                   75.85        78.59%          $0.48           98.33%     Published
@@ -421,7 +421,7 @@ The table below synthesizes the complete empirical evaluation of **Krusch Cascad
 
 | Benchmark | Sponsoring Organization / Publication | Dataset Size & Scope | Baseline Target | Krusch Cascade Router Performance | Primary Efficiency Metric | Cost Reduction vs Frontier | Routing Overhead / Latency |
 |:---|:---|:---|:---|:---|:---:|:---:|:---:|
-| **1. RouterArena** | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool | **Official PR #169 CI Bot (Rank 🥇 #1)**:<br>Workflow Score: **0.7883 (78.83)**<br>Accuracy: **80.72%**<br>Robustness: **90.48%** | **0.7883 (Rank 🥇 #1)**<br>([Evaluated in PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.2117 / 1K queries**<br>(65% drop vs Run 3, vs $0.27 Paix2, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
+| **1. RouterArena** | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool | **Official PR #169 CI Bot**:<br>Workflow Score: **0.7883 (78.83)**<br>Accuracy: **80.72%**<br>Robustness: **90.48%** | **0.7883**<br>([Evaluated in PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.2117 / 1K queries**<br>(65% drop vs Run 3, vs $0.27 Paix2, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
 | **2. LMSYS RouteLLM**<br>*(Offline Simulation)* | LMSYS Org / UC Berkeley (arXiv: 2406.18665) | 10,000+ Battles across GSM8K, MMLU, MT-Bench | `gpt-4-1106-preview` vs `mixtral-8x7b` / `llama-3-8b` | **GSM8K: 0.5602 APGR**<br>**MT-Bench: 0.6027 APGR**<br>**MMLU: 0.5060 APGR** | **>0.50–0.60 APGR** | **50%–75% Cost Savings** at 95% Quality | < 0.05 ms<br>(20,000+ QPS) |
 | **3. WithMartian RouterBench**<br>*(Offline Simulation)* | WithMartian / arXiv: 2403.12031 | 36,497 Inference Outcomes across 11 Frontier & Open LLMs | GPT-4 Single Model Oracle ($94.39 Total Cost) | **AIQ Score: 0.7200** (92.1% of Ceiling)<br>Frugal: 64.51% Acc @ $8.13<br>Balanced: 75.08% Acc @ $52.52 | **0.7200 AIQ Score** | **93.23% (Frugal)**<br>**56.29% (Balanced)** | 0.11 ms<br>(9,066 QPS) |
 | **4. Google AutoMix**<br>*(Offline Simulation)* | Google Research & CMU (NeurIPS 2024 / arXiv: 2310.12963) | 14,571 Validation Queries across CoQA, CNLI, NarrativeQA, Quality, QASPER | Speculative Cascade LLaMA-13B $\rightarrow$ LLaMA-70B | **CoQA Lift: +55.17%** (vs +43.68% POMDP)<br>**NarrativeQA Lift: +17.45%** (vs +6.44% POMDP) | **+55.17% IBC Lift** (Beats POMDP) | **82.40% on CoQA**<br>**68.39% on NarrativeQA** | 0.007 ms<br>(137,081 QPS) |
