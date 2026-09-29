@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ["20.x", "22.x"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Build Project
+      run: npm run build
+
+    - name: Run Test Suite
+      run: npm test
+
+    - name: Instant Failure Push Notification
+      if: failure()
+      run: |
+        curl -s -X POST \
+          -H "Title: 🚨 CI Failure: ${{ github.repository }} (Node ${{ matrix.node-version }})" \
+          -H "Priority: urgent" \
+          -H "Tags: rotating_light,x" \
+          -H "Click: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+          -d "Run #${{ github.run_number }} failed on ${{ github.ref_name }}. Commit: ${{ github.sha }} by ${{ github.actor }}." \
+          https://ntfy.sh/krusch-ci-alerts || true
+
+    - name: Dispatch Webhook Alert (Optional)
+      if: failure() && env.CI_WEBHOOK != ''
+      env:
+        CI_WEBHOOK: ${{ secrets.CI_FAILURE_WEBHOOK }}
+      run: |
+        curl -s -X POST -H "Content-Type: application/json" \
+          -d "{\"content\": \"🚨 **CI Failure**: [${{ github.repository }}#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) failed on \`${{ github.ref_name }}\` (Commit: \`${{ github.sha }}\`)\"}" \
+          "$CI_WEBHOOK" || true
