@@ -21,3 +21,13 @@ jobs:
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          curl -s \
+            -H "Title: Release Publish Failure: krusch-cascade-router" \
+            -H "Priority: urgent" \
+            -H "Tags: warning,github-actions" \
+            -d "Failed to publish package to npm. Check secrets.NPM_TOKEN." \
+            https://ntfy.sh/krusch-ci-alerts || true
