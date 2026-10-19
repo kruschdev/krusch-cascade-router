@@ -24,10 +24,12 @@ jobs:
 
       - name: Notify on Failure
         if: failure()
+        env:
+          NTFY_TOPIC_URL: ${{ secrets.NTFY_TOPIC_URL }}
         run: |
           curl -s \
             -H "Title: Release Publish Failure: krusch-cascade-router" \
             -H "Priority: urgent" \
             -H "Tags: warning,github-actions" \
             -d "Failed to publish package to npm. Check secrets.NPM_TOKEN." \
-            https://ntfy.sh/krusch-ci-alerts || true
+            "${NTFY_TOPIC_URL:-}" || true

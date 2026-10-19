@@ -134,8 +134,34 @@ export function cosineSimilarity(a: number[], b: number[]): number {
     normA += a[i] * a[i];
     normB += b[i] * b[i];
   }
-  if (normA === 0 || normB === 0) return 0;
+  if (normA === 0 || normB === 0 || !Number.isFinite(dot) || !Number.isFinite(normA) || !Number.isFinite(normB)) return 0;
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+function normalizeVector(vec: number[]): number[] | null {
+  if (!Array.isArray(vec) || vec.length === 0) return null;
+  let normSq = 0;
+  for (let i = 0; i < vec.length; i++) {
+    const v = vec[i];
+    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+    normSq += v * v;
+  }
+  if (normSq === 0 || !Number.isFinite(normSq)) return null;
+  const invNorm = 1 / Math.sqrt(normSq);
+  const unit = new Array<number>(vec.length);
+  for (let i = 0; i < vec.length; i++) {
+    unit[i] = vec[i] * invNorm;
+  }
+  return unit;
+}
+
+function dotProduct(a: number[], b: number[]): number {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+  }
+  return dot;
 }
 
 export interface CentroidRouterOptions {
@@ -164,6 +190,14 @@ export interface CentroidRouterOptions {
    */
   defaultThreshold?: number;
   /**
+   * Maximum number of prompt embeddings to cache in memory (default: 256, 0 to disable).
+   */
+  cacheSize?: number;
+  /**
+   * Request timeout in milliseconds for default HTTP embedding calls (default: 3000).
+   */
+  timeoutMs?: number;
+  /**
    * Fetch implementation (default: globalThis.fetch).
    */
   fetch?: typeof fetch;
@@ -176,99 +210,164 @@ export interface CentroidRouterOptions {
 export function createCentroidSemanticRouter(options: CentroidRouterOptions = {}): SemanticRouterL2 {
   const fetchFn = options.fetch || globalThis.fetch;
   const centroids = options.centroids ? [...options.centroids] : [...DEFAULT_L2_ARCHETYPES];
-  const defaultThreshold = options.defaultThreshold || 0.65;
-  const embedModel = options.embedModel || 'bge-large';
-  const ollamaUrl = options.ollamaUrl || 'http://localhost:11434';
+  const defaultThreshold = options.defaultThreshold ?? 0.65;
+  const ollamaEmbedModel = options.embedModel || 'bge-large';
+  const openrouterEmbedModel = options.embedModel || 'baai/bge-large-en-v1.5';
+  const baseOllamaUrl = (options.ollamaUrl || 'http://localhost:11434').replace(/\/+$/, '');
+  const maxCacheSize = options.cacheSize ?? 256;
+  const timeoutMs = options.timeoutMs ?? 3000;
 
   // Embedder implementation
-  const embedder: (text: string) => Promise<number[] | null> = options.embed || (async (text: string) => {
-    if (options.openrouterApiKey) {
-      try {
+  const rawEmbedder: (text: string) => Promise<number[] | null> = options.embed || (async (text: string) => {
+    const controller = new AbortController();
+    const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      if (options.openrouterApiKey) {
         const res = await fetchFn('https://openrouter.ai/api/v1/embeddings', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${options.openrouterApiKey}`
           },
+          signal: controller.signal,
           body: JSON.stringify({
-            model: 'baai/bge-large-en-v1.5',
+            model: openrouterEmbedModel,
             input: text
           })
         });
         if (!res.ok) return null;
         const data = await res.json() as any;
-        return data?.data?.[0]?.embedding || null;
-      } catch {
-        return null;
+        return data?.data?.[0]?.embedding || data?.embedding || null;
       }
-    }
 
-    // Default: Local Ollama
-    try {
-      const res = await fetchFn(`${ollamaUrl}/api/embeddings`, {
+      // Default: Local Ollama (supports /api/embeddings, /api/embed, and OpenAI /v1/embeddings response formats)
+      const res = await fetchFn(`${baseOllamaUrl}/api/embeddings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
-          model: embedModel,
+          model: ollamaEmbedModel,
           prompt: text
         })
       });
       if (!res.ok) return null;
       const data = await res.json() as any;
-      return data?.embedding || null;
+      return data?.embedding || data?.embeddings?.[0] || data?.data?.[0]?.embedding || null;
     } catch {
       return null;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   });
 
-  // Cached exemplar embeddings (lazily initialized on first route call)
-  const centroidEmbeddings = new Map<string, number[]>();
-  let isWarming = false;
+  // Bounded LRU cache for unit-normalized prompt embeddings
+  const promptVecCache = new Map<string, number[]>();
+
+  async function getPromptUnitEmbedding(cleanPrompt: string): Promise<number[] | null> {
+    if (maxCacheSize > 0) {
+      const cached = promptVecCache.get(cleanPrompt);
+      if (cached) {
+        // Refresh LRU order
+        promptVecCache.delete(cleanPrompt);
+        promptVecCache.set(cleanPrompt, cached);
+        return cached;
+      }
+    }
+    const rawVec = await rawEmbedder(cleanPrompt);
+    const unitVec = rawVec ? normalizeVector(rawVec) : null;
+    if (unitVec && maxCacheSize > 0) {
+      if (promptVecCache.size >= maxCacheSize) {
+        const oldestKey = promptVecCache.keys().next().value;
+        if (oldestKey !== undefined) promptVecCache.delete(oldestKey);
+      }
+      promptVecCache.set(cleanPrompt, unitVec);
+    }
+    return unitVec;
+  }
+
+  // Cached unit-normalized exemplar embeddings (index-aligned for O(1) lookup and duplicate archetype safety)
+  const centroidEmbeddings: Array<number[] | null> = new Array(centroids.length).fill(null);
+  let warmedCount = 0;
+  for (let i = 0; i < centroids.length; i++) {
+    const c = centroids[i];
+    if (c.embedding && c.embedding.length > 0) {
+      const unit = normalizeVector(c.embedding);
+      if (unit) {
+        centroidEmbeddings[i] = unit;
+        warmedCount++;
+      }
+    }
+  }
+
   let warmPromise: Promise<void> | null = null;
 
   async function warmCentroids() {
+    if (warmedCount === centroids.length) return;
     if (warmPromise) return warmPromise;
     warmPromise = (async () => {
-      for (const c of centroids) {
-        if (c.embedding && c.embedding.length > 0) {
-          centroidEmbeddings.set(c.archetype, c.embedding);
-        } else {
-          try {
-            const vec = await embedder(c.exemplar);
-            if (vec) centroidEmbeddings.set(c.archetype, vec);
-          } catch {
-            // Non-fatal if single centroid fails
+      await Promise.all(
+        centroids.map(async (c, idx) => {
+          if (centroidEmbeddings[idx]) return;
+          if (c.embedding && c.embedding.length > 0) {
+            const unit = normalizeVector(c.embedding);
+            if (unit) {
+              centroidEmbeddings[idx] = unit;
+              warmedCount++;
+            }
+          } else {
+            try {
+              const vec = await rawEmbedder(c.exemplar);
+              const unit = vec ? normalizeVector(vec) : null;
+              if (unit) {
+                centroidEmbeddings[idx] = unit;
+                warmedCount++;
+              }
+            } catch {
+              // Non-fatal if single centroid fails
+            }
           }
-        }
+        })
+      );
+      // If any centroids failed to warm (e.g. transient rate-limit or offline service),
+      // clear warmPromise so future calls retry only the missing centroids.
+      if (warmedCount < centroids.length) {
+        warmPromise = null;
       }
     })();
     return warmPromise;
   }
 
   return async (prompt: string, context?: { project?: string; metadata?: Record<string, any> }): Promise<SemanticRouteResult | null> => {
-    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+    if (!prompt || typeof prompt !== 'string') {
+      return null;
+    }
+    const cleanPrompt = prompt.trim();
+    if (cleanPrompt.length === 0) {
       return null;
     }
 
-    await warmCentroids();
+    if (warmedCount < centroids.length) {
+      await warmCentroids();
+    }
 
-    if (centroidEmbeddings.size === 0) {
+    if (warmedCount === 0) {
       return null;
     }
 
-    const promptVec = await embedder(prompt.trim());
-    if (!promptVec) {
+    const promptUnitVec = await getPromptUnitEmbedding(cleanPrompt);
+    if (!promptUnitVec) {
       return null;
     }
 
     let bestScore = -1;
     let bestMatch: ArchetypeCentroid | null = null;
 
-    for (const c of centroids) {
-      const cVec = centroidEmbeddings.get(c.archetype);
-      if (!cVec) continue;
+    for (let i = 0; i < centroids.length; i++) {
+      const cUnitVec = centroidEmbeddings[i];
+      if (!cUnitVec || cUnitVec.length !== promptUnitVec.length) continue;
+      const c = centroids[i];
 
-      let score = cosineSimilarity(promptVec, cVec);
+      let score = dotProduct(promptUnitVec, cUnitVec);
 
       // Contextual project biasing
       if (context?.project && c.role === 'code') {
@@ -285,7 +384,7 @@ export function createCentroidSemanticRouter(options: CentroidRouterOptions = {}
       return null;
     }
 
-    const threshold = bestMatch.threshold || defaultThreshold;
+    const threshold = bestMatch.threshold ?? defaultThreshold;
     const passed = bestScore >= threshold;
 
     if (passed) {
@@ -308,27 +407,65 @@ export function createCentroidSemanticRouter(options: CentroidRouterOptions = {}
   };
 }
 
+const VALID_SPECIALIST_ROLES = new Set<SpecialistRole>([
+  'general_fast',
+  'factual_stem',
+  'code',
+  'reasoning_fast',
+  'reasoning_deep',
+  'games_spatial',
+  'comprehension_rc'
+]);
+
 /**
  * Adapter that connects CascadeRouter directly to a running krusch-context-mcp server tool.
  */
-export function createContextMcpRouter(mcpToolCaller: (toolName: string, args: Record<string, any>) => Promise<any>): SemanticRouterL2 {
+export function createContextMcpRouter(
+  mcpToolCaller:
+    | ((toolName: string, args: Record<string, any>) => Promise<any>)
+    | { callTool: (toolName: string, args: Record<string, any>) => Promise<any> }
+): SemanticRouterL2 {
+  const caller = typeof mcpToolCaller === 'function'
+    ? mcpToolCaller
+    : mcpToolCaller.callTool.bind(mcpToolCaller);
+
   return async (prompt: string, context?: { project?: string; metadata?: Record<string, any> }) => {
     try {
-      const res = await mcpToolCaller('krusch_context_semantic_route', {
+      const res = await caller('krusch_context_semantic_route', {
         prompt,
         project: context?.project,
         metadata: context?.metadata
       });
 
+      if (!res || res.isError) return null;
       const text = res?.content?.[0]?.text;
-      if (!text) return null;
-      const parsed = JSON.parse(text);
+      const parsed = typeof text === 'string'
+        ? JSON.parse(text)
+        : (typeof res === 'string' ? JSON.parse(res) : res);
+
+      if (!parsed || parsed.isError) return null;
+
+      const rawRole = parsed?.recommendedRole ?? parsed?.recommended_role;
+      const recommendedRole = typeof rawRole === 'string' ? rawRole.trim().toLowerCase() : '';
+      if (!recommendedRole || !VALID_SPECIALIST_ROLES.has(recommendedRole as SpecialistRole)) {
+        return null;
+      }
+
+      const rawConf = parsed.confidence;
+      const numConf = rawConf !== undefined && rawConf !== null ? Number(rawConf) : NaN;
+
+      const rawTierVal = parsed.targetTier ?? parsed.target_tier;
+      const normalizedTier = typeof rawTierVal === 'string' ? rawTierVal.trim().toLowerCase() : '';
+      const targetTier: 'specialist' | 'heavy' | 'frontier' =
+        normalizedTier === 'heavy' || normalizedTier === 'frontier' || normalizedTier === 'specialist'
+          ? normalizedTier
+          : 'specialist';
 
       return {
-        recommendedRole: parsed.recommendedRole,
-        targetTier: parsed.targetTier,
-        recommendedModel: parsed.recommendedModel,
-        confidence: parsed.confidence,
+        recommendedRole: recommendedRole as SpecialistRole,
+        targetTier,
+        recommendedModel: parsed.recommendedModel ?? parsed.recommended_model,
+        confidence: Number.isFinite(numConf) ? numConf : 0.5,
         reason: parsed.reason
       };
     } catch {
@@ -336,3 +473,4 @@ export function createContextMcpRouter(mcpToolCaller: (toolName: string, args: R
     }
   };
 }
+

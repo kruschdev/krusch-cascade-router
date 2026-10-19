@@ -35,6 +35,8 @@ export interface JeanSREGateConfig {
   sreUrl?: string;
   conversationId?: string;
   projectContext?: string;
+  timeoutMs?: number;   // Request timeout in ms (default: 2000)
+  cacheTtlMs?: number;  // Optional TTL in ms to cache SRE telemetry across consecutive requests
 }
 
 export interface SemanticRouteResult {
@@ -123,6 +125,7 @@ export interface MultiSpecialistRouterOptions {
   speculativeBranching?: boolean;
   prunePreRouting?: boolean;
   classifier?: ClassifierOptions;
+  l2Router?: SemanticRouterL2;
   fetch?: typeof fetch;
   onEvent?: (event: TelemetryEvent, metadata?: Record<string, any>) => void;
   jeanSREGate?: JeanSREGateConfig;
@@ -195,6 +198,7 @@ export function createMultiSpecialistRouter(options?: MultiSpecialistRouterOptio
     speculativeBranching: options?.speculativeBranching,
     prunePreRouting: options?.prunePreRouting,
     classifier: options?.classifier,
+    l2Router: options?.l2Router,
     fetch: options?.fetch,
     onEvent: options?.onEvent,
     jeanSREGate: options?.jeanSREGate
@@ -209,7 +213,60 @@ export class CascadeTriggeredError extends Error {
 }
 
 /**
- * Robust JSON extraction helper that parses raw AI JSON output or repairs markdown-wrapped json.
+ * Scans text for balanced `{...}` or `[...]` candidates, ignoring delimiters inside string literals.
+ */
+function tryParseBalancedDelimited<T>(text: string, openChar: '{' | '[', closeChar: '}' | ']'): { ok: true; value: T } | { ok: false } {
+  let searchFrom = 0;
+  while (searchFrom < text.length) {
+    const start = text.indexOf(openChar, searchFrom);
+    if (start === -1) break;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let end = -1;
+
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === '\\') {
+          escaped = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (ch === '"') {
+        inString = true;
+      } else if (ch === openChar) {
+        depth++;
+      } else if (ch === closeChar) {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+
+    if (end !== -1) {
+      try {
+        return { ok: true, value: JSON.parse(text.slice(start, end + 1)) as T };
+      } catch (_) {
+        searchFrom = start + 1;
+      }
+    } else {
+      break;
+    }
+  }
+  return { ok: false };
+}
+
+/**
+ * Robust JSON extraction helper that parses raw AI JSON output or repairs markdown/prose-wrapped JSON.
  */
 function parseJsonSafe<T = any>(text: string): T {
   if (!text || typeof text !== 'string') {
@@ -218,43 +275,57 @@ function parseJsonSafe<T = any>(text: string): T {
 
   const trimmed = text.trim();
 
-  // 1. Direct parse attempt
+  // 1. Direct parse attempt (must be a non-null JSON object or array)
   try {
-    return JSON.parse(trimmed) as T;
+    const direct = JSON.parse(trimmed);
+    if (typeof direct === 'object' && direct !== null) {
+      return direct as T;
+    }
   } catch (_) {
     // Fall through to markdown regex extractor
   }
 
-  // 2. Extract code fence ```json ... ```
-  const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (codeBlockMatch && codeBlockMatch[1]) {
-    try {
-      return JSON.parse(codeBlockMatch[1].trim()) as T;
-    } catch (_) {
-      // Fall through
+  // 2. Extract code fences (prioritize explicit ```json/jsonc/json5 fences, then any ``` fence)
+  if (trimmed.includes('```')) {
+    const jsonFenceRe = /```json(?:c|5)?\s*([\s\S]*?)```/gi;
+    let match: RegExpExecArray | null;
+    while ((match = jsonFenceRe.exec(trimmed)) !== null) {
+      if (match[1]) {
+        try {
+          const parsed = JSON.parse(match[1].trim());
+          if (typeof parsed === 'object' && parsed !== null) {
+            return parsed as T;
+          }
+        } catch (_) {}
+      }
+    }
+    const anyFenceRe = /```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)```/g;
+    while ((match = anyFenceRe.exec(trimmed)) !== null) {
+      if (match[1]) {
+        try {
+          const parsed = JSON.parse(match[1].trim());
+          if (typeof parsed === 'object' && parsed !== null) {
+            return parsed as T;
+          }
+        } catch (_) {}
+      }
     }
   }
 
-  // 3. Extract outermost object or array brackets
+  // 3. String-aware balanced object or array extraction in order of first appearance
   const firstBrace = trimmed.indexOf('{');
-  const lastBrace = trimmed.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
-    try {
-      return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1)) as T;
-    } catch (_) {
-      // Fall through
-    }
-  }
-
   const firstBracket = trimmed.indexOf('[');
-  const lastBracket = trimmed.lastIndexOf(']');
-  if (firstBracket !== -1 && lastBracket > firstBracket) {
-    try {
-      return JSON.parse(trimmed.slice(firstBracket, lastBracket + 1)) as T;
-    } catch (_) {
-      // Fall through
-    }
-  }
+  const tryArrayFirst = firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace);
+
+  const primary = tryArrayFirst
+    ? tryParseBalancedDelimited<T>(trimmed, '[', ']')
+    : tryParseBalancedDelimited<T>(trimmed, '{', '}');
+  if (primary.ok) return primary.value;
+
+  const secondary = tryArrayFirst
+    ? tryParseBalancedDelimited<T>(trimmed, '{', '}')
+    : tryParseBalancedDelimited<T>(trimmed, '[', ']');
+  if (secondary.ok) return secondary.value;
 
   throw new Error(`Failed to parse AI JSON response: ${trimmed.slice(0, 100)}...`);
 }
@@ -267,10 +338,79 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+function extractMessageContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    let out = '';
+    for (let i = 0; i < content.length; i++) {
+      const part = content[i];
+      if (typeof part === 'string') {
+        out += part;
+      } else if (part && typeof part.text === 'string') {
+        out += part.text;
+      }
+    }
+    return out;
+  }
+  return content != null ? String(content) : '';
+}
+
+/**
+ * Joins message contents with newlines without intermediate .filter()/.map() array allocations.
+ */
+function joinMessagesContent(messages: Message[], roleFilter?: Message['role']): string {
+  if (!Array.isArray(messages)) return '';
+  const len = messages.length;
+  if (len === 0) return '';
+  let acc = '';
+  let first = true;
+  for (let i = 0; i < len; i++) {
+    const m = messages[i];
+    if (!m || (roleFilter && m.role !== roleFilter)) continue;
+    const content = extractMessageContent(m.content);
+    if (first) {
+      acc = content;
+      first = false;
+    } else {
+      acc += `\n${content}`;
+    }
+  }
+  return acc;
+}
+
+function attachJsonMetadata(target: unknown, routedTo: 'fast' | 'heavy' | SpecialistRole, usage?: UsageMetrics): void {
+  if (typeof target === 'object' && target !== null) {
+    Object.defineProperty(target, '_routedTo', {
+      value: routedTo,
+      enumerable: false,
+      configurable: true,
+      writable: true
+    });
+    Object.defineProperty(target, '_usage', {
+      value: usage,
+      enumerable: false,
+      configurable: true,
+      writable: true
+    });
+  }
+}
+
+const VALID_SPECIALIST_ROLES_SET = new Set<SpecialistRole>([
+  'general_fast',
+  'factual_stem',
+  'code',
+  'reasoning_fast',
+  'reasoning_deep',
+  'games_spatial',
+  'comprehension_rc'
+]);
+
 export class CascadeRouter {
   private config: RouterConfig;
   private fetchFn: typeof fetch;
   private metrics: RouterMetrics;
+  private sreCache = new Map<string, { reply: string | null; expiresAt: number }>();
+  private chatJsonContextMap = new WeakMap<object, { jsonInstruction: string; formattedMessages?: Message[]; promptTokens?: number }>();
 
   constructor(config: RouterConfig) {
     if (!config.fastModel && !config.specialistModels) {
@@ -278,7 +418,7 @@ export class CascadeRouter {
     }
 
     const defaultFast = config.fastModel ?? (config.specialistModels?.factual_stem || config.specialistModels?.general_fast || Object.values(config.specialistModels || {})[0]);
-    const defaultHeavy = config.heavyModel ?? (config.specialistModels?.reasoning_deep || config.specialistModels?.reasoning_fast || Object.values(config.specialistModels || {})[0]);
+    const defaultHeavy = config.heavyModel ?? (config.specialistModels?.reasoning_deep || config.specialistModels?.reasoning_fast || Object.values(config.specialistModels || {})[0] || defaultFast);
 
     this.config = {
       ...config,
@@ -343,7 +483,8 @@ export class CascadeRouter {
 
     // Fetch SRE suggestions if gate is enabled
     if (this.config.jeanSREGate?.enabled) {
-      const sreSuggestions = await this.fetchJeanSuggestions(this.config.jeanSREGate.projectContext);
+      const sreProject = actualOptions?.project || this.config.jeanSREGate.projectContext;
+      const sreSuggestions = await this.fetchJeanSuggestions(sreProject);
       if (sreSuggestions) {
         formattedMessages.push({
           role: 'system',
@@ -352,41 +493,65 @@ export class CascadeRouter {
       }
     }
 
-    const promptText = formattedMessages.map(m => m.content).join('\n');
-    const promptTokens = estimateTokens(promptText);
+    // Evaluate routing heuristics on user/caller messages before injecting synthetic chatJson instructions
+    const promptText = joinMessagesContent(formattedMessages);
+    const jsonCtx = actualOptions ? this.chatJsonContextMap.get(actualOptions) : undefined;
+    if (jsonCtx) {
+      if (actualSystemPrompt && formattedMessages[0]?.role === 'system') {
+        formattedMessages[0] = {
+          role: 'system',
+          content: `${formattedMessages[0].content}\n\n${jsonCtx.jsonInstruction}`
+        };
+      } else {
+        formattedMessages.unshift({
+          role: 'system',
+          content: jsonCtx.jsonInstruction
+        });
+      }
+    }
+    const promptTokens = estimateTokens(jsonCtx ? joinMessagesContent(formattedMessages) : promptText);
+    if (jsonCtx) {
+      jsonCtx.formattedMessages = formattedMessages;
+      jsonCtx.promptTokens = promptTokens;
+    }
 
-    // 1. Predictive Classifier Options
-    const classifierOpts = {
+    // 1. Predictive Classifier Options (formattedMessages already pruned if prunePreRouting was enabled)
+    const classifierOpts: ClassifierOptions = {
       ...this.config.classifier,
-      prunePreRouting: actualOptions?.prunePreRouting ?? this.config.prunePreRouting ?? this.config.classifier?.prunePreRouting
+      prunePreRouting: false
     };
-    const isComplex = isComplexPrompt(formattedMessages, classifierOpts);
-    const complexityScore = evaluateComplexityScore(formattedMessages, classifierOpts);
-    const isBorderline = complexityScore >= 0.25 && complexityScore <= 0.70;
-    const shouldHedge = (actualOptions?.speculativeBranching ?? this.config.speculativeBranching) && isBorderline;
 
     // --- Path A: Multi-Specialist Pool Routing ---
     if (this.config.specialistModels && Object.keys(this.config.specialistModels).length > 0) {
-      const preRoute = classifyPreRoute(formattedMessages, classifierOpts);
+      const preRoute = classifyPreRoute(promptText, classifierOpts);
+      const complexityScore = preRoute.complexityScore;
+      const isBorderline = complexityScore >= 0.25 && complexityScore <= 0.70;
+      const shouldHedge = (actualOptions?.speculativeBranching ?? this.config.speculativeBranching) && isBorderline;
       let targetRole: SpecialistRole = preRoute.role ?? 'factual_stem';
 
       // If L0 gate missed (delegate_to_l2) and L2 semantic router is configured, query L2
+      let l2EscalatedToHeavy = false;
       if (!preRoute.isFastPath && this.config.l2Router) {
         try {
-          const l2Prompt = typeof messages === 'string'
-            ? messages
-            : messages.filter(m => m.role === 'user').map(m => m.content).join('\n') || promptText;
+          const l2Prompt = joinMessagesContent(formattedMessages, 'user') || promptText;
           const l2Result = await this.config.l2Router(l2Prompt, {
             project: actualOptions?.project,
             metadata: actualOptions?.metadata
           });
-          if (l2Result?.recommendedRole) {
-            targetRole = l2Result.recommendedRole;
+          const candidateRole = typeof l2Result?.recommendedRole === 'string'
+            ? (l2Result.recommendedRole.trim().toLowerCase() as SpecialistRole)
+            : undefined;
+          if (candidateRole && VALID_SPECIALIST_ROLES_SET.has(candidateRole)) {
+            targetRole = candidateRole;
+            if (l2Result!.targetTier === 'heavy' || l2Result!.targetTier === 'frontier') {
+              l2EscalatedToHeavy = true;
+            }
             this.config.onEvent?.('route_l2_semantic', {
               role: targetRole,
-              tier: l2Result.targetTier,
-              confidence: l2Result.confidence,
-              reason: l2Result.reason
+              tier: l2Result!.targetTier,
+              recommendedModel: l2Result!.recommendedModel,
+              confidence: l2Result!.confidence,
+              reason: l2Result!.reason
             });
           }
         } catch {
@@ -397,9 +562,13 @@ export class CascadeRouter {
       let targetModel = this.config.specialistModels[targetRole] || this.config.fastModel!;
       const heavyModel = this.config.specialistModels.reasoning_deep || this.config.heavyModel!;
 
-      // Domain specialists (code, games_spatial, comprehension_rc) should retain their specialization
+      // Domain specialists (code, games_spatial, comprehension_rc) retain their specialization;
+      // only evaluate isComplexPrompt when needed for escalation or telemetry
       const isDomainSpecialist = targetRole === 'code' || targetRole === 'games_spatial' || targetRole === 'comprehension_rc';
-      if (isComplex && !isDomainSpecialist && targetRole !== 'reasoning_deep' && targetRole !== 'reasoning_fast') {
+      const needsComplexCheck = !isDomainSpecialist && targetRole !== 'reasoning_deep' && targetRole !== 'reasoning_fast';
+      const isComplex = (needsComplexCheck || this.config.onEvent) ? isComplexPrompt(promptText, classifierOpts) : false;
+
+      if (l2EscalatedToHeavy || (needsComplexCheck && isComplex)) {
         targetRole = 'reasoning_deep';
         targetModel = heavyModel;
       }
@@ -417,64 +586,104 @@ export class CascadeRouter {
 
       let hedgedController: AbortController | null = null;
       let hedgedHeavyPromise: Promise<{ text: string; usage: UsageMetrics }> | null = null;
+      let onExternalAbortHedge: (() => void) | null = null;
 
       if (shouldHedge && targetRole !== 'reasoning_deep') {
         hedgedController = new AbortController();
+        onExternalAbortHedge = () => hedgedController?.abort();
+        if (actualOptions?.signal) {
+          actualOptions.signal.addEventListener('abort', onExternalAbortHedge, { once: true });
+          if (actualOptions.signal.aborted) hedgedController.abort();
+        }
         this.config.onEvent?.('speculative_branch_hedged', { complexityScore });
-        hedgedHeavyPromise = this.fetchModel(heavyModel, formattedMessages, { ...options, signal: hedgedController.signal });
+        hedgedHeavyPromise = this.fetchModel(heavyModel, formattedMessages, { ...actualOptions, signal: hedgedController.signal });
+        // Suppress unhandled rejection if fast specialist wins and hedgedController is aborted
+        hedgedHeavyPromise.catch(() => {});
       }
 
       try {
-        const { text, usage } = await this.fetchModel(modelToUse, formattedMessages, options);
+        const { text, usage } = await this.fetchModel(modelToUse, formattedMessages, actualOptions);
         if (hedgedController) hedgedController.abort();
 
         const isHeavyRole = targetRole === 'reasoning_deep';
-        this.recordRequestMetrics(isHeavyRole ? 'heavy' : 'fast', false, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+        this.recordRequestMetrics(isHeavyRole ? 'heavy' : 'fast', false, usage.promptTokens, usage.completionTokens, usage.estimatedCostUsd);
         return { text, routedTo: targetRole, aborted: false, usage, model: modelToUse.model };
       } catch (err) {
+        if (actualOptions?.signal?.aborted) {
+          if (hedgedController) hedgedController.abort();
+          throw err;
+        }
+        this.config.onEvent?.('route_heavy', { reason: 'specialist_model_error', role: targetRole, error: (err as Error).message });
         if (hedgedHeavyPromise) {
           try {
             const { text, usage } = await hedgedHeavyPromise;
-            this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+            this.recordRequestMetrics('heavy', true, usage.promptTokens, usage.completionTokens, usage.estimatedCostUsd);
             return { text, routedTo: 'reasoning_deep', aborted: true, usage, model: heavyModel.model };
           } catch (_) {}
         }
-        this.config.onEvent?.('route_heavy', { reason: 'specialist_model_error', role: targetRole, error: (err as Error).message });
-        const { text, usage } = await this.fetchModel(heavyModel, formattedMessages, options);
-        this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+        const { text, usage } = await this.fetchModel(heavyModel, formattedMessages, actualOptions);
+        this.recordRequestMetrics('heavy', true, usage.promptTokens, usage.completionTokens, usage.estimatedCostUsd);
         return { text, routedTo: 'reasoning_deep', aborted: true, usage, model: heavyModel.model };
+      } finally {
+        if (actualOptions?.signal && onExternalAbortHedge) {
+          actualOptions.signal.removeEventListener('abort', onExternalAbortHedge);
+        }
       }
     }
 
     // --- Path B: Standard 2-Tier Cascade ---
+    const isComplex = isComplexPrompt(promptText, classifierOpts);
     if (isComplex) {
       // Bypass fast model entirely
       this.config.onEvent?.('route_heavy', { reason: 'classifier_heuristic' });
-      const { text, usage } = await this.fetchHeavyModel(formattedMessages, options);
-      this.recordRequestMetrics('heavy', false, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+      const { text, usage } = await this.fetchHeavyModel(formattedMessages, actualOptions);
+      this.recordRequestMetrics('heavy', false, usage.promptTokens, usage.completionTokens, usage.estimatedCostUsd);
       return { text, routedTo: 'heavy', aborted: false, usage, model: this.config.heavyModel!.model };
     }
+
+    const speculativeEnabled = Boolean(actualOptions?.speculativeBranching ?? this.config.speculativeBranching);
+    const complexityScore = speculativeEnabled ? evaluateComplexityScore(promptText, classifierOpts) : 0;
+    const isBorderline = speculativeEnabled && complexityScore >= 0.25 && complexityScore <= 0.70;
+    const shouldHedge = isBorderline;
 
     // Speculative Parallel Hedging
     // For borderline queries [0.25, 0.70], hedge heavy model in parallel to mask cascade latency
     let hedgedController: AbortController | null = null;
     let hedgedHeavyPromise: Promise<{ text: string; usage: UsageMetrics }> | null = null;
+    let onExternalAbortHedge: (() => void) | null = null;
 
     if (shouldHedge) {
       hedgedController = new AbortController();
+      onExternalAbortHedge = () => hedgedController?.abort();
+      if (actualOptions?.signal) {
+        actualOptions.signal.addEventListener('abort', onExternalAbortHedge, { once: true });
+        if (actualOptions.signal.aborted) hedgedController.abort();
+      }
       this.config.onEvent?.('speculative_branch_hedged', { complexityScore });
-      hedgedHeavyPromise = this.fetchHeavyModel(formattedMessages, { ...options, signal: hedgedController.signal });
+      hedgedHeavyPromise = this.fetchHeavyModel(formattedMessages, { ...actualOptions, signal: hedgedController.signal });
+      // Suppress unhandled rejection if fast model succeeds and hedgedController is aborted
+      hedgedHeavyPromise.catch(() => {});
     }
 
     // 2. Try fast model with Speculative Cascade
     try {
-      const fastResult = await this.streamAndEvaluateFastModel(formattedMessages, options);
+      const fastResult = await this.streamAndEvaluateFastModel(formattedMessages, actualOptions);
+      if (actualOptions?.signal?.aborted) {
+        if (hedgedController) hedgedController.abort();
+        throw actualOptions.signal.reason ?? new Error('AbortError: The operation was aborted');
+      }
       if (fastResult.aborted) {
         this.config.onEvent?.('route_heavy', { reason: 'cascade_fallback' });
-        const { text, usage } = hedgedHeavyPromise 
-          ? await hedgedHeavyPromise 
-          : await this.fetchHeavyModel(formattedMessages, options);
-        this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+        let heavyRes: { text: string; usage: UsageMetrics } | null = null;
+        if (hedgedHeavyPromise) {
+          try {
+            heavyRes = await hedgedHeavyPromise;
+          } catch (_) {
+            if (actualOptions?.signal?.aborted) throw _;
+          }
+        }
+        const { text, usage } = heavyRes || await this.fetchHeavyModel(formattedMessages, actualOptions);
+        this.recordRequestMetrics('heavy', true, usage.promptTokens, usage.completionTokens, usage.estimatedCostUsd);
         return { text, routedTo: 'heavy', aborted: true, usage, model: this.config.heavyModel!.model };
       }
 
@@ -483,63 +692,122 @@ export class CascadeRouter {
         hedgedController.abort();
       }
 
-      const modelToUse = (options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
+      const modelToUse = (actualOptions?.speedPriority === 'low' || actualOptions?.urgency === 'low') && this.config.backgroundModel
         ? this.config.backgroundModel
         : this.config.fastModel!;
 
-      const completionTokens = estimateTokens(fastResult.text);
-      const usage = this.calculateUsage(modelToUse, promptTokens, completionTokens);
+      const usage = fastResult.usage ?? this.calculateUsage(modelToUse, promptTokens, estimateTokens(fastResult.text));
 
-      this.config.onEvent?.('route_fast', { reason: 'high_confidence', model: modelToUse.model, speedPriority: options?.speedPriority || 'normal' });
-      this.recordRequestMetrics('fast', false, promptTokens, completionTokens, usage.estimatedCostUsd);
+      this.config.onEvent?.('route_fast', { reason: 'high_confidence', model: modelToUse.model, speedPriority: actualOptions?.speedPriority || 'normal' });
+      this.recordRequestMetrics('fast', false, usage.promptTokens, usage.completionTokens, usage.estimatedCostUsd);
 
       return { text: fastResult.text, routedTo: 'fast', aborted: false, usage, model: modelToUse.model };
     } catch (err) {
+      if (actualOptions?.signal?.aborted) {
+        if (hedgedController) hedgedController.abort();
+        throw err;
+      }
+      this.config.onEvent?.('route_heavy', { reason: 'fast_model_error', error: (err as Error).message });
       if (hedgedHeavyPromise) {
         try {
           const { text, usage } = await hedgedHeavyPromise;
-          this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+          this.recordRequestMetrics('heavy', true, usage.promptTokens, usage.completionTokens, usage.estimatedCostUsd);
           return { text, routedTo: 'heavy', aborted: true, usage, model: this.config.heavyModel!.model };
         } catch (_) {}
       }
-      this.config.onEvent?.('route_heavy', { reason: 'fast_model_error', error: (err as Error).message });
-      const { text, usage } = await this.fetchHeavyModel(formattedMessages, options);
-      this.recordRequestMetrics('heavy', true, promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+      const { text, usage } = await this.fetchHeavyModel(formattedMessages, actualOptions);
+      this.recordRequestMetrics('heavy', true, usage.promptTokens, usage.completionTokens, usage.estimatedCostUsd);
       return { text, routedTo: 'heavy', aborted: true, usage, model: this.config.heavyModel!.model };
+    } finally {
+      if (actualOptions?.signal && onExternalAbortHedge) {
+        actualOptions.signal.removeEventListener('abort', onExternalAbortHedge);
+      }
     }
   }
 
   /**
    * Complete a chat request and parse the output as structured JSON.
-   * If the fast model produces malformed JSON, automatically cascades to heavy model.
+   * If the fast/specialist model produces malformed JSON, automatically cascades to heavy model.
    */
-  async chatJson<T = any>(messages: Message[] | string, systemPrompt?: string, options?: ChatJsonOptions): Promise<T & { _routedTo?: 'fast' | 'heavy'; _usage?: UsageMetrics }> {
-    const jsonInstruction = 'IMPORTANT: You must respond ONLY with a valid JSON object or array. Do not include markdown preamble, commentary, or backticks.';
-    const combinedSystemPrompt = systemPrompt ? `${systemPrompt}\n\n${jsonInstruction}` : jsonInstruction;
+  async chatJson<T = any>(
+    messages: Message[] | string,
+    systemPromptOrOptions?: string | ChatJsonOptions,
+    options?: ChatJsonOptions
+  ): Promise<T & { _routedTo?: 'fast' | 'heavy' | SpecialistRole; _usage?: UsageMetrics }> {
+    const actualSystemPrompt = typeof systemPromptOrOptions === 'string' ? systemPromptOrOptions : undefined;
+    const actualOptions = typeof systemPromptOrOptions === 'object' ? systemPromptOrOptions : options;
 
-    const response = await this.chat(messages, combinedSystemPrompt, options);
+    let jsonInstruction = 'IMPORTANT: You must respond ONLY with a valid JSON object or array. Do not include markdown preamble, commentary, or backticks.';
+    if (actualOptions?.schema) {
+      const schemaSpec = JSON.stringify(actualOptions.schema).replace(/"/g, "'");
+      jsonInstruction += `\nRequired JSON Schema: ${schemaSpec}`;
+    }
+
+    const internalOpts: ChatJsonOptions = { ...actualOptions };
+    this.chatJsonContextMap.set(internalOpts, { jsonInstruction });
+
+    const response = await this.chat(messages, actualSystemPrompt, internalOpts);
 
     try {
       const parsed = parseJsonSafe<T>(response.text);
-      if (typeof parsed === 'object' && parsed !== null) {
-        (parsed as any)._routedTo = response.routedTo;
-        (parsed as any)._usage = response.usage;
-      }
+      attachJsonMetadata(parsed, response.routedTo, response.usage);
       return parsed as any;
     } catch (parseErr) {
-      // If fast model produced unparseable JSON, cascade to heavy model
-      if (response.routedTo === 'fast') {
-        this.config.onEvent?.('json_fallback_triggered', { error: (parseErr as Error).message });
-        const formatted = this.formatMessages(messages, combinedSystemPrompt, options);
-        const { text, usage } = await this.fetchHeavyModel(formatted, options);
-        const parsedHeavy = parseJsonSafe<T>(text);
-        if (typeof parsedHeavy === 'object' && parsedHeavy !== null) {
-          (parsedHeavy as any)._routedTo = 'heavy';
-          (parsedHeavy as any)._usage = usage;
-        }
-        return parsedHeavy as any;
+      const wasHeavy = response.routedTo === 'heavy' || response.routedTo === 'reasoning_deep';
+      const maxRetries = Math.max(1, actualOptions?.maxJsonRetries ?? 1);
+      const remainingAttempts = wasHeavy ? (maxRetries - 1) : maxRetries;
+
+      if (remainingAttempts <= 0) {
+        throw parseErr;
       }
-      throw parseErr;
+
+      if (!wasHeavy) {
+        this.config.onEvent?.('json_fallback_triggered', { error: (parseErr as Error).message, fromRole: response.routedTo });
+      }
+
+      const jsonCtx = this.chatJsonContextMap.get(internalOpts);
+      const formatted = jsonCtx?.formattedMessages ?? this.formatMessages(
+        messages,
+        actualSystemPrompt ? `${actualSystemPrompt}\n\n${jsonInstruction}` : jsonInstruction,
+        actualOptions
+      );
+      const heavyModel = this.config.specialistModels?.reasoning_deep || this.config.heavyModel!;
+      let lastErr: unknown = parseErr;
+      let recordedHeavyCascade = false;
+
+      for (let attempt = 0; attempt < remainingAttempts; attempt++) {
+        if (actualOptions?.signal?.aborted) {
+          throw lastErr;
+        }
+        try {
+          const { text, usage } = await this.fetchModel(heavyModel, formatted, actualOptions);
+          if (!wasHeavy && !recordedHeavyCascade) {
+            recordedHeavyCascade = true;
+            // Reclassify the initial fast attempt so metrics reflect 1 cascaded heavy request rather than 1 fast + 1 heavy
+            if (this.metrics.fastRequests > 0) this.metrics.fastRequests--;
+            if (this.metrics.totalRequests > 0) this.metrics.totalRequests--;
+            if (response.usage) {
+              const cloudHypotheticalCost = ((response.usage.promptTokens / 1_000_000) * 0.15) + ((response.usage.completionTokens / 1_000_000) * 0.60);
+              const falseSavings = Math.max(0, cloudHypotheticalCost - response.usage.estimatedCostUsd);
+              this.metrics.estimatedSavingsUsd = Math.max(0, this.metrics.estimatedSavingsUsd - falseSavings);
+            }
+            this.recordRequestMetrics('heavy', true, usage.promptTokens, usage.completionTokens, usage.estimatedCostUsd);
+          } else {
+            this.metrics.totalPromptTokens += usage.promptTokens;
+            this.metrics.totalCompletionTokens += usage.completionTokens;
+            this.metrics.estimatedCostUsd += usage.estimatedCostUsd;
+          }
+          const parsedHeavy = parseJsonSafe<T>(text);
+          attachJsonMetadata(parsedHeavy, 'heavy', usage);
+          return parsedHeavy as any;
+        } catch (retryErr) {
+          lastErr = retryErr;
+          if (actualOptions?.signal?.aborted) {
+            throw retryErr;
+          }
+        }
+      }
+      throw lastErr;
     }
   }
 
@@ -559,7 +827,8 @@ export class CascadeRouter {
 
     // Fetch SRE suggestions if gate is enabled
     if (this.config.jeanSREGate?.enabled) {
-      const sreSuggestions = await this.fetchJeanSuggestions(this.config.jeanSREGate.projectContext);
+      const sreProject = actualOptions?.project || this.config.jeanSREGate.projectContext;
+      const sreSuggestions = await this.fetchJeanSuggestions(sreProject);
       if (sreSuggestions) {
         formattedMessages.push({
           role: 'system',
@@ -568,35 +837,43 @@ export class CascadeRouter {
       }
     }
 
-    // 1. Predictive Classifier
-    const classifierOpts = {
+    const promptText = joinMessagesContent(formattedMessages);
+    const promptTokens = estimateTokens(promptText);
+
+    // 1. Predictive Classifier (formattedMessages already pruned if prunePreRouting was enabled)
+    const classifierOpts: ClassifierOptions = {
       ...this.config.classifier,
-      prunePreRouting: actualOptions?.prunePreRouting ?? this.config.prunePreRouting ?? this.config.classifier?.prunePreRouting
+      prunePreRouting: false
     };
-    const isComplex = isComplexPrompt(formattedMessages, classifierOpts);
 
     // --- Path A: Multi-Specialist Pool Streaming ---
     if (this.config.specialistModels && Object.keys(this.config.specialistModels).length > 0) {
-      const preRoute = classifyPreRoute(formattedMessages, classifierOpts);
+      const preRoute = classifyPreRoute(promptText, classifierOpts);
       let targetRole: SpecialistRole = preRoute.role ?? 'factual_stem';
+      let l2EscalatedToHeavy = false;
 
       // If L0 gate missed (delegate_to_l2) and L2 semantic router is configured, query L2
       if (!preRoute.isFastPath && this.config.l2Router) {
         try {
-          const l2Prompt = typeof messages === 'string'
-            ? messages
-            : messages.filter(m => m.role === 'user').map(m => m.content).join('\n') || formattedMessages.map(m => m.content).join('\n');
+          const l2Prompt = joinMessagesContent(formattedMessages, 'user') || promptText;
           const l2Result = await this.config.l2Router(l2Prompt, {
             project: actualOptions?.project,
             metadata: actualOptions?.metadata
           });
-          if (l2Result?.recommendedRole) {
-            targetRole = l2Result.recommendedRole;
+          const candidateRole = typeof l2Result?.recommendedRole === 'string'
+            ? (l2Result.recommendedRole.trim().toLowerCase() as SpecialistRole)
+            : undefined;
+          if (candidateRole && VALID_SPECIALIST_ROLES_SET.has(candidateRole)) {
+            targetRole = candidateRole;
+            if (l2Result!.targetTier === 'heavy' || l2Result!.targetTier === 'frontier') {
+              l2EscalatedToHeavy = true;
+            }
             this.config.onEvent?.('route_l2_semantic', {
               role: targetRole,
-              tier: l2Result.targetTier,
-              confidence: l2Result.confidence,
-              reason: l2Result.reason
+              tier: l2Result!.targetTier,
+              recommendedModel: l2Result!.recommendedModel,
+              confidence: l2Result!.confidence,
+              reason: l2Result!.reason
             });
           }
         } catch {
@@ -609,7 +886,10 @@ export class CascadeRouter {
 
       // Domain specialists (code, games_spatial, comprehension_rc) should retain their specialization
       const isDomainSpecialist = targetRole === 'code' || targetRole === 'games_spatial' || targetRole === 'comprehension_rc';
-      if (isComplex && !isDomainSpecialist && targetRole !== 'reasoning_deep' && targetRole !== 'reasoning_fast') {
+      const needsComplexCheck = !isDomainSpecialist && targetRole !== 'reasoning_deep' && targetRole !== 'reasoning_fast';
+      const isComplex = (needsComplexCheck || this.config.onEvent) ? isComplexPrompt(promptText, classifierOpts) : false;
+
+      if (l2EscalatedToHeavy || (needsComplexCheck && isComplex)) {
         targetRole = 'reasoning_deep';
         targetModel = heavyModel;
       }
@@ -621,44 +901,119 @@ export class CascadeRouter {
       this.config.onEvent?.('route_specialist', {
         role: targetRole,
         model: modelToUse.model,
+        complexityScore: preRoute.complexityScore,
         isComplex
       });
 
       if (targetRole === 'reasoning_deep') {
-        yield* this.streamHeavyModel(formattedMessages, options, heavyModel);
+        yield* this.streamWithMetrics(
+          this.streamHeavyModel(formattedMessages, actualOptions, heavyModel),
+          heavyModel,
+          'heavy',
+          false,
+          promptTokens
+        );
         return;
       }
 
       try {
-        yield* this.streamAndEvaluateFastModelGen(formattedMessages, options, modelToUse);
+        yield* this.streamWithMetrics(
+          this.streamAndEvaluateFastModelGen(formattedMessages, actualOptions, modelToUse),
+          modelToUse,
+          'fast',
+          false,
+          promptTokens
+        );
       } catch (err) {
+        if (actualOptions?.signal?.aborted) {
+          throw err;
+        }
         if (err instanceof CascadeTriggeredError) {
           this.config.onEvent?.('route_heavy', { reason: 'cascade_fallback', fallbackFrom: targetRole });
         } else {
           this.config.onEvent?.('route_heavy', { reason: 'fast_model_error', fallbackFrom: targetRole, error: (err as Error).message });
         }
-        yield* this.streamHeavyModel(formattedMessages, options, heavyModel);
+        yield* this.streamWithMetrics(
+          this.streamHeavyModel(formattedMessages, actualOptions, heavyModel),
+          heavyModel,
+          'heavy',
+          true,
+          promptTokens
+        );
       }
       return;
     }
 
     // --- Path B: Standard 2-Tier Cascade Streaming ---
+    const isComplex = isComplexPrompt(promptText, classifierOpts);
+    const heavyModel = this.config.heavyModel!;
     if (isComplex) {
       this.config.onEvent?.('route_heavy', { reason: 'classifier_heuristic' });
-      yield* this.streamHeavyModel(formattedMessages, options);
+      yield* this.streamWithMetrics(
+        this.streamHeavyModel(formattedMessages, actualOptions),
+        heavyModel,
+        'heavy',
+        false,
+        promptTokens
+      );
       return;
     }
 
+    const fastModelToUse = (actualOptions?.speedPriority === 'low' || actualOptions?.urgency === 'low') && this.config.backgroundModel
+      ? this.config.backgroundModel
+      : this.config.fastModel!;
+
     // 2. Try fast model streaming with Speculative Cascade fallback
     try {
-      yield* this.streamAndEvaluateFastModelGen(formattedMessages, options);
+      yield* this.streamWithMetrics(
+        this.streamAndEvaluateFastModelGen(formattedMessages, actualOptions, fastModelToUse),
+        fastModelToUse,
+        'fast',
+        false,
+        promptTokens
+      );
     } catch (err) {
+      if (actualOptions?.signal?.aborted) {
+        throw err;
+      }
       if (err instanceof CascadeTriggeredError) {
         this.config.onEvent?.('route_heavy', { reason: 'cascade_fallback' });
       } else {
         this.config.onEvent?.('route_heavy', { reason: 'fast_model_error', error: (err as Error).message });
       }
-      yield* this.streamHeavyModel(formattedMessages, options);
+      yield* this.streamWithMetrics(
+        this.streamHeavyModel(formattedMessages, actualOptions),
+        heavyModel,
+        'heavy',
+        true,
+        promptTokens
+      );
+    }
+  }
+
+  private async *streamWithMetrics(
+    gen: AsyncGenerator<string, void, unknown>,
+    modelConfig: ModelConfig,
+    routedTo: 'fast' | 'heavy',
+    cascaded: boolean,
+    promptTokens: number
+  ): AsyncGenerator<string, void, unknown> {
+    let streamedChars = 0;
+    let failed = false;
+    try {
+      for await (const chunk of gen) {
+        streamedChars += chunk.length;
+        yield chunk;
+      }
+    } catch (err) {
+      failed = true;
+      throw err;
+    } finally {
+      if (!failed) {
+        const completionTokens = Math.ceil(streamedChars / 4);
+        const usage = this.calculateUsage(modelConfig, promptTokens, completionTokens);
+        this.recordRequestMetrics(routedTo, cascaded, promptTokens, completionTokens, usage.estimatedCostUsd);
+      }
     }
   }
 
@@ -672,11 +1027,13 @@ export class CascadeRouter {
 
     if (typeof messages === 'string') {
       msgs.push({ role: 'user', content: shouldPrune ? pruneText(messages) : messages });
-    } else {
+    } else if (Array.isArray(messages)) {
       for (const m of messages) {
+        if (!m) continue;
+        const rawContent = extractMessageContent(m.content);
         msgs.push({
-          role: m.role,
-          content: shouldPrune ? pruneText(m.content) : m.content
+          role: m.role || 'user',
+          content: shouldPrune ? pruneText(rawContent) : rawContent
         });
       }
     }
@@ -685,64 +1042,188 @@ export class CascadeRouter {
 
   /**
    * Helper: Detects repetitive token degenerate loops and reasoning entropy collapse
-   * during speculative buffer evaluation.
+   * during speculative buffer evaluation without per-token array/Set allocations.
    */
-  private detectRepetitiveLoop(tokens: string[]): boolean {
+  private detectRepetitiveLoop(tokens: string[]): 'repetition' | 'entropy_collapse' | null {
+    const len = tokens.length;
     const maxRep = this.config.maxRepetitiveTokens || 4;
-    if (tokens.length < maxRep) return false;
+    if (len < maxRep) return null;
 
     // 1. Single token repetition check
-    const lastToken = tokens[tokens.length - 1].trim();
+    const lastToken = tokens[len - 1].trim();
     if (lastToken) {
       let identicalCount = 0;
-      for (let i = tokens.length - 1; i >= 0; i--) {
+      for (let i = len - 1; i >= 0; i--) {
         if (tokens[i].trim() === lastToken) {
           identicalCount++;
+          if (identicalCount >= maxRep) return 'repetition';
         } else {
           break;
         }
       }
-      if (identicalCount >= maxRep) return true;
     }
 
     // 2. 2-gram cyclic repetition check (e.g. A, B, A, B, A, B)
-    if (tokens.length >= 6) {
-      const t1 = tokens[tokens.length - 2].trim();
-      const t2 = tokens[tokens.length - 1].trim();
+    if (len >= 6) {
+      const t1 = tokens[len - 2].trim();
+      const t2 = tokens[len - 1].trim();
       if (t1 && t2 && t1 !== t2) {
         if (
-          tokens[tokens.length - 4].trim() === t1 &&
-          tokens[tokens.length - 3].trim() === t2 &&
-          tokens[tokens.length - 6].trim() === t1 &&
-          tokens[tokens.length - 5].trim() === t2
+          tokens[len - 4].trim() === t1 &&
+          tokens[len - 3].trim() === t2 &&
+          tokens[len - 6].trim() === t1 &&
+          tokens[len - 5].trim() === t2
         ) {
-          return true;
+          return 'repetition';
         }
       }
     }
 
-    // 3. Sliding-window unique token entropy collapse (last 10 tokens)
-    if (tokens.length >= 10) {
-      const windowTokens = tokens.slice(-10).map(t => t.trim().toLowerCase()).filter(Boolean);
-      const unique = new Set(windowTokens);
-      // If 8+ tokens contain 2 or fewer distinct words, entropy has collapsed
-      if (windowTokens.length >= 8 && unique.size <= 2) {
-        return true;
+    // 3. 3-gram cyclic repetition check (e.g. A, B, C, A, B, C, A, B, C)
+    if (len >= 9) {
+      const t1 = tokens[len - 3].trim();
+      const t2 = tokens[len - 2].trim();
+      const t3 = tokens[len - 1].trim();
+      if (t1 && t2 && t3) {
+        if (
+          tokens[len - 6].trim() === t1 &&
+          tokens[len - 5].trim() === t2 &&
+          tokens[len - 4].trim() === t3 &&
+          tokens[len - 9].trim() === t1 &&
+          tokens[len - 8].trim() === t2 &&
+          tokens[len - 7].trim() === t3
+        ) {
+          return 'repetition';
+        }
       }
     }
 
-    return false;
+    // 4. Sliding-window unique token entropy collapse (last 10 tokens, evaluated in-place)
+    if (len >= 10) {
+      let nonEmptyCount = 0;
+      let word1 = '';
+      let word2 = '';
+      let distinctCount = 0;
+
+      for (let i = len - 10; i < len; i++) {
+        const w = tokens[i].trim().toLowerCase();
+        if (!w) continue;
+        nonEmptyCount++;
+        if (distinctCount === 0) {
+          word1 = w;
+          distinctCount = 1;
+        } else if (w !== word1) {
+          if (distinctCount === 1) {
+            word2 = w;
+            distinctCount = 2;
+          } else if (w !== word2) {
+            distinctCount = 3;
+            break; // Fast exit: more than 2 distinct words
+          }
+        }
+      }
+
+      if (nonEmptyCount >= 8 && distinctCount <= 2) {
+        return 'entropy_collapse';
+      }
+    }
+
+    return null;
+  }
+
+  private extractSseDataPayload(line: string): string | null {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('data:')) return null;
+    const payload = trimmed.slice(5).trim();
+    if (!payload || payload === '[DONE]') return null;
+    return payload;
+  }
+
+  private extractLinearProbsFromChoice(choice: any): number[] {
+    const out: number[] = [];
+    const content = choice?.logprobs?.content;
+    if (Array.isArray(content) && content.length > 0) {
+      for (const lp of content) {
+        if (lp && typeof lp === 'object' && 'logprob' in lp) {
+          const raw = lp.logprob;
+          if (typeof raw === 'number') {
+            const prob = Math.exp(raw);
+            out.push(Number.isFinite(prob) ? Math.min(1, prob) : 0);
+          } else if (typeof raw === 'string') {
+            const prob = Math.exp(Number(raw));
+            out.push(Number.isFinite(prob) ? Math.min(1, prob) : 0);
+          } else if (raw === null) {
+            // JSON.stringify serializes NaN and -Infinity (Math.log(0)) as null
+            out.push(0);
+          }
+        }
+      }
+      return out;
+    }
+    const tokenLogprobs = choice?.logprobs?.token_logprobs;
+    if (Array.isArray(tokenLogprobs) && tokenLogprobs.length > 0) {
+      for (const lp of tokenLogprobs) {
+        if (typeof lp === 'number') {
+          const prob = Math.exp(lp);
+          out.push(Number.isFinite(prob) ? Math.min(1, prob) : 0);
+        } else if (typeof lp === 'string') {
+          const prob = Math.exp(Number(lp));
+          out.push(Number.isFinite(prob) ? Math.min(1, prob) : 0);
+        } else if (lp === null) {
+          out.push(0);
+        }
+      }
+      return out;
+    }
+    return out;
+  }
+
+  private extractDeltaText(choice: any): string {
+    const content = choice?.delta?.content;
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+      let out = '';
+      for (const part of content) {
+        if (typeof part?.text === 'string') out += part.text;
+      }
+      return out;
+    }
+    return '';
+  }
+
+  private buildGeminiPayload(messages: Message[]): Record<string, any> {
+    const systemParts: string[] = [];
+    const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+    for (const m of messages) {
+      if (m.role === 'system') {
+        if (m.content) systemParts.push(m.content);
+      } else {
+        contents.push({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }]
+        });
+      }
+    }
+    const body: Record<string, any> = { contents };
+    if (systemParts.length > 0) {
+      body.system_instruction = { parts: [{ text: systemParts.join('\n\n') }] };
+    }
+    return body;
   }
 
   /**
    * Streams the fast model, buffering the first N tokens to check logprobs and loops.
    * If confidence is lower than threshold or loop is detected, aborts and returns { aborted: true }.
    */
-  private async streamAndEvaluateFastModel(messages: Message[], options?: ChatOptions, customModel?: ModelConfig): Promise<{ text: string, aborted: boolean }> {
+  private async streamAndEvaluateFastModel(messages: Message[], options?: ChatOptions, customModel?: ModelConfig): Promise<{ text: string; aborted: boolean; usage?: UsageMetrics }> {
     const modelToUse = customModel
       || ((options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
         ? this.config.backgroundModel
         : this.config.fastModel!);
+    if (modelToUse.provider === 'gemini') {
+      const res = await this.fetchGemini(messages, options, modelToUse);
+      return { text: res.text, aborted: false, usage: res.usage };
+    }
     const { url, headers } = this.getModelEndpoint(modelToUse, true);
 
     const controller = new AbortController();
@@ -779,60 +1260,87 @@ export class CascadeRouter {
       let fullText = '';
       let tokenCount = 0;
       let accumulatedProb = 0;
+      const tokensToEval = this.config.tokensToEvaluate ?? 5;
+      let evaluationComplete = tokensToEval <= 0;
+      const threshold = this.config.cascadeThreshold ?? 0.85;
       const seenDeltas: string[] = [];
+      const maxLoopWindow = Math.max(10, this.config.maxRepetitiveTokens || 4);
+      let streamPromptTokens: number | undefined;
+      let streamCompletionTokens: number | undefined;
 
       let buffer = '';
 
       try {
         while (true) {
+          if (options?.signal?.aborted) {
+            throw options.signal.reason ?? new Error('AbortError: The operation was aborted');
+          }
           const { done, value } = await reader.read();
-          if (done) break;
+          if (options?.signal?.aborted) {
+            throw options.signal.reason ?? new Error('AbortError: The operation was aborted');
+          }
+          if (done) {
+            buffer += decoder.decode();
+            break;
+          }
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
 
           for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed === 'data: [DONE]') continue;
-            if (!trimmed.startsWith('data: ')) continue;
+            const payload = this.extractSseDataPayload(line);
+            if (!payload) continue;
 
             try {
-              const data = JSON.parse(trimmed.slice(6));
+              const data = JSON.parse(payload);
+              if (data?.error) {
+                const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+                throw new Error(`Fast model SSE error: ${msg}`);
+              }
+              if (data?.usage) {
+                if (typeof data.usage.prompt_tokens === 'number') streamPromptTokens = data.usage.prompt_tokens;
+                if (typeof data.usage.completion_tokens === 'number') streamCompletionTokens = data.usage.completion_tokens;
+              }
               const choice = data.choices?.[0];
-              const delta = choice?.delta?.content || '';
+              const delta = this.extractDeltaText(choice);
               
               if (delta) {
                 fullText += delta;
                 seenDeltas.push(delta);
+                if (seenDeltas.length > maxLoopWindow * 2) {
+                  seenDeltas.splice(0, seenDeltas.length - maxLoopWindow);
+                }
 
-                // Repetition loop check
-                if (this.detectRepetitiveLoop(seenDeltas)) {
-                  this.config.onEvent?.('repetition_loop_triggered', { tokenCount, delta });
+                // Repetition loop / entropy collapse check
+                const loopKind = this.detectRepetitiveLoop(seenDeltas);
+                if (loopKind) {
+                  if (loopKind === 'entropy_collapse') {
+                    this.config.onEvent?.('entropy_collapse_triggered', { tokenCount, delta });
+                  }
+                  this.config.onEvent?.('repetition_loop_triggered', { tokenCount, delta, reason: loopKind });
                   controller.abort();
                   return { text: '', aborted: true };
                 }
               }
 
               // Evaluate logprobs if present
-              const logprobsObj = choice?.logprobs?.content;
-              if (logprobsObj && Array.isArray(logprobsObj) && logprobsObj.length > 0) {
-                for (const lp of logprobsObj) {
-                  const logprob = lp.logprob;
-                  if (logprob !== undefined) {
-                    const linearProb = Math.exp(logprob);
-                    accumulatedProb += linearProb;
-                    tokenCount++;
+              if (!evaluationComplete) {
+                const linearProbs = this.extractLinearProbsFromChoice(choice);
+                for (const linearProb of linearProbs) {
+                  accumulatedProb += linearProb;
+                  tokenCount++;
 
-                    if (tokenCount === this.config.tokensToEvaluate) {
-                      const avgProb = accumulatedProb / tokenCount;
-                      if (avgProb < (this.config.cascadeThreshold || 0.85)) {
-                        // Abort! Confidence too low.
-                        this.config.onEvent?.('cascade_triggered', { tokenCount, avgProb, threshold: this.config.cascadeThreshold || 0.85 });
-                        controller.abort();
-                        return { text: '', aborted: true };
-                      }
+                  if (tokenCount >= tokensToEval) {
+                    evaluationComplete = true;
+                    const avgProb = accumulatedProb / tokenCount;
+                    if (avgProb < threshold) {
+                      // Abort! Confidence too low.
+                      this.config.onEvent?.('cascade_triggered', { tokenCount, avgProb, threshold });
+                      controller.abort();
+                      return { text: '', aborted: true };
                     }
+                    break;
                   }
                 }
               }
@@ -843,16 +1351,63 @@ export class CascadeRouter {
         }
 
         // Flush remaining buffer
-        if (buffer.trim().startsWith('data: ')) {
-           try {
-               const data = JSON.parse(buffer.trim().slice(6));
-               const delta = data.choices?.[0]?.delta?.content || '';
-               if (delta) fullText += delta;
-           } catch (e) { if (!(e instanceof SyntaxError)) throw e; }
+        const remPayload = this.extractSseDataPayload(buffer);
+        if (remPayload) {
+          try {
+            const data = JSON.parse(remPayload);
+            if (data?.error) {
+              const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+              throw new Error(`Fast model SSE error: ${msg}`);
+            }
+            if (data?.usage) {
+              if (typeof data.usage.prompt_tokens === 'number') streamPromptTokens = data.usage.prompt_tokens;
+              if (typeof data.usage.completion_tokens === 'number') streamCompletionTokens = data.usage.completion_tokens;
+            }
+            const choice = data.choices?.[0];
+            const delta = this.extractDeltaText(choice);
+            if (delta) {
+              fullText += delta;
+              seenDeltas.push(delta);
+              const loopKind = this.detectRepetitiveLoop(seenDeltas);
+              if (loopKind) {
+                if (loopKind === 'entropy_collapse') {
+                  this.config.onEvent?.('entropy_collapse_triggered', { tokenCount, delta });
+                }
+                this.config.onEvent?.('repetition_loop_triggered', { tokenCount, delta, reason: loopKind });
+                return { text: '', aborted: true };
+              }
+            }
+            if (!evaluationComplete) {
+              const linearProbs = this.extractLinearProbsFromChoice(choice);
+              for (const linearProb of linearProbs) {
+                accumulatedProb += linearProb;
+                tokenCount++;
+              }
+            }
+          } catch (e) { if (!(e instanceof SyntaxError)) throw e; }
         }
 
-        return { text: fullText, aborted: false };
+        if (!evaluationComplete && tokenCount > 0) {
+          const avgProb = accumulatedProb / tokenCount;
+          if (avgProb < threshold) {
+            this.config.onEvent?.('cascade_triggered', { tokenCount, avgProb, threshold });
+            return { text: '', aborted: true };
+          }
+        }
+
+        const usage = (streamPromptTokens !== undefined || streamCompletionTokens !== undefined)
+          ? this.calculateUsage(
+              modelToUse,
+              streamPromptTokens ?? estimateTokens(joinMessagesContent(messages)),
+              streamCompletionTokens ?? estimateTokens(fullText)
+            )
+          : undefined;
+
+        return { text: fullText, aborted: false, usage };
       } finally {
+        if (typeof (reader as any).cancel === 'function') {
+          try { await reader.cancel(); } catch (_) {}
+        }
         reader.releaseLock();
       }
     } finally {
@@ -868,7 +1423,7 @@ export class CascadeRouter {
     let defaultUrl = 'https://api.openai.com/v1/chat/completions';
     if (isOpener) {
       defaultUrl = 'https://openrouter.ai/api/v1/chat/completions';
-    } else if (isLocalFastDefault) {
+    } else if (isLocalFastDefault && !modelConfig.provider && !modelConfig.apiKey) {
       defaultUrl = 'http://localhost:11434/v1/chat/completions';
     }
     const url = modelConfig.url || defaultUrl;
@@ -889,6 +1444,23 @@ export class CascadeRouter {
     }
 
     return { url, headers };
+  }
+
+  private extractGeminiText(data: any): string {
+    const parts = data?.candidates?.[0]?.content?.parts;
+    if (!Array.isArray(parts) || parts.length === 0) return '';
+    if (parts.length === 1) {
+      const p0 = parts[0];
+      return (p0 && !p0.thought && typeof p0.text === 'string') ? p0.text : '';
+    }
+    let out = '';
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i];
+      if (p && !p.thought && typeof p.text === 'string') {
+        out += p.text;
+      }
+    }
+    return out;
   }
 
   private async fetchModel(modelConfig: ModelConfig, messages: Message[], options?: ChatOptions): Promise<{ text: string, usage: UsageMetrics }> {
@@ -916,10 +1488,22 @@ export class CascadeRouter {
     }
 
     const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
+    if (data?.error) {
+      const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+      throw new Error(`${modelConfig.model} error: ${msg}`);
+    }
+    const rawContent = data.choices?.[0]?.message?.content;
+    let text = '';
+    if (typeof rawContent === 'string') {
+      text = rawContent;
+    } else if (Array.isArray(rawContent)) {
+      for (const part of rawContent) {
+        if (typeof part?.text === 'string') text += part.text;
+      }
+    }
     
     // Extract usage
-    const promptTokens = data.usage?.prompt_tokens ?? estimateTokens(messages.map(m => m.content).join('\n'));
+    const promptTokens = data.usage?.prompt_tokens ?? estimateTokens(joinMessagesContent(messages));
     const completionTokens = data.usage?.completion_tokens ?? estimateTokens(text);
     const usage = this.calculateUsage(modelConfig, promptTokens, completionTokens);
 
@@ -933,29 +1517,36 @@ export class CascadeRouter {
     return this.fetchModel(this.config.heavyModel!, messages, options);
   }
 
+  private getGeminiEndpoint(modelConfig: ModelConfig, stream: boolean): { url: string; headers: Record<string, string> } {
+    const apiKey = modelConfig.apiKey;
+    if (!apiKey && !modelConfig.url) throw new Error('Gemini requires an API key');
+    const action = stream ? 'streamGenerateContent' : 'generateContent';
+    let url: string;
+    if (modelConfig.url) {
+      if (modelConfig.url.includes(':generateContent') || modelConfig.url.includes(':streamGenerateContent')) {
+        url = modelConfig.url;
+      } else {
+        const base = modelConfig.url.replace(/\/+$/, '');
+        url = `${base}/${modelConfig.model}:${action}`;
+      }
+      if (apiKey && !url.includes('key=')) {
+        url += `${url.includes('?') ? '&' : '?'}key=${apiKey}`;
+      }
+    } else {
+      url = `https://generativelanguage.googleapis.com/v1beta/models/${modelConfig.model}:${action}?key=${apiKey}`;
+    }
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...modelConfig.headers };
+    return { url, headers };
+  }
+
   private async fetchGemini(messages: Message[], options?: ChatOptions, customModel?: ModelConfig): Promise<{ text: string, usage: UsageMetrics }> {
     const heavyModel = customModel || this.config.heavyModel!;
-    const apiKey = heavyModel.apiKey;
-    if (!apiKey) throw new Error('Gemini requires an API key');
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${heavyModel.model}:generateContent?key=${apiKey}`;
-
-    const systemPrompt = messages.find(m => m.role === 'system')?.content;
-    const contents = messages
-      .filter(m => m.role !== 'system')
-      .map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      }));
-
-    const body: any = { contents };
-    if (systemPrompt) {
-      body.system_instruction = { parts: [{ text: systemPrompt }] };
-    }
+    const { url, headers } = this.getGeminiEndpoint(heavyModel, false);
+    const body = this.buildGeminiPayload(messages);
 
     const response = await this.fetchFn(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       signal: options?.signal,
       body: JSON.stringify(body)
     });
@@ -965,9 +1556,13 @@ export class CascadeRouter {
     }
 
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (data?.error) {
+      const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+      throw new Error(`Gemini error: ${msg}`);
+    }
+    const text = this.extractGeminiText(data);
     
-    const promptTokens = data.usageMetadata?.promptTokenCount ?? estimateTokens(messages.map(m => m.content).join('\n'));
+    const promptTokens = data.usageMetadata?.promptTokenCount ?? estimateTokens(joinMessagesContent(messages));
     const completionTokens = data.usageMetadata?.candidatesTokenCount ?? estimateTokens(text);
     const usage = this.calculateUsage(heavyModel, promptTokens, completionTokens);
 
@@ -979,6 +1574,15 @@ export class CascadeRouter {
       || ((options?.speedPriority === 'low' || options?.urgency === 'low') && this.config.backgroundModel
         ? this.config.backgroundModel
         : this.config.fastModel!);
+    if (modelToUse.provider === 'gemini') {
+      yield* this.streamGemini(messages, options, modelToUse);
+      this.config.onEvent?.('route_fast', {
+        reason: 'high_confidence',
+        model: modelToUse.model,
+        speedPriority: options?.speedPriority || 'normal'
+      });
+      return;
+    }
     const { url, headers } = this.getModelEndpoint(modelToUse, true);
 
     const controller = new AbortController();
@@ -1002,6 +1606,7 @@ export class CascadeRouter {
         })
       });
     } catch (err) {
+      if (options?.signal) options.signal.removeEventListener('abort', onAbort);
       throw err;
     }
 
@@ -1022,69 +1627,78 @@ export class CascadeRouter {
     const seenDeltas: string[] = [];
     let tokenCount = 0;
     let accumulatedProb = 0;
-    let evaluationComplete = false;
+    const tokensToEval = this.config.tokensToEvaluate ?? 5;
+    let evaluationComplete = tokensToEval <= 0;
+    const threshold = this.config.cascadeThreshold ?? 0.85;
 
     let buffer = '';
 
     try {
       while (true) {
+        if (options?.signal?.aborted) {
+          throw options.signal.reason ?? new Error('AbortError: The operation was aborted');
+        }
         const { done, value } = await reader.read();
-        if (done) break;
+        if (options?.signal?.aborted) {
+          throw options.signal.reason ?? new Error('AbortError: The operation was aborted');
+        }
+        if (done) {
+          buffer += decoder.decode();
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
         for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed === 'data: [DONE]') continue;
-          if (!trimmed.startsWith('data: ')) continue;
+          const payload = this.extractSseDataPayload(line);
+          if (!payload) continue;
 
           try {
-            const data = JSON.parse(trimmed.slice(6));
-            const choice = data.choices?.[0];
-            const delta = choice?.delta?.content || '';
-
-            // Handle logprobs
-            const logprobsObj = choice?.logprobs?.content;
-            let currentTokenProbs: number[] = [];
-
-            if (logprobsObj && Array.isArray(logprobsObj) && logprobsObj.length > 0) {
-              for (const lp of logprobsObj) {
-                const logprob = lp.logprob;
-                if (logprob !== undefined) {
-                  currentTokenProbs.push(Math.exp(logprob));
-                }
-              }
+            const data = JSON.parse(payload);
+            if (data?.error) {
+              const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+              throw new Error(`Fast model SSE error: ${msg}`);
             }
+            const choice = data.choices?.[0];
+            const delta = this.extractDeltaText(choice);
+            const currentTokenProbs = !evaluationComplete ? this.extractLinearProbsFromChoice(choice) : [];
 
             if (delta) {
-              seenDeltas.push(delta);
-
-              // Check for degenerate repetitive loop
-              if (this.detectRepetitiveLoop(seenDeltas)) {
-                this.config.onEvent?.('repetition_loop_triggered', { tokenCount, delta });
-                controller.abort();
-                throw new CascadeTriggeredError('Repetitive token loop detected');
-              }
-
               if (evaluationComplete) {
                 yield delta;
               } else {
+                seenDeltas.push(delta);
+                // Check for degenerate repetitive loop while still in speculative buffer window
+                const loopKind = this.detectRepetitiveLoop(seenDeltas);
+                if (loopKind) {
+                  if (loopKind === 'entropy_collapse') {
+                    this.config.onEvent?.('entropy_collapse_triggered', { tokenCount, delta });
+                  }
+                  this.config.onEvent?.('repetition_loop_triggered', { tokenCount, delta, reason: loopKind });
+                  controller.abort();
+                  throw new CascadeTriggeredError('Repetitive token loop detected');
+                }
+
                 bufferedTokens.push(delta);
+              }
+            }
+
+            if (!evaluationComplete) {
+              if (currentTokenProbs.length > 0) {
                 for (const prob of currentTokenProbs) {
                   accumulatedProb += prob;
                   tokenCount++;
 
-                  if (tokenCount === this.config.tokensToEvaluate) {
+                  if (!evaluationComplete && tokenCount >= tokensToEval) {
                     evaluationComplete = true;
                     const avgProb = accumulatedProb / tokenCount;
-                    if (avgProb < (this.config.cascadeThreshold || 0.85)) {
-                      this.config.onEvent?.('cascade_triggered', { tokenCount, avgProb, threshold: this.config.cascadeThreshold || 0.85 });
+                    if (avgProb < threshold) {
+                      this.config.onEvent?.('cascade_triggered', { tokenCount, avgProb, threshold });
                       controller.abort();
                       throw new CascadeTriggeredError('Speculative cascade triggered');
                     } else {
-                      // Flush buffer
                       for (const t of bufferedTokens) {
                         yield t;
                       }
@@ -1092,6 +1706,13 @@ export class CascadeRouter {
                     }
                   }
                 }
+              } else if (tokenCount === 0 && bufferedTokens.length >= tokensToEval) {
+                // Provider does not return logprobs: flush buffer after initial loop-guard window
+                evaluationComplete = true;
+                for (const t of bufferedTokens) {
+                  yield t;
+                }
+                bufferedTokens.length = 0;
               }
             }
           } catch (e) {
@@ -1102,25 +1723,50 @@ export class CascadeRouter {
       }
 
       // Flush remaining line buffer if any
-      if (buffer.trim().startsWith('data: ')) {
+      const remPayload = this.extractSseDataPayload(buffer);
+      if (remPayload) {
         try {
-          const data = JSON.parse(buffer.trim().slice(6));
-          const delta = data.choices?.[0]?.delta?.content || '';
+          const data = JSON.parse(remPayload);
+          if (data?.error) {
+            const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+            throw new Error(`Fast model SSE error: ${msg}`);
+          }
+          const choice = data.choices?.[0];
+          const delta = this.extractDeltaText(choice);
           if (delta) {
             if (evaluationComplete) {
               yield delta;
             } else {
+              seenDeltas.push(delta);
+              const loopKind = this.detectRepetitiveLoop(seenDeltas);
+              if (loopKind) {
+                if (loopKind === 'entropy_collapse') {
+                  this.config.onEvent?.('entropy_collapse_triggered', { tokenCount, delta });
+                }
+                this.config.onEvent?.('repetition_loop_triggered', { tokenCount, delta, reason: loopKind });
+                throw new CascadeTriggeredError('Repetitive token loop detected');
+              }
               bufferedTokens.push(delta);
             }
           }
-        } catch (e) { if (!(e instanceof SyntaxError)) throw e; }
+          if (!evaluationComplete) {
+            const linearProbs = this.extractLinearProbsFromChoice(choice);
+            for (const linearProb of linearProbs) {
+              accumulatedProb += linearProb;
+              tokenCount++;
+            }
+          }
+        } catch (e) {
+          if (e instanceof CascadeTriggeredError) throw e;
+          if (!(e instanceof SyntaxError)) throw e;
+        }
       }
 
       if (!evaluationComplete) {
         evaluationComplete = true;
         const avgProb = tokenCount > 0 ? accumulatedProb / tokenCount : 1.0;
-        if (tokenCount > 0 && avgProb < (this.config.cascadeThreshold || 0.85)) {
-          this.config.onEvent?.('cascade_triggered', { tokenCount, avgProb, threshold: this.config.cascadeThreshold || 0.85 });
+        if (tokenCount > 0 && avgProb < threshold) {
+          this.config.onEvent?.('cascade_triggered', { tokenCount, avgProb, threshold });
           throw new CascadeTriggeredError('Speculative cascade triggered on short stream');
         } else {
           for (const t of bufferedTokens) {
@@ -1129,9 +1775,16 @@ export class CascadeRouter {
         }
       }
       
-      this.config.onEvent?.('route_fast', { reason: 'high_confidence' });
+      this.config.onEvent?.('route_fast', {
+        reason: 'high_confidence',
+        model: modelToUse.model,
+        speedPriority: options?.speedPriority || 'normal'
+      });
 
     } finally {
+      if (typeof (reader as any).cancel === 'function') {
+        try { await reader.cancel(); } catch (_) {}
+      }
       reader.releaseLock();
       if (options?.signal) {
         options.signal.removeEventListener('abort', onAbort);
@@ -1173,21 +1826,33 @@ export class CascadeRouter {
 
     try {
       while (true) {
+        if (options?.signal?.aborted) {
+          throw options.signal.reason ?? new Error('AbortError: The operation was aborted');
+        }
         const { done, value } = await reader.read();
-        if (done) break;
+        if (options?.signal?.aborted) {
+          throw options.signal.reason ?? new Error('AbortError: The operation was aborted');
+        }
+        if (done) {
+          buffer += decoder.decode();
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
         for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed === 'data: [DONE]') continue;
-          if (!trimmed.startsWith('data: ')) continue;
+          const payload = this.extractSseDataPayload(line);
+          if (!payload) continue;
 
           try {
-            const data = JSON.parse(trimmed.slice(6));
-            const delta = data.choices?.[0]?.delta?.content || '';
+            const data = JSON.parse(payload);
+            if (data?.error) {
+              const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+              throw new Error(`Heavy model SSE error: ${msg}`);
+            }
+            const delta = this.extractDeltaText(data.choices?.[0]);
             if (delta) yield delta;
           } catch (e) {
             if (!(e instanceof SyntaxError)) throw e;
@@ -1195,41 +1860,34 @@ export class CascadeRouter {
         }
       }
 
-      if (buffer.trim().startsWith('data: ')) {
+      const remPayload = this.extractSseDataPayload(buffer);
+      if (remPayload) {
         try {
-          const data = JSON.parse(buffer.trim().slice(6));
-          const delta = data.choices?.[0]?.delta?.content || '';
+          const data = JSON.parse(remPayload);
+          if (data?.error) {
+            const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+            throw new Error(`Heavy model SSE error: ${msg}`);
+          }
+          const delta = this.extractDeltaText(data.choices?.[0]);
           if (delta) yield delta;
         } catch (e) { if (!(e instanceof SyntaxError)) throw e; }
       }
     } finally {
+      if (typeof (reader as any).cancel === 'function') {
+        try { await reader.cancel(); } catch (_) {}
+      }
       reader.releaseLock();
     }
   }
 
   private async *streamGemini(messages: Message[], options?: ChatOptions, customModel?: ModelConfig): AsyncGenerator<string, void, unknown> {
     const heavyModel = customModel || this.config.heavyModel!;
-    const apiKey = heavyModel.apiKey;
-    if (!apiKey) throw new Error('Gemini requires an API key');
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${heavyModel.model}:streamGenerateContent?key=${apiKey}`;
-
-    const systemPrompt = messages.find(m => m.role === 'system')?.content;
-    const contents = messages
-      .filter(m => m.role !== 'system')
-      .map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      }));
-
-    const body: any = { contents };
-    if (systemPrompt) {
-      body.system_instruction = { parts: [{ text: systemPrompt }] };
-    }
+    const { url, headers } = this.getGeminiEndpoint(heavyModel, true);
+    const body = this.buildGeminiPayload(messages);
 
     const response = await this.fetchFn(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       signal: options?.signal,
       body: JSON.stringify(body)
     });
@@ -1243,41 +1901,77 @@ export class CascadeRouter {
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
+    let braceCount = 0;
+    let startIdx = -1;
+    let inString = false;
+    let escaped = false;
+    let scanPos = 0;
 
     try {
       while (true) {
+        if (options?.signal?.aborted) {
+          throw options.signal.reason ?? new Error('AbortError: The operation was aborted');
+        }
         const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
+        if (options?.signal?.aborted) {
+          throw options.signal.reason ?? new Error('AbortError: The operation was aborted');
+        }
+        if (done) {
+          buffer += decoder.decode();
+        } else {
+          buffer += decoder.decode(value, { stream: true });
+        }
         
-        let braceCount = 0;
-        let startIdx = -1;
-        
-        for (let i = 0; i < buffer.length; i++) {
+        for (let i = scanPos; i < buffer.length; i++) {
           const char = buffer[i];
-          if (char === '{') {
+          if (inString) {
+            if (escaped) {
+              escaped = false;
+            } else if (char === '\\') {
+              escaped = true;
+            } else if (char === '"') {
+              inString = false;
+            }
+            continue;
+          }
+
+          if (char === '"') {
+            inString = true;
+          } else if (char === '{') {
             if (braceCount === 0) startIdx = i;
             braceCount++;
           } else if (char === '}') {
-            braceCount--;
-            if (braceCount === 0 && startIdx !== -1) {
-              const jsonStr = buffer.substring(startIdx, i + 1);
-              try {
-                const data = JSON.parse(jsonStr);
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                if (text) yield text;
-              } catch (e) {
-                // Ignore incomplete JSON chunks
+            if (braceCount > 0) {
+              braceCount--;
+              if (braceCount === 0 && startIdx !== -1) {
+                const jsonStr = buffer.substring(startIdx, i + 1);
+                try {
+                  const data = JSON.parse(jsonStr);
+                  if (data?.error) {
+                    const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+                    throw new Error(`Gemini SSE error: ${msg}`);
+                  }
+                  const text = this.extractGeminiText(data);
+                  if (text) yield text;
+                } catch (e) {
+                  if (!(e instanceof SyntaxError)) throw e;
+                }
+                buffer = buffer.substring(i + 1);
+                i = -1;
+                startIdx = -1;
+                inString = false;
+                escaped = false;
               }
-              buffer = buffer.substring(i + 1);
-              i = -1;
-              startIdx = -1;
             }
           }
         }
+        scanPos = buffer.length;
+        if (done) break;
       }
     } finally {
+      if (typeof (reader as any).cancel === 'function') {
+        try { await reader.cancel(); } catch (_) {}
+      }
       reader.releaseLock();
     }
   }
@@ -1286,29 +1980,64 @@ export class CascadeRouter {
     const gate = this.config.jeanSREGate;
     if (!gate || !gate.enabled) return null;
 
+    const cacheKey = project || '';
+    const cacheTtlMs = gate.cacheTtlMs ?? 0;
+    if (cacheTtlMs > 0) {
+      const cached = this.sreCache.get(cacheKey);
+      if (cached) {
+        if (Date.now() < cached.expiresAt) {
+          return cached.reply;
+        }
+        this.sreCache.delete(cacheKey);
+      }
+    }
+
     const url = gate.sreUrl || 'http://localhost:3005/chat';
     const conversationId = gate.conversationId || 'a123e456-789b-12d3-a456-426614174000';
     const query = "Provide a concise list of any current fleet warnings, database anomalies, CPU thermal alerts, or Docker container issues that require human-agent review.";
     const message = project ? `[Project Isolation Context: ${project}] ${query}` : query;
+    const timeoutMs = gate.timeoutMs ?? 2000;
+
+    const controller = new AbortController();
+    const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
     try {
       const response = await this.fetchFn(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({ conversationId, message, noTools: false })
       });
       if (!response.ok) return null;
       const data = await response.json();
-      return data.reply || null;
+      const reply = data.reply || null;
+      if (cacheTtlMs > 0) {
+        if (this.sreCache.size >= 32 && !this.sreCache.has(cacheKey)) {
+          const oldestKey = this.sreCache.keys().next().value;
+          if (oldestKey !== undefined) this.sreCache.delete(oldestKey);
+        }
+        this.sreCache.set(cacheKey, { reply, expiresAt: Date.now() + cacheTtlMs });
+      }
+      return reply;
     } catch (err) {
-      // Gracefully degrade if SRE endpoint is down or unreachable
+      // Gracefully degrade if SRE endpoint is down, unreachable, or times out
       return null;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
   private calculateUsage(modelConfig: ModelConfig, promptTokens: number, completionTokens: number): UsageMetrics {
-    const inRate = modelConfig.costPerMillionInputTokens ?? (modelConfig.provider === 'gemini' ? 0.15 : (modelConfig.url?.includes('localhost') ? 0.0 : 0.15));
-    const outRate = modelConfig.costPerMillionOutputTokens ?? (modelConfig.provider === 'gemini' ? 0.60 : (modelConfig.url?.includes('localhost') ? 0.0 : 0.60));
+    const isLocalEndpoint = Boolean(
+      modelConfig.url?.includes('localhost') ||
+      modelConfig.url?.includes('127.0.0.1') ||
+      ((modelConfig === this.config.fastModel || modelConfig === this.config.backgroundModel) &&
+        !modelConfig.url &&
+        !modelConfig.apiKey &&
+        !modelConfig.provider)
+    );
+    const inRate = modelConfig.costPerMillionInputTokens ?? (modelConfig.provider === 'gemini' ? 0.15 : (isLocalEndpoint ? 0.0 : 0.15));
+    const outRate = modelConfig.costPerMillionOutputTokens ?? (modelConfig.provider === 'gemini' ? 0.60 : (isLocalEndpoint ? 0.0 : 0.60));
 
     const promptCost = (promptTokens / 1_000_000) * inRate;
     const completionCost = (completionTokens / 1_000_000) * outRate;
