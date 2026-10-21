@@ -2,7 +2,7 @@
 import os
 import json
 
-ROUTER_ARENA_DIR = "/home/krusch/homelab/projects/krusch-cascade-router/benchmark/RouterArena"
+ROUTER_ARENA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "RouterArena")
 cached_dir = os.path.join(ROUTER_ARENA_DIR, "cached_results")
 
 gpt = {}

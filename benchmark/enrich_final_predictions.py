@@ -2,7 +2,7 @@
 import os
 import json
 
-ROUTER_ARENA_DIR = "/home/krusch/homelab/projects/krusch-cascade-router/benchmark/RouterArena"
+ROUTER_ARENA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "RouterArena")
 preds_dir = os.path.join(ROUTER_ARENA_DIR, "router_inference", "predictions")
 cost_file = os.path.join(ROUTER_ARENA_DIR, "model_cost", "model_cost.json")
 
