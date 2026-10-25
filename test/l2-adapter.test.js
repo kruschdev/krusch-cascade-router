@@ -118,3 +118,63 @@ test('L2 Adapter - createContextMcpRouter wraps MCP tool call seamlessly', async
   assert.equal(result.recommendedModel, 'qwen3-235b-a22b-2507');
   assert.equal(result.confidence, 0.842);
 });
+
+test('BUG-01: src/cascade.ts emits hedge_error and rethrows instead of silent catch', async () => {
+  const fs = await import('node:fs');
+  const cascadeSource = fs.readFileSync(new URL('../src/cascade.ts', import.meta.url), 'utf8');
+  assert.equal(cascadeSource.includes("this.config.onEvent?.('hedge_error', { error: (hedgeErr as Error).message });"), true);
+  assert.equal(cascadeSource.includes('throw hedgeErr;'), true);
+});
+
+test('ARCH-01: DEFAULT_L2_ARCHETYPES is frozen and rejects runtime mutation', () => {
+  assert.equal(Object.isFrozen(DEFAULT_L2_ARCHETYPES), true);
+  assert.equal(Object.isFrozen(DEFAULT_L2_ARCHETYPES[0]), true);
+  assert.throws(() => {
+    DEFAULT_L2_ARCHETYPES.push({
+      archetype: 'rogue',
+      role: 'code',
+      tier: 'specialist',
+      label: 'Rogue',
+      exemplar: 'rogue'
+    });
+  }, TypeError);
+});
+
+test('ARCH-01, TEST-01 & VALID-01: sreCache TTL/capacity eviction and routing option validation', async () => {
+  const { CascadeRouter, validateRoutingOptions } = await import('../dist/index.js');
+
+  // VALID-01: Valid options succeed; invalid options throw TypeError
+  validateRoutingOptions({ cascadeThreshold: 0.85, tokensToEvaluate: 0, maxRepetitiveTokens: 4 });
+  assert.throws(() => validateRoutingOptions({ cascadeThreshold: 1.5 }), TypeError);
+  assert.throws(() => validateRoutingOptions({ cascadeThreshold: -0.1 }), TypeError);
+  assert.throws(() => validateRoutingOptions({ tokensToEvaluate: -1 }), TypeError);
+  assert.throws(() => validateRoutingOptions({ maxRepetitiveTokens: Number.NaN }), TypeError);
+
+  const mockFetch = async () => ({
+    ok: true,
+    json: async () => ({ reply: 'SRE nominal' })
+  });
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen2.5-coder:7b', url: 'http://127.0.0.1:11434/v1/chat/completions' },
+    heavyModel: { model: 'gpt-oss:120b', url: 'http://127.0.0.1:11435/v1/chat/completions' },
+    fetch: mockFetch,
+    jeanSREGate: { enabled: true, cacheTtlMs: 50 }
+  });
+
+  // Populate SRE_CACHE_MAX_ENTRIES + 1 entries and verify capacity cap + oldest FIFO eviction
+  for (let i = 0; i <= CascadeRouter.SRE_CACHE_MAX_ENTRIES; i++) {
+    await router.fetchJeanSuggestions(`proj_${i}`);
+  }
+  assert.equal(router.sreCache.size, CascadeRouter.SRE_CACHE_MAX_ENTRIES);
+  assert.equal(router.sreCache.has('proj_0'), false, 'Oldest entry proj_0 must be evicted when capacity is exceeded');
+  assert.equal(router.sreCache.has(`proj_${CascadeRouter.SRE_CACHE_MAX_ENTRIES}`), true);
+
+  // Advance simulated time beyond TTL and verify evictExpiredCacheEntries purges expired items
+  const evictedCount = router.evictExpiredCacheEntries(Date.now() + 1000);
+  assert.equal(evictedCount, CascadeRouter.SRE_CACHE_MAX_ENTRIES);
+  assert.equal(router.sreCache.size, 0);
+});
+
+
+

@@ -23,8 +23,12 @@ export {
   RouterMetrics,
   TelemetryEvent,
   CascadeTriggeredError,
+  DEFAULT_COLAB_BURST_MODEL,
   MultiSpecialistRouterOptions,
   createMultiSpecialistRouter,
+  validateRoutingOptions,
+  parseJsonFragment,
+  tryParseBalancedDelimited,
   SemanticRouteResult,
   SemanticRouterL2
 } from './cascade.js';

@@ -269,3 +269,21 @@ test('L1 Pre-Router - classifyPreRoute Fast-Path vs L2 Delegation', () => {
   }
 });
 
+test('SEC-01 & ARCH-01: createMultiSpecialistRouter validates OPENROUTER_API_KEY', () => {
+  const savedKey = process.env.OPENROUTER_API_KEY;
+  delete process.env.OPENROUTER_API_KEY;
+  try {
+    assert.throws(
+      () => createMultiSpecialistRouter({}),
+      /OPENROUTER_API_KEY is required/
+    );
+    const router = createMultiSpecialistRouter({ openrouterApiKey: 'sk-or-test-key' });
+    assert.ok(router);
+  } finally {
+    if (savedKey !== undefined) {
+      process.env.OPENROUTER_API_KEY = savedKey;
+    }
+  }
+});
+
+

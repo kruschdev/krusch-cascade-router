@@ -19,7 +19,7 @@ export interface ArchetypeCentroid {
   metadata?: Record<string, any>;
 }
 
-export const DEFAULT_L2_ARCHETYPES: ArchetypeCentroid[] = [
+export const DEFAULT_L2_ARCHETYPES: readonly ArchetypeCentroid[] = Object.freeze(([
   {
     archetype: 'code_implementation',
     role: 'code',
@@ -119,7 +119,7 @@ export const DEFAULT_L2_ARCHETYPES: ArchetypeCentroid[] = [
     threshold: 0.65,
     metadata: { domain: 'safety_exclusion', preferredModel: 'claude-3-5-sonnet' }
   }
-];
+] as ArchetypeCentroid[]).map((entry): ArchetypeCentroid => Object.freeze({ ...entry, metadata: entry.metadata ? Object.freeze({ ...entry.metadata }) : undefined })));
 
 /**
  * Computes cosine similarity between two numeric vectors in single-digit microseconds.
@@ -211,7 +211,7 @@ export function createCentroidSemanticRouter(options: CentroidRouterOptions = {}
   const fetchFn = options.fetch || globalThis.fetch;
   const centroids = options.centroids ? [...options.centroids] : [...DEFAULT_L2_ARCHETYPES];
   const defaultThreshold = options.defaultThreshold ?? 0.65;
-  const ollamaEmbedModel = options.embedModel || 'bge-large';
+  const ollamaEmbedModel = options.embedModel || 'snowflake-arctic-embed2';
   const openrouterEmbedModel = options.embedModel || 'baai/bge-large-en-v1.5';
   const baseOllamaUrl = (options.ollamaUrl || 'http://localhost:11434').replace(/\/+$/, '');
   const maxCacheSize = options.cacheSize ?? 256;

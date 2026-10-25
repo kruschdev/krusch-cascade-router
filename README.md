@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
   <img src="https://img.shields.io/badge/OpenRouter-4--Model%20Specialists-purple.svg?style=flat-square" alt="OpenRouter Specialists">
   <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Eval%20(0.7883)-blue.svg?style=flat-square" alt="RouterArena PR #169 Evaluation (0.7883)"></a>
-  <img src="https://img.shields.io/badge/tests-51%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
+  <img src="https://img.shields.io/badge/tests-98%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
 </p>
 
 ---
@@ -327,11 +327,11 @@ import { CascadeRouter } from 'krusch-cascade-router';
 const router = new CascadeRouter({
   fastModel: { 
     url: 'http://localhost:11434/v1/chat/completions', 
-    model: 'qwen2.5:3b' // Local edge model
+    model: 'qwen2.5-coder:7b' // Local edge model
   },
   heavyModel: { 
     apiKey: process.env.GEMINI_API_KEY, 
-    model: 'gemini-2.5-flash', 
+    model: 'gemini-4-argon', 
     provider: 'gemini' 
   },
   cascadeThreshold: 0.85,    // Fallback if initial token probability < 85%
@@ -344,7 +344,7 @@ console.log(`Routed to: ${response.routedTo}`); // 'fast' | 'heavy'
 console.log(response.text);
 ```
 
-### Option D: Future-Proofing & Custom Specialists
+### Option E: Future-Proofing & Custom Specialists
 
 The 4 default models (`deepseek-v4-flash`, `Qwen3-Coder-Next`, `gemini-3.1-flash-lite`, `deepseek-v4-pro`) are an **empirical starter preset**, not a hardcoded lock-in. As OpenRouter models evolve, you can easily swap models, add new specialists (such as `comprehension_rc`), update token pricing, or inject custom domain regexes:
 
@@ -374,11 +374,39 @@ const router = createMultiSpecialistRouter({
   // 3. Optional local edge model for low-priority / background batch jobs
   backgroundModel: {
     url: 'http://localhost:11434/v1/chat/completions',
-    model: 'qwen2.5:3b',
+    model: 'qwen2.5-coder:7b',
     costPerMillionInputTokens: 0,
     costPerMillionOutputTokens: 0
+  },
+  // 4. Optional L2.5 Colab Pro 96GB Blackwell G4 Burst Tier (tried before OpenRouter fallback)
+  enableColabBurst: true // Uses DEFAULT_COLAB_BURST_MODEL (gpt-oss:120b at http://127.0.0.1:11435/v1/chat/completions)
+});
+```
+
+### Option F: L2.5 Colab Pro 96GB G4 Burst Escalation (`gpt-oss:120b` Before OpenRouter)
+
+Insert a private, SSH-tunneled **Google Colab Pro 96GB Blackwell G4** (`gpt-oss:120b` @ `~117.7 tok/s`, `131K` ctx on `http://127.0.0.1:11435/v1/chat/completions`) as an intermediate `burstModel` tier between local Ollama (`fastModel`) and paid cloud OpenRouter (`heavyModel`):
+
+```javascript
+import { CascadeRouter, DEFAULT_COLAB_BURST_MODEL } from 'krusch-cascade-router';
+
+const router = new CascadeRouter({
+  fastModel: {
+    url: 'http://127.0.0.1:11434/v1/chat/completions',
+    model: 'qwen2.5-coder:7b'
+  },
+  // L2.5 Intermediate Burst Tier: private 120B model over SSH tunnel ($0.00 token billing)
+  burstModel: DEFAULT_COLAB_BURST_MODEL,
+  // L3 Cloud Fallback: only called if the Colab G4 tunnel is offline or fails
+  heavyModel: {
+    model: 'deepseek/deepseek-v4-pro',
+    provider: 'openrouter',
+    apiKey: process.env.OPENROUTER_API_KEY
   }
 });
+
+const res = await router.chat("Design a lock-free ring buffer with formal memory-ordering invariants");
+console.log(res.routedTo); // 'burst' (when escalated to colab-g4) | 'fast' | 'heavy'
 ```
 
 ---
@@ -470,8 +498,8 @@ try {
 const router = new CascadeRouter({
   // ...config
   onEvent: (event, meta) => {
-    // Events: 'route_specialist' | 'route_l2_semantic' | 'route_fast' | 'route_heavy' | 'cascade_triggered' | 
-    //         'speculative_branch_hedged' | 'repetition_loop_triggered' | 'entropy_collapse_triggered'
+    // Events: 'route_specialist' | 'route_l2_semantic' | 'route_fast' | 'route_burst' | 'route_heavy' |
+    //         'cascade_triggered' | 'speculative_branch_hedged' | 'repetition_loop_triggered' | 'entropy_collapse_triggered'
     console.log(`[Router Telemetry] ${event}`, meta);
   }
 });
@@ -492,6 +520,8 @@ Factory function configuring the domain specialist models, routing through OpenR
 | `classifier` | `ClassifierOptions` | `undefined` | Custom options, including `customSpecialistRules` and `customRules`. |
 | `l2Router` | `SemanticRouterL2` | `undefined` | Optional L2 Neural Semantic Router invoked dynamically when L1 fast-path misses. |
 | `backgroundModel` | `ModelConfig` | `undefined` | Optional model for low-priority/background batch jobs. |
+| `burstModel` | `ModelConfig` | `undefined` | Optional L2.5 intermediate burst tier (e.g. `DEFAULT_COLAB_BURST_MODEL`) tried before `heavyModel`. |
+| `enableColabBurst` | `boolean` | `false` | When `true`, wires `DEFAULT_COLAB_BURST_MODEL` (`gpt-oss:120b` at `http://127.0.0.1:11435/v1/chat/completions`) as `burstModel`. |
 | `openrouterReferer` | `string` | `undefined` | Optional `HTTP-Referer` header for rankings. |
 | `openrouterTitle` | `string` | `undefined` | Optional `X-Title` header for rankings. |
 | `cascadeThreshold` | `number` | `0.85` | Logprob confidence threshold for cascading. |
@@ -507,6 +537,7 @@ Factory function configuring the domain specialist models, routing through OpenR
 |---|---|:---:|---|
 | `fastModel` | `ModelConfig` | *Required* | Fast edge model config (e.g., local Ollama, vLLM, `gemini-3.1-flash-lite`). |
 | `heavyModel` | `ModelConfig` | *Required* | Heavy cloud fallback config (e.g., `deepseek-v4-pro`, GPT-4o). |
+| `burstModel` | `ModelConfig` | `undefined` | Optional L2.5 high-VRAM burst model (e.g., `DEFAULT_COLAB_BURST_MODEL` `gpt-oss:120b` on `127.0.0.1:11435`) escalated to before `heavyModel`. |
 | `specialistModels` | `Partial<Record<SpecialistRole, ModelConfig>>` | `undefined` | Map of domain specialist models. |
 | `l2Router` | `SemanticRouterL2` | `undefined` | Optional L2 Neural Semantic Router hook (`(prompt, context) => Promise<SemanticRouteResult>`). |
 | `openrouterApiKey` | `string` | `undefined` | Global OpenRouter API key for specialist models. |
@@ -521,8 +552,15 @@ Factory function configuring the domain specialist models, routing through OpenR
 | `classifier` | `ClassifierOptions` | `undefined` | Custom options, `customSpecialistRules`, and `customRules` regexes. |
 | `onEvent` | `Function` | `undefined` | Telemetry callback for observability. |
 
+### Cache Eviction Policy (`sreCache`)
+
+- **Default TTL (`DEFAULT_SRE_CACHE_TTL_MS`)**: `300_000` ms (`5 * 60_000`, 5 minutes) or custom `jeanSREGate.cacheTtlMs`.
+- **Max Capacity (`SRE_CACHE_MAX_ENTRIES`)**: `32` entries per `CascadeRouter` instance.
+- **Eviction Triggers**: `evictExpiredCacheEntries()` purges expired entries before every cache read and write in `fetchJeanSuggestions`, and the oldest FIFO entry is evicted when capacity reaches `SRE_CACHE_MAX_ENTRIES`.
+
 ---
 
 ## 📄 License
 
 MIT License © 2026 kruschdev
+

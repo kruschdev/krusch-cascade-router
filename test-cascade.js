@@ -3154,3 +3154,242 @@ test('Pass 13 Hardening - Fast model SSE usage and Gemini fastModel usageMetadat
   assert.equal(multiRes.routedTo, 'factual_stem', 'Invalid L2 role must safely fall back to default role');
 });
 
+test('Pass 14 Hardening - Gemini 4 Argon payload defaults, multi-hop CONTINUATION loop, and implicit cache + thought token cost calculation', async () => {
+  const capturedBodies = [];
+  const argonRouter = new CascadeRouter({
+    fastModel: { model: 'qwen2.5' },
+    heavyModel: {
+      model: 'gemini-4-argon',
+      provider: 'gemini',
+      apiKey: 'argon-test-key'
+    },
+    fetch: async (_url, opts) => {
+      const body = JSON.parse(opts.body);
+      capturedBodies.push(body);
+      if (capturedBodies.length === 1) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            candidates: [{
+              finishReason: 'CONTINUATION',
+              continuationToken: 'tok-hop-2',
+              content: {
+                parts: [
+                  { text: 'Internal Argon reasoning hop 1...', thought: true },
+                  { text: 'Part 1 of long decode. ' }
+                ]
+              }
+            }],
+            usageMetadata: {
+              promptTokenCount: 100000,
+              cachedContentTokenCount: 80000,
+              candidatesTokenCount: 30000,
+              thoughtsTokenCount: 20000
+            }
+          })
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [{
+            finishReason: 'STOP',
+            content: {
+              parts: [
+                { text: 'Internal Argon reasoning hop 2...', thought: true },
+                { text: 'Part 2 complete.' }
+              ]
+            }
+          }],
+          usageMetadata: {
+            promptTokenCount: 150000,
+            cachedContentTokenCount: 140000,
+            candidatesTokenCount: 20000,
+            thoughtsTokenCount: 10000
+          }
+        })
+      };
+    }
+  });
+
+  const res = await argonRouter.chat('Please architect and synthesize a full multi-module specification.', undefined, {
+    thinkingLevel: 'minimal'
+  });
+
+  assert.equal(res.text, 'Part 1 of long decode. Part 2 complete.');
+  assert.equal(capturedBodies.length, 2, 'Should automatically execute 2 hops on finishReason === CONTINUATION');
+
+  // Verify Hop 1 payload: maxOutputTokens defaults to 65536, thinkingLevel minimal -> low, no continuationToken
+  assert.equal(capturedBodies[0].generationConfig.maxOutputTokens, 65536);
+  assert.equal(capturedBodies[0].generationConfig.thinkingConfig.thinkingLevel, 'low');
+  assert.equal(capturedBodies[0].continuationToken, undefined);
+
+  // Verify Hop 2 payload: exact same original contents + continuationToken
+  assert.deepEqual(capturedBodies[1].contents, capturedBodies[0].contents);
+  assert.equal(capturedBodies[1].continuationToken, 'tok-hop-2');
+
+  // Verify usage metrics:
+  // Total promptTokens = 250,000 (initialPromptTokens = 100,000, cachedTokens = 220,000, uncached = 30,000)
+  // Total completionTokens = 50,000, thoughtTokens = 30,000
+  // Cost:
+  // Uncached input: 30,000 * $2.00 / 1M = $0.06
+  // Cached input (95% discount = $0.10 / 1M): 220,000 * $0.10 / 1M = $0.022
+  // Output + thinking: (50,000 + 30,000) * $10.00 / 1M = $0.80
+  // Total = $0.882
+  assert.equal(res.usage.promptTokens, 250000);
+  assert.equal(res.usage.initialPromptTokens, 100000);
+  assert.equal(res.usage.cachedTokens, 220000);
+  assert.equal(res.usage.completionTokens, 50000);
+  assert.equal(res.usage.thoughtTokens, 30000);
+  assert.equal(res.usage.totalTokens, 330000);
+  assert.equal(res.usage.hops, 2);
+  assert.equal(res.usage.estimatedCostUsd, 0.882);
+});
+
+test('Colab G4 Burst Tier - Escalates to burstModel (gpt-oss:120b) before heavyModel and falls back to OpenRouter when offline', async () => {
+  const { DEFAULT_COLAB_BURST_MODEL, createMultiSpecialistRouter } = await import('./dist/index.js');
+  assert.equal(DEFAULT_COLAB_BURST_MODEL.model, 'gpt-oss:120b');
+  assert.equal(DEFAULT_COLAB_BURST_MODEL.url, 'http://127.0.0.1:11435/v1/chat/completions');
+
+  const events = [];
+  let burstOnline = true;
+
+  const mockFetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    if (body.model === 'qwen-fast') {
+      // Return low confidence logprobs to trigger cascade
+      const chunk = {
+        choices: [{
+          delta: { content: 'maybe' },
+          logprobs: { content: [{ logprob: Math.log(0.2) }] }
+        }]
+      };
+      const encoded = new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`);
+      let read = false;
+      return {
+        ok: true,
+        status: 200,
+        body: {
+          getReader: () => ({
+            read: async () => (!read ? ((read = true), { done: false, value: encoded }) : { done: true, value: undefined }),
+            releaseLock: () => {}
+          })
+        }
+      };
+    }
+
+    if (body.model === 'gpt-oss:120b' || url.includes('127.0.0.1:11435')) {
+      if (!burstOnline) {
+        throw new Error('connect ECONNREFUSED 127.0.0.1:11435');
+      }
+      if (body.stream) {
+        const chunk = { choices: [{ delta: { content: 'Colab G4 streamed response' } }] };
+        const encoded = new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`);
+        let read = false;
+        return {
+          ok: true,
+          status: 200,
+          body: {
+            getReader: () => ({
+              read: async () => (!read ? ((read = true), { done: false, value: encoded }) : { done: true, value: undefined }),
+              releaseLock: () => {}
+            })
+          }
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content: 'Colab G4 120B response' } }],
+          usage: { prompt_tokens: 100, completion_tokens: 50 }
+        })
+      };
+    }
+
+    // OpenRouter heavyModel fallback
+    if (body.stream) {
+      const chunk = { choices: [{ delta: { content: 'OpenRouter heavy stream fallback' } }] };
+      const encoded = new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`);
+      let read = false;
+      return {
+        ok: true,
+        status: 200,
+        body: {
+          getReader: () => ({
+            read: async () => (!read ? ((read = true), { done: false, value: encoded }) : { done: true, value: undefined }),
+            releaseLock: () => {}
+          })
+        }
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: 'OpenRouter heavy fallback response' } }],
+        usage: { prompt_tokens: 100, completion_tokens: 50 }
+      })
+    };
+  };
+
+  const router = new CascadeRouter({
+    fastModel: { model: 'qwen-fast' },
+    burstModel: { ...DEFAULT_COLAB_BURST_MODEL },
+    heavyModel: { model: 'google/gemini-2.5-pro', provider: 'openrouter', apiKey: 'or-key' },
+    tokensToEvaluate: 1,
+    fetch: mockFetch,
+    onEvent: (event, meta) => events.push({ event, meta })
+  });
+
+  // 1. Complex prompt escalates to burstModel first (before OpenRouter)
+  const complexRes = await router.chat('Please architect a multi-region distributed consensus protocol.');
+  assert.equal(complexRes.routedTo, 'burst');
+  assert.equal(complexRes.model, 'gpt-oss:120b');
+  assert.equal(complexRes.text, 'Colab G4 120B response');
+  assert.equal(complexRes.usage.estimatedCostUsd, 0);
+  assert.ok(events.some(e => e.event === 'route_burst' && e.meta.reason === 'classifier_heuristic'));
+
+  // 2. Low-confidence fastModel cascades to burstModel
+  events.length = 0;
+  const cascadeRes = await router.chat('Simple hello');
+  assert.equal(cascadeRes.routedTo, 'burst');
+  assert.equal(cascadeRes.aborted, true);
+  assert.equal(cascadeRes.text, 'Colab G4 120B response');
+  assert.ok(events.some(e => e.event === 'route_burst' && e.meta.reason === 'cascade_fallback'));
+
+  // 3. When Colab G4 tunnel is offline, automatically falls back to OpenRouter heavyModel
+  events.length = 0;
+  burstOnline = false;
+  const fallbackRes = await router.chat('Please architect a zero-downtime migration.');
+  assert.equal(fallbackRes.routedTo, 'heavy');
+  assert.equal(fallbackRes.model, 'google/gemini-2.5-pro');
+  assert.equal(fallbackRes.text, 'OpenRouter heavy fallback response');
+  assert.ok(events.some(e => e.event === 'route_burst'));
+  assert.ok(events.some(e => e.event === 'route_heavy' && e.meta.reason === 'burst_model_error'));
+
+  // 4. Streaming also escalates to burstModel and falls back to heavyModel when offline
+  const streamChunks = [];
+  for await (const chunk of router.stream('Please architect a streaming pipeline.')) {
+    streamChunks.push(chunk);
+  }
+  assert.equal(streamChunks.join(''), 'OpenRouter heavy stream fallback');
+
+  const metrics = router.getMetrics();
+  assert.equal(metrics.burstRequests, 2);
+  assert.equal(metrics.heavyRequests, 2);
+  assert.ok(metrics.estimatedSavingsUsd > 0);
+
+  // 5. createMultiSpecialistRouter with burstModel: true wires DEFAULT_COLAB_BURST_MODEL
+  burstOnline = true;
+  const multiRouter = createMultiSpecialistRouter({
+    openrouterApiKey: 'or-key',
+    burstModel: true,
+    fetch: mockFetch
+  });
+  const multiRes = await multiRouter.chat('Please architect a globally distributed database.');
+  assert.equal(multiRes.routedTo, 'burst');
+  assert.equal(multiRes.model, 'gpt-oss:120b');
+});
