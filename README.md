@@ -289,10 +289,10 @@ import {
   createContextMcpRouter 
 } from 'krusch-cascade-router';
 
-// Approach 1: In-process L2 Neural Router via local Ollama (bge-large, 1024d)
+// Approach 1: In-process L2 Neural Router via local Ollama (snowflake-arctic-embed2, 8K ctx, 1024d)
 const l2OllamaRouter = createCentroidSemanticRouter({
   ollamaUrl: 'http://localhost:11434',
-  embedModel: 'bge-large'
+  embedModel: 'snowflake-arctic-embed2'
 });
 
 // Approach 2: Direct adapter to krusch-context-mcp server tool
