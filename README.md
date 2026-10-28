@@ -15,8 +15,9 @@
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
   <img src="https://img.shields.io/badge/OpenRouter-4--Model%20Specialists-purple.svg?style=flat-square" alt="OpenRouter Specialists">
   <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Eval%20(0.7883%20%C2%B7%20%231)-blue.svg?style=flat-square" alt="RouterArena PR #169 Evaluation (0.7883)"></a>
+  <a href="https://huggingface.co/spaces/krush420/sovereign-router-arena"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Live%20Arena-sovereign--router--arena-00e5ff.svg?style=flat-square" alt="Live Sovereign Router Arena Space"></a>
   <a href="https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20G4%20Hermetic%20Suite-15%2F15%20Gates%20%C2%B7%20%231%20LLMRouterBench-orange.svg?style=flat-square" alt="Sovereign G4 Hermetic Suite"></a>
-  <img src="https://img.shields.io/badge/tests-98%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
+  <img src="https://img.shields.io/badge/tests-104%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
 </p>
 
 ---
