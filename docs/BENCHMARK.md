@@ -313,6 +313,25 @@ Unlike RouterBench's reference neural routers (MLP and KNN) which require dense 
 
 ---
 
+### D. Full 4-Regime Official `AbstractRouter` Head-to-Head Evaluation (`0-Shot` & `5-Shot`, ID & Leave-One-Suite-Out OOD — `5 / 5` SHA-256 Gates)
+
+In addition to the pure-CPU heuristic simulation above, we implemented **`KruschCascadeRouter`** (`L1` 31-feature tail-preserving structural gate + `L2` calibrated `snowflake-arctic-embed2:latest` `1024d` hybrid with epistemic `z_id` OOD gating) and **`KruschZeroShotRouter`** (`0` training labels, `0` embeddings) inside Martian's official `AbstractRouter` framework (`kruschdev/routerbench`, branch `feat/krusch-cascade-router`) and evaluated them on the exact same `seed=42` `70/30` ID splits and Leave-One-Suite-Out OOD splits against all four upstream `arXiv:2403.12031` baselines (`ZeroRouter`, `KNNRouter`, `SVMRouter`, `MLPRouter`):
+
+| Regime (`n_eval`) | `ZeroRouter` *(Static Hull)* | `MLPRouter` | `SVMRouter` | `KNNRouter` (`k=40`) | **`KruschZeroShotRouter`** *(0 labels)* | **`KruschCascadeRouter`** *(L1+L2)* |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **`0-Shot ID` Micro `AIQ`** (`10,953`) | `0.6941` | `0.6333` | `0.6943` | `0.7285` | `0.7268` (`467.2 µs`) | **`0.7488` (#1 · `504.7 µs`)** |
+| **`0-Shot ID` Cost @ `98%` `GPT-4`** (`vs. $36.15`) | `$32.14` (`-11.1%`) | *Unreached* | *Unreached* | `$18.71` (`-48.3%`) | `$22.29` (`-38.3%`) | **`$9.89` (`-72.63%`)** |
+| **`0-Shot ID` Cost @ `95%` `GPT-4`** (`vs. $36.15`) | `$26.12` (`-27.8%`) | *Unreached* | *Unreached* | `$14.26` (`-60.6%`) | `$12.64` (`-65.0%`) | **`$6.08` (`-83.18%`)** |
+| **`5-Shot ID` Micro `AIQ`** (`10,949`) | `0.7387` | `0.6663` | `0.6774` | `0.7544` | `0.7455` (`558.7 µs`) | **`0.7695` (#1 · `738.3 µs`)** |
+| **`5-Shot ID` Cost @ `95%` `GPT-4`** (`vs. $87.33`) | `$50.04` (`-42.7%`) | *Unreached* | *Unreached* | `$30.38` (`-65.2%`) | `$42.16` (`-51.7%`) | **`$14.94` (`-82.90%`)** |
+| **`0-Shot OOD` Micro `AIQ`** (`10,953`) | `0.6941` | `0.5572` | `0.6363` | `0.6648` | **`0.7268` (#1)** | **`0.7083` (#2, #1 learned)** |
+| **`5-Shot OOD` Micro `AIQ`** (`10,949`) | `0.7387` | `0.6313` | `0.6938` | `0.7310` | **`0.7455` (#1)** | **`0.7389` (#2, #1 learned)** |
+
+* **Breaking Martian's OOD `ZeroRouter` Ceiling**: Confirming Section 5.2 of Hu et al. (`arXiv:2403.12031`), all three supervised Martian baselines (`KNN`, `SVM`, `MLP`) collapse below the non-routing `ZeroRouter` hull under Leave-One-Suite-Out OOD evaluation. Both **`KruschZeroShotRouter`** (`0.7268` `0-shot`, `0.7455` `5-shot`) and **`KruschCascadeRouter`** (`0.7083` `0-shot`, `0.7389` `5-shot`) beat `ZeroRouter` on aggregate Micro `AIQ` across both OOD regimes.
+* **Honest OOD Caveat (`leave-chinese-out`)**: On `0-Shot ID` `chinese`, `KruschCascadeRouter` ranks `#1` (`0.4880` vs. `0.4576` `KNN`). Under `0-Shot OOD` `leave-chinese-out` (`n=236`), zero CJK variance in the `24,995` English training rows hits `l1_std = 1e-4`, dropping `chinese` OOD `AIQ` to `0.0811` (`Macro-9 = 0.6156`, while `Macro-7 = 0.6873` leads all learned routers; `5-Shot OOD` `chinese` recovers to `0.3059`). Zero post-hoc test-set tuning was performed (`routerbench_audit_log.json` `sha256: 007874e72e4126083ff0f1f8c5307d2dad0a295f31d9525d22583629d98e6b7e`).
+
+---
+
 ## 9. Google AutoMix Benchmark Evaluation (NeurIPS 2024)
 
 Krusch Cascade Router was evaluated across the official **[Google AutoMix](https://github.com/automix-llm/automix)** benchmark suite (Aggarwal et al., Google Research & CMU, [arXiv: 2310.12963](https://arxiv.org/abs/2310.12963), NeurIPS 2024).
@@ -426,18 +445,19 @@ The table below synthesizes the complete empirical evaluation of **Krusch Cascad
 | **3. RouterArena Live Cascade**<br>*(Hermetic G4 Live)* | RouteWorks `sub_10` + `robustness` (Live 3-Model Generation) | 809 `sub_10` + 420 `robustness` Queries (`gemma4:e4b`, `qwen2.5-coder:7b`, `gpt-oss:120b` in 96GB VRAM) | `always_qwen25_coder_7b` (48.36%) & `always_gpt_oss_120b` ($0.1624/1K, 1,694.5ms TTFT) | **Path B SSE Logprob Abort**: **60.29% Acc** (`+11.93 pp` vs `7B`), **880.7ms TTFT** (`325` aborts billed)<br>**Path A L1+L2**: **59.45% Acc**, **73.33% Robustness** | **0.6111 Arena**<br>**-48.0% TTFT** | **37.4% (Path B)**<br>**60.2% (Path A)**<br>vs `gpt-oss:120b` | < 0.05 ms (Path B)<br>~1.2 ms (Path A) |
 | **4. Aider Polyglot Agentic**<br>*(Hermetic G4 Live)* | Aider Polyglot (`6` Languages: C++, Go, Java, JS, Python, Rust) | 60 Stratified Exercism Tasks × 4 Policies = 240 Sandboxed Trajectories | `static_heavy_120b` (51.67%) & `llm_router_preflight` `gemma4:e4b` (21.67%, 569.5ms) | **`Pass@2 = 51.67%` (`31/60`, `+20` healed)** — **100% parity with `120B`** & **+30.00 pp over LLM preflight** | **51.67% Pass@2**<br>**+7.32% `Pass@2/$`** | **6.82% Cost Save**<br>**-16.2% TTFT** vs `120B` | **0.395 ms**<br>(`1,442x` faster than LLM Router) |
 | **5. LMSYS RouteLLM**<br>*(Offline Simulation)* | LMSYS Org / UC Berkeley (arXiv: 2406.18665) | 10,000+ Battles across GSM8K, MMLU, MT-Bench | `gpt-4-1106-preview` vs `mixtral-8x7b` / `llama-3-8b` | **GSM8K: 0.5602 APGR**<br>**MT-Bench: 0.6027 APGR**<br>**MMLU: 0.5060 APGR** | **>0.50–0.60 APGR** | **50%–75% Cost Savings** at 95% Quality | < 0.05 ms<br>(20,000+ QPS) |
-| **6. WithMartian RouterBench**<br>*(Offline Simulation)* | WithMartian / arXiv: 2403.12031 | 36,497 Inference Outcomes across 11 Frontier & Open LLMs | GPT-4 Single Model Oracle ($94.39 Total Cost) | **AIQ Score: 0.7200** (92.1% of Ceiling)<br>Frugal: 64.51% Acc @ $8.13<br>Balanced: 75.08% Acc @ $52.52 | **0.7200 AIQ Score** | **93.23% (Frugal)**<br>**56.29% (Balanced)** | 0.11 ms<br>(9,066 QPS) |
+| **6. WithMartian RouterBench**<br>*(Hermetic 4-Regime ID + OOD)* | WithMartian (`arXiv:2403.12031`) | `36,497` (`0-shot`) + `36,483` (`5-shot`) Prompts × 11 LLMs across 9 Suites | `ZeroRouter`, `KNN`, `SVM`, `MLP` & `GPT-4` (`$36.15` / `$87.33` Eval) | **`#1` ID Micro `AIQ`: `0.7488` (`0-shot`) / `0.7695` (`5-shot`)**<br>**`#1` OOD Micro `AIQ`: `0.7268` (`0-shot`) / `0.7455` (`5-shot`)** *(beats `ZeroRouter`)* | **`0.7488` / `0.7695` AIQ**<br>**`0.2531` / `0.2039` Pareto** | **`72.63%` @ `98%` `GPT-4`** (`0-shot`)<br>**`83.18%` @ `95%` `GPT-4`** | 0.47 ms (ZS)<br>0.50 ms (Cascade) |
 | **7. Google AutoMix**<br>*(Offline Simulation)* | Google Research & CMU (NeurIPS 2024 / arXiv: 2310.12963) | 14,571 Validation Queries across CoQA, CNLI, NarrativeQA, Quality, QASPER | Speculative Cascade LLaMA-13B $\rightarrow$ LLaMA-70B | **CoQA Lift: +55.17%** (vs +43.68% POMDP)<br>**NarrativeQA Lift: +17.45%** (vs +6.44% POMDP) | **+55.17% IBC Lift** (Beats POMDP) | **82.40% on CoQA**<br>**68.39% on NarrativeQA** | 0.007 ms<br>(137,081 QPS) |
 | **8. LMSYS Arena-Hard-Auto**<br>*(Offline Simulation)* | LMSYS Org / UC Berkeley | 1,250 Real-World Prompts (v0.1: 500, v2.0: 750) | GPT-4-0613 & DeepSeek-R1 Frontier Reasoning | **v0.1 APGR: 0.4646**<br>Balanced: 76.0% Quality @ $4.47/1k<br>**v2.0 APGR: 0.3019**<br>92.6% Quality @ $11.66/1k | **0.4646 APGR (v0.1)**<br>**0.3019 APGR (v2.0)** | **82.92% (v0.1 Balanced)**<br>**20.17%–50.92% (v2.0)** | < 0.10 ms<br>(10,000+ QPS) |
 
 ---
 
-## 12. Sovereign 96GB Blackwell G4 Hermetic Suite (`15 / 15` Cryptographic Anti-Gaming Gates)
+## 12. Sovereign Hermetic Routing Audit Logs (`20 / 20` Cryptographic Anti-Gaming Gates)
 
-All raw per-query audit logs and SHA-256 digests below were generated inside an isolated 96GB `NVIDIA RTX PRO 6000 Blackwell` clean-room VM (`127.0.0.1:11434` loopback, all cloud API keys scrubbed) and are publicly downloadable from **[`krush420/sovereign-g4-benchmarks`](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks)**:
+All raw audit logs and SHA-256 digests below were generated hermetically (`127.0.0.1:11434` loopback, all cloud API keys scrubbed) and are verified by deterministic anti-gaming verifiers ([`krush420/sovereign-g4-benchmarks`](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks)):
 
 | Track & Raw Audit Log | Verified `SHA-256` Digest | Key Empirical Proof |
 | :--- | :--- | :--- |
+| **`routerbench_audit_log.json`** (`36,497` `0-shot` + `36,483` `5-shot` × `11` LLMs) | `007874e72e4126083ff0f1f8c5307d2dad0a295f31d9525d22583629d98e6b7e` | **`#1` ID Micro `AIQ` (`0.7488` `0-shot`, `0.7695` `5-shot`)** & **`-72.63%` cost @ `98%` `GPT-4`** (`$9.89` vs. `$36.15`); **breaks Martian's OOD `ZeroRouter` ceiling** across both `0-shot` (`0.7268` ZS / `0.7083` Cascade vs. `0.6941`) and `5-shot` (`0.7455` / `0.7389` vs. `0.7387`). |
 | **`llmrouterbench_audit_log.json`** (`12,566` Qs × `13` Frontier LLMs) | `73c85a9fbbb94163c18ac0612cbd501b0616278438c0b91437f18ce44a11ba4f` | **`#1` Pareto Distance (`0.4269`)** across all 10 policies on `all_test` (`n=5,563`, `-83.95%` cost vs `best_single`); beats `RouteLLM` (`8.75%`), `MLP` (`9.25%`), `KNN` (`17.25%`) on unseen `ARC-AGI` (**`25.25%`**) and overall OOD accuracy (**`15.17%` Micro / `19.27%` Macro**). |
 | **`live_cascade_audit_log.json`** (`809` `sub_10` + `420` `robustness`) | `58405c428ef0284a17e2a2dbf238228ae0e49cfc70bcb1c8051b46c4a310fc92` | Path B (`7B -> 120B` SSE Logprob/Loop Abort) lifts `7B` accuracy **`+11.93 pp`** (`48.36% -> 60.29%`) while cutting `120B` TTFT **`-48.0%`** (`1,694.5ms -> 880.7ms`) and cost **`-37.4%`** with all `325` SSE aborts (`58,743` wasted tokens) billed. |
 | **`agentic_step_audit_log.json`** (`60` 6-Lang Polyglot × `4` Policies) | `377080ad66b9d68276b77ae5841ae4fbb808e40372e48c4c2875c2779f292b10` | `krusch_agentic_cascade` achieves **`51.67%` `Pass@2` (`31/60`, `+20` self-healed)** — **`100.0%` parity with `static_heavy_120b`** and **`+30.00 pp` over `llm_router_preflight` (`21.67%`)** at **`0.395ms` router overhead (`1,442x` faster)** and **`+7.32%` higher `Pass@2/$` efficiency**. |
