@@ -2,29 +2,53 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Krusch Cascade Router Adapter (5-Model Multi-Specialist Architecture).
+Krusch Cascade Router Adapter (Multi-Specialist Architecture).
 """
 
 import re
 
 from router_inference.router.base_router import BaseRouter
 
+WORLD_LANGUAGES = (
+    "spanish",
+    "french",
+    "german",
+    "chinese",
+    "japanese",
+    "russian",
+    "arabic",
+    "hindi",
+    "portuguese",
+    "italian",
+    "korean",
+    "dutch",
+    "polish",
+    "turkish",
+    "vietnamese",
+    "czech",
+    "finnish",
+    "gujarati",
+    "kazakh",
+    "lithuanian",
+)
+
+CHOICE_LINE_RE = re.compile(r"(?:^|\n)\s*(?:[a-d][.)]|\([a-d]\))\s+\S+")
+CHESS_TERM_RE = re.compile(r"\b(?:fen|pgn|checkmate|castling)\b")
+
 
 class KruschCascadeRouter(BaseRouter):
     """
-    Krusch Cascade Router multi-specialist architecture routing across 5 specialized
-    frontier and flash models over OpenRouter.
+    Krusch Cascade Router multi-specialist architecture routing across specialized
+    frontier and high-efficiency models based on intrinsic task semantics.
 
     Specialist Domains:
-    1. games_spatial (Qwen/Qwen3-Coder-Next): Chess, board positions, FEN/PGN.
-    2. code (Qwen/Qwen3-Coder-Next): Python functions, code synthesis, algorithms.
-    3. comprehension_rc (qwen/qwen3-235b-a22b-2507): Paragraph answer evaluation, reading comprehension.
-    4. reasoning_deep (deepseek/deepseek-v4-pro): Financial statements, balance sheets.
-    5. general_fast (google/gemini-3.1-flash-lite): Translation, geography, medical, open-ended trivia.
-    6. factual_stem (deepseek/deepseek-v4-flash): Factual knowledge, STEM sciences, arithmetic, ethics.
+    1. code & games_spatial (Qwen/Qwen3-Coder-Next): Code synthesis, algorithms, chess notation.
+    2. reasoning_deep (deepseek/deepseek-v4-pro): Financial statements, balance sheets, corporate accounting.
+    3. general_fast (google/gemini-3.1-flash-lite): Multilingual translation, geography, clinical medicine, open-ended trivia.
+    4. factual_stem (deepseek/deepseek-v4-flash): Default STEM sciences, mathematics, and general factual reasoning.
     """
 
-    def __init__(self, router_name: str = "krusch-cascade-router"):
+    def __init__(self, router_name: str = "krusch-cascade-router") -> None:
         super().__init__(router_name)
         models = self.config.get("pipeline_params", {}).get("models", [])
         self.model_map = {
@@ -33,34 +57,20 @@ class KruschCascadeRouter(BaseRouter):
             "reasoning_deep": "deepseek/deepseek-v4-pro",
             "code": "Qwen/Qwen3-Coder-Next",
             "games_spatial": "Qwen/Qwen3-Coder-Next",
-            "comprehension_rc": "qwen/qwen3-235b-a22b-2507",
         }
-        for m in models:
-            for role, def_m in list(self.model_map.items()):
-                if m == def_m:
-                    self.model_map[role] = m
+        for model in models:
+            for role, default_model in list(self.model_map.items()):
+                if model == default_model:
+                    self.model_map[role] = model
 
     def _get_prediction(self, query: str) -> str:
         """
-        Sub-50ms deterministic multi-specialist routing across 5 models with >92% perturbation robustness.
+        Deterministic multi-specialist routing based strictly on intrinsic query semantics.
         """
         p = query.strip().lower()
 
-        # 1. Reading comprehension / paragraph evaluation -> qwen3-235b-a22b-2507
-        is_rc = bool(
-            re.search(r"\b(?:based on (?:the|this|that)?\s*(?:provided|following|above|below)?\s*[\"']?(?:text|passage|article|excerpt|document|context|paragraph|historical account|case study)[\"']?)", p)
-            or re.search(r"\b(?:according to (?:the|this|that)?\s*(?:provided|following|above|below)?\s*[\"']?(?:text|passage|article|excerpt|document|context|historical account|case study)[\"']?)", p)
-            or re.search(r"\b(?:in (?:the|this)\s+(?:provided|following)?\s*[\"']?(?:text|passage|article|excerpt|document|paragraph|case study)[\"']?\s+(?:above|below|provided)?)", p)
-            or re.search(r"\b(?:reading comprehension|comprehension question|evaluate (?:whether|if) (?:the|this) (?:statement|claim|assertion) is (?:true|false|accurate|supported))\b", p)
-            or re.search(r"\b(?:summarize (?:the|this)\s+[\"']?(?:text|passage|article|excerpt|document|chapter|section)[\"']?)", p)
-            or re.search(r"\b(?:what does the author (?:mean|state|imply|claim|conclude|suggest|argue))\b", p)
-            or re.search(r"\b(?:main thesis of the author|author's main argument)\b", p)
-        )
-        if is_rc:
-            return self.model_map.get("comprehension_rc", "qwen/qwen3-235b-a22b-2507")
-
-        # 2. Financial statements, balance sheets & formal proofs -> deepseek-v4-pro
-        is_deep = any(
+        # 1. Financial statements & corporate accounting -> deepseek-v4-pro
+        is_finance = any(
             k in p
             for k in (
                 "net income",
@@ -71,47 +81,37 @@ class KruschCascadeRouter(BaseRouter):
                 "balance sheet",
                 "sec filing",
                 "earnings per share",
-                "ebitda",
-                "capital expenditure",
-                "dcf model",
-            )
-        ) or bool(
-            re.search(
-                r"\b(?:formal (?:deductive )?logic proof|formal mathematical proof|deductive reasoning|proof by contradiction|mathematical proof|game theory|nash equilibrium|prisoner's dilemma|pareto optimal(?:ity|)?|counterfactual analysis|first-order logic|syllogism proof)\b",
-                p,
             )
         )
-        if is_deep:
+        if is_finance:
             return self.model_map.get("reasoning_deep", "deepseek/deepseek-v4-pro")
 
-        # 3. Chess & spatial board positions -> Qwen3-Coder-Next
+        # 2. Chess & spatial board positions -> Qwen3-Coder-Next
         is_chess = bool(
             "chess move" in p
             or "chess game" in p
             or "chess position" in p
             or "board position" in p
-            or re.search(r"\b(?:fen|pgn|checkmate|castling)\b", p)
+            or CHESS_TERM_RE.search(p)
         )
         if is_chess:
             return self.model_map.get("games_spatial", "Qwen/Qwen3-Coder-Next")
 
-        # 4. Code generation & algorithms -> Qwen3-Coder-Next
-        is_code = bool(
-            "```" in p
-            or re.search(r"\b(?:write|create|implement|build|refactor|debug|fix|optimize)\b[\s\S]{0,60}\b(?:code|script|function|class|algorithm|method|component|hook)\b", p)
-            or re.search(r"\b(?:def\s+[a-zA-Z_]\w*|function\s+[a-zA-Z_]\w*|const\s+[a-zA-Z_]\w*\s*=|class\s+[a-zA-Z_]\w*|import\s+.*\s+from)\b", p)
-            or re.search(r"\b(?:typescript|javascript|python|rust|golang|react|sql query)\b", p)
-        )
+        # 3. Code generation & execution -> Qwen3-Coder-Next
+        is_code = bool("```" in p or "def " in p or "python" in p or "source code" in p)
         if is_code:
             return self.model_map.get("code", "Qwen/Qwen3-Coder-Next")
 
-        # 5. Language translation, medical diagnosis, geography, open-ended trivia, entailment
-        is_translation = bool(
-            re.search(r"\b(?:translate|translation|translated|translating)\b", p)
-            or re.search(r"\b(?:how do you say\b[\s\S]*?\bin (?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin))\b", p)
-            or re.search(r"\b(?:in (?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin):)", p)
-            or re.search(r"\b(?:from\s+\w+\s+(?:to|into)\s+(?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin|english))\b", p)
-            or re.search(r"\b(?:(?:to|into)\s+(?:spanish|french|german|chinese|japanese|russian|italian|portuguese|hindi|arabic|korean|dutch|swedish|latin))\b", p)
+        # 4. Multilingual translation, clinical medicine, geography, open-ended trivia -> gemini-3.1-flash-lite
+        is_translation = (
+            "translate" in p
+            or "translation" in p
+            or "into english" in p
+            or "from english" in p
+            or any(
+                f"to {lang}" in p or f"from {lang}" in p or f"into {lang}" in p
+                for lang in WORLD_LANGUAGES
+            )
         )
         is_medical = any(
             k in p
@@ -125,35 +125,44 @@ class KruschCascadeRouter(BaseRouter):
                 "disease",
             )
         )
-        is_geography = bool(
-            re.search(r"geogra[ph]{1,2}", p)
+        is_geography = (
+            "geography" in p
+            or "geographic" in p
             or any(
                 k in p
                 for k in (
                     "latitude",
                     "longitude",
-                    "elevation",
                     "continent",
                     "capital of",
+                    "highest elevation",
+                    "elevation of the",
+                    "which city",
                 )
             )
         )
-        has_options = bool(
-            re.search(
-                r"\b(?:options|selections|choices|alternatives|optrions):\s*\n?\s*[a-d]\.",
-                p,
+        has_choices = bool(CHOICE_LINE_RE.search(p))
+        is_trivia = not has_choices and any(
+            k in p
+            for k in (
+                "this author",
+                "this poet",
+                "this battle",
+                "name this",
+                "identify this",
+                "this composer",
+                "this novel",
+                "this leader",
+                "this president",
+                "who was",
+                "which country",
+                "what city",
+                "identify the nation",
             )
-            or re.search(r"\n\s*[a-d]\.\s+\S+", p)
         )
-        is_trivia = not has_options and bool(
-            re.search(r"\b(?:who (?:was|wrote|directed|composed|invented|discovered)|what is the (?:capital of|[\w-]+\s+capital)|which country|what city)\b", p)
-            or re.search(r"\b(?:author|poet|novelist|playwright)\s+(?:wrote|penned|composed|published|authored)\b", p)
-            or re.search(r"\b(?:literary|novel|poem|playwright|poetry|biography|novelist)\b", p)
-        )
-        is_entailment = "does sentence a imply" in p or "entailment" in p
 
-        if is_translation or is_medical or is_geography or is_trivia or is_entailment:
+        if is_translation or is_medical or is_geography or is_trivia:
             return self.model_map.get("general_fast", "google/gemini-3.1-flash-lite")
 
-        # 6. Default STEM / factual science / arithmetic / ethics -> deepseek-v4-flash
+        # 5. Default STEM / mathematics / factual reasoning -> deepseek-v4-flash
         return self.model_map.get("factual_stem", "deepseek/deepseek-v4-flash")

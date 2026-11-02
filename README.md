@@ -14,7 +14,7 @@
   <a href="https://github.com/kruschdev/krusch-cascade-router/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kruschdev/krusch-cascade-router.svg?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square" alt="Node Version">
   <img src="https://img.shields.io/badge/OpenRouter-4--Model%20Specialists-purple.svg?style=flat-square" alt="OpenRouter Specialists">
-  <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Eval%20(0.7883%20%C2%B7%20%231)-blue.svg?style=flat-square" alt="RouterArena PR #169 Evaluation (0.7883)"></a>
+  <a href="https://github.com/RouteWorks/RouterArena/pull/169"><img src="https://img.shields.io/badge/RouterArena-PR%20%23169%20Eval%20(0.7267%20%C2%B7%2091.4%25%20Rob)-blue.svg?style=flat-square" alt="RouterArena PR #169 Evaluation (0.7267)"></a>
   <a href="https://huggingface.co/spaces/krush420/sovereign-router-arena"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Live%20Arena-sovereign--router--arena-00e5ff.svg?style=flat-square" alt="Live Sovereign Router Arena Space"></a>
   <a href="https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hermetic%20Suites-20%2F20%20Gates%20%C2%B7%20%231%20RouterBench%20%26%20LLMRouterBench-orange.svg?style=flat-square" alt="Sovereign Hermetic Routing Suites"></a>
   <img src="https://img.shields.io/badge/tests-104%20passed-brightgreen.svg?style=flat-square" alt="Tests Passed">
@@ -77,7 +77,7 @@ In multi-model agent systems, using an LLM or neural embedding model to decide w
 * **⚡ Speculative Parallel Hedging**: Hedged parallel execution for borderline prompts to mask cascade latency.
 * **🛡️ Mid-Stream Loop Guard**: Catches degenerate repetition loops and token stagnation.
 * **🧪 Developer Integration Test Suite**: 100-prompt suite covering 6 domains and conversational noise invariance ([`test/eval-holdout.test.js`](test/eval-holdout.test.js)).
-* **📊 RouterArena Benchmark Evaluation**: Scored **0.7883** in official GitHub Actions CI evaluation under [RouteWorks PR #169](https://github.com/RouteWorks/RouterArena/pull/169), achieving **80.72% benchmark accuracy** at **$0.2117 / 1K queries** with 90.48% robustness and 0 abnormal failures (submission pending merge).
+* **📊 RouterArena Benchmark Evaluation**: Scored **0.7267 (`72.67`)** in live OpenRouter evaluation across all 8,400 queries under [RouteWorks PR #169](https://github.com/RouteWorks/RouterArena/pull/169), achieving **74.49% benchmark accuracy** at **$0.3802 / 1K queries** (`$3.1939` total) with **91.43% robustness**, **0 abnormal failures**, and `8,400 / 8,400` verified `gen-...` OpenRouter receipts.
 * **🔬 Sovereign Hermetic Benchmark Suite (`20/20` SHA-256 Gates, Zero Cloud APIs)**: Independently validated across **Martian `RouterBench`** (`36,497` `0-shot` + `36,483` `5-shot` rows × `11` LLMs: **`#1` ID `AIQ = 0.7488` / `0.7695`**, **`-72.63%` cost @ `98%` `GPT-4`**, and **`#1` Leave-One-Suite-Out OOD `AIQ = 0.7268` / `0.7455`** beating `ZeroRouter` where `KNN`/`SVM`/`MLP` collapse), **ACL 2026 `LLMRouterBench`** (`12,566` prompts × `13` frontier LLMs: **`#1` lowest Pareto Distance `0.4269`** on `all_test` `n=5,563`, beating `RouteLLM`, `KNN`, `MLP` & `RouterDC` on unseen OOD `HLE` & `ARC-AGI`), **Live `RouterArena` SSE Logprob Cascade** (`+11.93 pp` over fast `7B` & `-48.0%` TTFT vs `120B` with all `325` SSE aborts billed), and **6-Language `Aider Polyglot` Agentic Trajectory Routing** (`51.67%` `Pass@2` — `100%` parity with `120B` and `+30.00 pp` over LLM-preflight at `1,442x` lower routing latency). Raw SHA-256 logs published at [`krush420/sovereign-g4-benchmarks`](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks).
 * **🛑 Native AbortSignal Support**: First-class timeout and cancellation management.
 * **📦 Universal Distribution**: Full TypeScript types, ESM, and CommonJS builds.
@@ -90,19 +90,19 @@ In multi-model agent systems, using an LLM or neural embedding model to decide w
 
 | Benchmark Suite | Sponsoring Organization / Publication | Benchmark Scope | Baseline Comparison | Krusch Cascade Router Evaluation | Primary Metric | Cost Reduction vs Frontier | Routing Overhead |
 |:---|:---|:---|:---|:---|:---:|:---:|:---:|
-| **1. RouterArena**<br>*(Official CI)* | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries (+3,236 Optimality + 420 Robustness) | Multi-Model Frontier Pool | **Official PR #169 CI Bot Eval**:<br>Workflow Score: **0.7883** (Pending Merge)<br>Accuracy: **80.72%**<br>*(Evaluation score vs Paix2 @ 77.63 & KT-ModelRouter @ 76.28)* | **0.7883**<br>([Evaluated in PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.2117 / 1K queries**<br>(65% reduction vs Run 3, vs $0.27 Paix2, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
+| **1. RouterArena**<br>*(Live OpenRouter)* | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries + 420 Robustness (`8,400` live `gen-...` receipts) | Multi-Model Frontier Pool (`2026-10-31` Pricing) | **PR #169 Live OpenRouter Eval**:<br>Arena Score: **0.7267 (`72.67`, `#13/34`)**<br>Accuracy: **74.49%** · Robustness: **91.43%**<br>*(Beats Azure-Model-Router `70.37` & GPT-5 `64.32`)* | **0.7267**<br>([PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.3802 / 1K queries**<br>(`26.4x` cheaper vs $10.02 GPT-5, vs $4.83 Martian, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
 | **2. ACL 2026 LLMRouterBench**<br>*(Hermetic G4 Live)* | NPULH (`ACL 2026` / `arXiv:2601.07206`) | 12,566 Prompts across 13 Frontier LLMs (`8` ID `n=3,005` + `2` Unseen OOD `HLE` & `ARC-AGI` `n=2,558`) | 9 Baselines (`RouteLLM`, `RouterDC`, `KNN`, `MLP`, `Avengers-Pro`, `gpt-5`) | **`#1` Lowest Pareto Distance (`0.4269`)** on `all_test` (`n=5,563`)<br>Micro / Macro Acc: **42.78% / 57.78%**<br>Unseen OOD: **15.17% / 19.27%** (`25.25%` `ARC-AGI` vs `8.75%` `RouteLLM`) | **0.4269 Pareto Dist**<br>([5/5 SHA-256 Gates](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks)) | **83.95% Savings**<br>($14.39/1K vs $89.62/1K `best_single`) | 42.5 µs (L1)<br>1.27 ms (L1+L2) |
 | **3. RouterArena Live SSE Cascade**<br>*(Hermetic G4 Live)* | RouteWorks `sub_10` + `robustness` (Live 3-Model Generation) | 809 `sub_10` + 420 `robustness` Queries (`gemma4:e4b`, `qwen2.5-coder:7b`, `gpt-oss:120b` in 96GB VRAM) | `always_qwen25_coder_7b` (48.36%) & `always_gpt_oss_120b` ($0.1624/1K, 1,694.5ms TTFT) | **Path B (`7B -> 120B` SSE Logprob/Loop Abort)**: **60.29% Acc** (`+11.93 pp` vs `7B`), **78.99% OptAcc**, **880.7ms TTFT** (`325` SSE aborts billed)<br>**Path A (L1+L2)**: **59.45% Acc**, **73.33% Robustness** | **0.6111 Arena**<br>**-48.0% TTFT**<br>([5/5 SHA-256 Gates](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks)) | **37.4% (Path B)**<br>**60.2% (Path A)**<br>vs `gpt-oss:120b` | < 0.05 ms (Path B)<br>~1.2 ms (Path A) |
 | **4. Aider Polyglot Agentic Loop**<br>*(Hermetic G4 Live)* | Aider Polyglot (`6` Languages: C++, Go, Java, JS, Python, Rust) | 60 Stratified Exercism Tasks × 4 Policies = 240 Sandboxed Compile/Test Trajectories | `static_heavy_120b` (51.67% Pass@2) & `llm_router_preflight` `gemma4:e4b` (21.67% Pass@2, 569.5ms overhead) | **`Pass@2 = 51.67%` (`31/60`, `+20` self-healed)** — **100% parity with `120B`** & **+30.00 pp (`2.38x`) over LLM preflight**<br>**+7.32% higher `Pass@2/$` efficiency** | **51.67% Pass@2**<br>**1,442x Faster Route**<br>([5/5 SHA-256 Gates](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks)) | **6.82% Cost Save**<br>**7.5% GPU-Sec Save**<br>**-16.2% TTFT** vs `120B` | **0.395 ms**<br>(vs 569.51 ms LLM Router) |
 | **5. Integration Suite** | Real-World Developer Prompts | 100 Diverse Queries across 6 Domains | Multi-Model Pool | **Routing Precision: 100.0%**<br>Noise Invariance: **100.0%**<br>*(Classifier routing precision, not LLM output)* | **100.0% Routing**<br>(Classification test suite) | **~75% Savings**<br>vs Frontier Oracle | 0.02 ms<br>(50,000+ QPS) |
-| **6. WithMartian RouterBench**<br>*(Full 4-Regime Eval)* | WithMartian (`arXiv:2403.12031`, [`kruschdev/routerbench`](https://github.com/kruschdev/routerbench/tree/feat/krusch-cascade-router)) | 36,497 `0-shot` + 36,483 `5-shot` Outcomes across 11 LLMs (`9` Suites: ID + Leave-One-Suite-Out OOD) | `KNN`, `MLP`, `SVM` & `ZeroRouter` (`gpt-4` `$36.15` `0-shot` / `$87.33` `5-shot`) | **`#1` ID `AIQ`: `0.7488` (`0-shot`) / `0.7695` (`5-shot`)**<br>**`#1` OOD `AIQ`: `0.7268` (`0-shot`) / `0.7455` (`5-shot`)** — beats `ZeroRouter` (`0.6941` / `0.7387`) where `KNN`/`SVM`/`MLP` collapse | **`0.7488` / `0.7695` AIQ**<br>([5/5 SHA-256 Gates](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks)) | **72.63% @ 98% GPT-4**<br>**83.18% @ 95% GPT-4**<br>(`0-shot` `$9.89` / `$6.08`) | **0.50 ms** (`0-shot`)<br>**0.74 ms** (`5-shot`)<br>(`2.83x` faster vs `KNN`) |
+| **6. WithMartian RouterBench**<br>*(Full 4-Regime Eval)* | WithMartian (`arXiv:2403.12031`, [`kruschdev/routerbench`](https://github.com/kruschdev/routerbench/tree/feat/krusch-cascade-router)) | 36,497 `0-shot` + 36,483 `5-shot` Outcomes across 11 LLMs (`9` Suites: ID + Leave-One-Suite-Out OOD) | `KNN`, `MLP`, `SVM` & `ZeroRouter` (`gpt-4` `$36.15` `0-shot` / `$87.33` `5-shot`) | **`#1` ID `AIQ`: `0.7488` (`0-shot`) / `0.7695` (`5-shot`)**<br>**`#1` OOD `AIQ`: `0.7268` (`0.7083` Cascade `0-shot`) / `0.7455` (`5-shot`)** — beats `ZeroRouter` (`0.6941` / `0.7387`) where `KNN`/`SVM`/`MLP` collapse | **`0.7488` / `0.7695` AIQ**<br>([5/5 SHA-256 Gates](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks)) | **72.63% @ 98% GPT-4**<br>**83.18% @ 95% GPT-4**<br>(`0-shot` `$9.89` / `$6.08`) | **0.50 ms** (`0-shot`)<br>**0.74 ms** (`5-shot`)<br>(`2.83x` faster vs `KNN`) |
 | **7. Google AutoMix**<br>*(Offline Simulation)* | Google Research & CMU (NeurIPS 2024) | 14,571 Validation Queries across 5 QA/RC Datasets | Speculative Cascade LLaMA-13B $\rightarrow$ LLaMA-70B | **CoQA Lift: +55.17%** (vs +43.68% POMDP)<br>**NarrativeQA: +17.45%** (vs +6.44% POMDP) | **+55.17% IBC Lift**<br>(Offline Simulation) | **82.40% on CoQA**<br>**68.39% on NarrativeQA** | 0.007 ms<br>(137,081 QPS) |
 | **8. LMSYS RouteLLM**<br>*(Offline Simulation)* | LMSYS Org / UC Berkeley (arXiv: 2406.18665) | 10,000+ Battles across GSM8K, MT-Bench, MMLU | GPT-4 vs Mixtral / LLaMA-3 | **MT-Bench: 0.6027 APGR**<br>**GSM8K: 0.5602 APGR**<br>**MMLU: 0.5060 APGR** | **0.6027 APGR**<br>(Offline Simulation) | **50%–75% Savings**<br>at 95% Quality Retention | < 0.05 ms<br>(20,000+ QPS) |
 
 > 🔍 **Full Technical Documentation & Raw SHA-256 Audit Logs**: Detailed per-benchmark curves, domain breakdowns, and derivations are available in [`docs/BENCHMARK.md`](docs/BENCHMARK.md), and byte-identical clean-room JSON audit logs (`20/20` deterministic anti-gaming gates verified) are publicly archived on Hugging Face Hub at **[`krush420/sovereign-g4-benchmarks`](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks)**.
 >
 > 💡 **Methodology & Reproducibility Context**:
-> - **RouterArena PR #169 Candidate Evaluation (Suite 1)**: In automated CI evaluation on [RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169) (candidate submission pending upstream merge), Krusch Cascade Router scored **0.7883**, with **80.72% accuracy** and **$0.2117 / 1K queries** (total cost $1.7785 across all 8,400 queries; 0 abnormal; 90.48% robustness).
+> - **RouterArena PR #169 Live OpenRouter Evaluation (Suite 1)**: Evaluated across all 8,400 official queries via genuine live OpenRouter completions (`8,400 / 8,400` unique `gen-...` receipts, `5/5` clean-room provenance gates) on [RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169) at `2026-10-31` OpenRouter pricing (`origin/main` `44cc1ff`), Krusch Cascade Router scored **0.7267 (`72.67`)**, with **74.49% accuracy** and **$0.3802 / 1K queries** (total cost `$3.1939` across all 8,400 queries; `0` abnormal; **91.43% robustness**; `$0.00` CPU router cost).
 > - **Sovereign 96GB Blackwell G4 Hermetic Suite (Suites 2–4)**: Executed end-to-end inside an isolated Google Colab Pro G4 VM (`NVIDIA RTX PRO 6000 Blackwell`, `96GB` VRAM, loopback `127.0.0.1:11434`, all cloud API keys scrubbed) with runtime JS `Proxy` oracle-leakage traps, honest wasted-token billing on aborted SSE streams, and mandatory 4-language Exercism test un-skipping. All raw per-query logs and SHA-256 digests are published in [`krush420/sovereign-g4-benchmarks`](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks).
 > - **Martian RouterBench Full 4-Regime Evaluation (Suite 6)**: Implemented directly as `AbstractRouter` subclasses (`KruschCascadeRouter` + `KruschZeroShotRouter`) in [`kruschdev/routerbench`](https://github.com/kruschdev/routerbench/tree/feat/krusch-cascade-router) over Martian's official `routerbench_0shot.pkl` (`36,497` rows) and `routerbench_5shot.pkl` (`36,483` complete rows; `28` upstream `claude-v1` `NaN` rows filtered cleanly) with local `snowflake-arctic-embed2:latest` (`1024d`, `$0.00` API cost) and `5/5` SHA-256 anti-gaming gates. Honest OOD note: on `0-Shot OOD` `leave-chinese-out` (`n=236`), `krusch_cascade` scores `0.0811` because monolingual English training sets `std(cjk_ratio) ≈ 0` (`1e-4` floor); zero post-hoc test tuning was applied.
 > - **Reconstructed Simulation Methodology (Suites 7–8)**: AutoMix and RouteLLM figures represent reconstructed offline simulations evaluating our specialist models on those public benchmark datasets against historical baseline oracles (e.g. GPT-4 vs LLaMA-13B from 2023/2024 literature). They are local simulations, NOT independent official leaderboard submissions to those platforms.
@@ -115,41 +115,45 @@ In multi-model agent systems, using an LLM or neural embedding model to decide w
 
 ---
 
-### A. Live RouteWorks RouterArena Leaderboard
+### A. Live RouteWorks RouterArena Leaderboard (`2026-10-31` OpenRouter Pricing)
 
-The public [RouteWorks/RouterArena](https://github.com/RouteWorks/RouterArena) leaderboard ranks router implementations as follows:
+The public [RouteWorks/RouterArena](https://github.com/RouteWorks/RouterArena) leaderboard (`origin/main` `44cc1ff`) ranks router implementations as follows:
 
 | Rank | Router Implementation | Acc-Cost Score | Accuracy | Cost / 1K Queries | Robustness | Status |
 |:---:|:---|:---:|:---:|:---:|:---:|:---:|
-| — | **Krusch Cascade Router** | **78.83 (0.7883)** | **80.72%** | **$0.2117** | **90.48%** | **PR #169 Candidate (Pending Merge)** |
-| 1 | **Paix2** | 77.63 | 79.69% | $0.2700 | 77.86% | Published |
-| 2 | **KT-ModelRouter** | 76.28 | 78.14% | $0.2700 | 80.48% | Published |
-| 4 | **Sqwish Router** | 76.21 | 79.76% | $0.7000 | 51.67% | Published |
-| 5 | **Divyam** | 75.85 | 78.59% | $0.4800 | 98.33% | Published |
-| 6 | **Cross-Router** | 75.75 | 76.98% | $0.1800 | 88.57% | Published |
-| 7 | **Reasonometry** | 75.53 | 78.67% | $0.5700 | 92.14% | Published |
-| 8 | **vLLM-SR** | 74.86 | 77.18% | $0.4200 | 67.62% | Published |
-| 9 | **nadir-caliper** | 74.55 | 75.84% | $0.2200 | 79.76% | Published |
-| 10 | **Azure-Model-Router (Microsoft)** | 70.42 | 72.94% | $0.7300 | 71.43% | Published |
-| 11 | **RouterBench-MLP (Martian)** | 57.56 | 61.62% | $4.8300 | 80.00% | Published |
-| 12 | **NotDiamond (Commercial)** | 57.29 | 60.83% | $4.1000 | 55.91% | Published |
-| 13 | **RouteLLM (UC Berkeley)** | 48.07 | 47.04% | $0.2700 | 100.00% | Published |
+| 1 | **Divyam** | 77.19 | 80.83% | $0.6600 | 75.71% | Published |
+| 2 | **BizRouter** | 77.08 | 81.66% | $1.0000 | 97.38% | Published |
+| 3 | **Sqwish Router** | 76.34 | 79.88% | $0.6900 | 51.67% | Published |
+| 4 | **R\*\*2: Reasonometry Router** | 76.16 | 78.97% | $0.4800 | 99.76% | Published |
+| 5 | **KT-ModelRouter** | 76.08 | 78.24% | $0.3400 | 80.48% | Published |
+| 9 | **nadir-caliper** | 74.63 | 76.14% | $0.2500 | 79.76% | Published |
+| 10 | **vLLM-SR** | 74.24 | 77.30% | $0.6700 | 67.62% | Published |
+| 11 | **BARouter** | 73.67 | 76.22% | $0.5400 | 68.81% | Published |
+| 12 | **NuRoute Artemis** | 73.63 | 76.19% | $0.5400 | 80.00% | Published |
+| **13\*** | **Krusch Cascade Router** | **72.67 (0.7267)** | **74.49%** | **$0.3802** | **91.43%** | **PR #169 Live OpenRouter (`8,400/8,400` `gen-...`)** |
+| 13 | **OrcaRouter-Adaptive** | 72.48 | 75.63% | $0.8300 | 22.62% | Published |
+| 14 | **Nadir Router** | 72.25 | 74.96% | $0.6700 | 25.48% | Published |
+| 17 | **Azure-Model-Router (Microsoft)** | 70.37 | 72.93% | $0.7500 | 71.43% | Published |
+| 25 | **GPT-5 (OpenAI)** | 64.32 | 73.96% | $10.0200 | — | Published |
+| 26 | **CARROT (UMich)** | 63.87 | 67.21% | $2.0600 | 89.05% | Published |
+| 28 | **RouterBench-MLP (Martian)** | 57.56 | 61.62% | $4.8300 | 80.00% | Published |
+| 29 | **NotDiamond (Commercial)** | 57.29 | 60.83% | $4.1000 | 55.91% | Published |
+| 32 | **RouteLLM (UC Berkeley)** | 48.07 | 47.04% | $0.2700 | 100.00% | Published |
 
-#### Official Candidate Bot Runs (RouteWorks PR #169)
+#### Live OpenRouter Per-Model Dispatch Breakdown (`8,400` Queries, `5/5` Provenance Gates)
 
-Our submission ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) was evaluated directly by RouteWorks GitHub Actions CI workflows across the full 8,400-query benchmark dataset plus 420 robustness perturbations:
+Every single one of the `8,400` predictions in [RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169) was generated directly via live OpenRouter API calls (`8,400` unique `gen-...` OpenRouter completion receipts, `SHA-256: bede6659ebc8513d7f13fb7588b4ca2ec4df91c71d1accad8b9795b60d3db45e`, `0` template leaks across all `41` blank `eval_config` wrappers, `0` cross-model substitutions):
 
-| Evaluation Run | Acc-Cost Score | Accuracy | Cost / 1K | Robustness | Evaluation Notes |
-|:---|:---:|:---:|:---:|:---:|:---|
-| **Run 1: Initial Full Eval** | 74.13 | 76.14% | $0.3700 | 93.10% | Baseline multi-model adapter |
-| **Run 2: Cheaper 5-Model Pool** | 74.09 | 75.62% | $0.2700 | 94.05% | Shifted budget to cheaper flash endpoints |
-| **Run 3: Heuristic Retune** | 77.93 | 81.53% | $0.6070 | 92.62% | Disambiguated math operators & chess boundaries |
-| **Run 4: Literature Refinement** | **78.83 (0.7883)** | **80.72%** | **$0.2117** | **90.48%** | **PR #169 Candidate**: Clean 4-model specialist pool, stripped harness fingerprints, 65.1% cost drop |
+| Specialist Model | Routed Queries | Share | Live Accuracy | Total Cost (`USD`) | Prompt / Completion Tokens |
+|:---|:---:|:---:|:---:|:---:|:---:|
+| `deepseek/deepseek-v4-flash` | 6,636 | 79.00% | **75.88%** | $1.8210 | 1,604,939 / 9,203,284 |
+| `google/gemini-3.1-flash-lite` | 1,161 | 13.82% | **69.25%** | $0.2399 | 356,065 / 100,567 |
+| `Qwen/Qwen3-Coder-Next` | 570 | 6.79% | **70.34%** | $0.8154 | 350,351 / 966,673 |
+| `deepseek/deepseek-v4-pro` | 33 | 0.39% | **51.52%** | $0.3176 | 26,228 / 86,122 |
+| **Total (`krusch-cascade-router`)** | **8,400** | **100.0%** | **74.49%** | **$3.1939 (`$0.3802/1K`)** | **2,337,583 / 10,356,646** |
 
-* **Official CI Bot Score**: **0.7883 (78.83)** (Accuracy: **80.72%**, Cost: **$0.2117 / 1K**, Robustness: **90.48%**, Abnormal: 0).
-* **Status**: Candidate evaluation completed under [RouteWorks PR #169](https://github.com/RouteWorks/RouterArena/pull/169) (awaiting merge).
-* **Maintainer Conformance**: Addressed upstream review by purging all test harness artifacts, perturbation keywords, and benchmark token fingerprints. Specialists are mapped cleanly to external model capability literature.
-* **Optimality Metrics**: In the official candidate evaluation (Run 4), `krusch-cascade-router` achieved an **Opt.Acc of 0.9356** (capturing 93.56% of theoretical oracle accuracy ceiling), an **Opt.Cost of 0.3410**, and an **Opt.Sel of 0.1617** ($0.2117 / 1K queries vs $4.83 / 1K for RouterBench-MLP). Routing deterministically by domain specialization trades per-instance cost micro-optimization for microsecond CPU latency (<15µs) and zero token overhead.
+* **Clean Live OpenRouter Score**: **0.7267 (`72.67`)** (Accuracy: **74.49%**, Cost: **$0.3802 / 1K**, Robustness: **91.43%**, Abnormal: **0**, Router API Cost: **$0.00**).
+* **Maintainer Conformance (`5/5` Gates)**: Zero RouterArena wrapper template rules (`0/41` blank-template triggers, `CHOICE_LINE_RE` line-anchored option parsing), `8,400 / 8,400` cryptographic `gen-...` OpenRouter completion receipts, and `99.66%` unique `>= 200`-char completions never seen in any peer submission on `main`.
 
 ---
 
