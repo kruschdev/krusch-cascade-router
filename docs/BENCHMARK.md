@@ -8,21 +8,21 @@ This document provides a comprehensive technical breakdown and academic literatu
 
 This evaluation analyzes the **Krusch Cascade Router** across multiple configurations, focusing on a **4-Model Multi-Specialist Architecture** utilizing unified **OpenRouter** API routing across domain-specialized frontier and fast models.
 
-In official clean-room evaluation for **[RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)** (`8,400 / 8,400` direct live OpenRouter API generations, `0` peer copies, `0` template rules, 2026-10-31 OpenRouter pricing), Krusch Cascade Router scored **0.7267 (72.67)** with **74.49% accuracy** at **$0.3802 / 1K queries** and **91.43% robustness**, outperforming both **OpenAI GPT-5** (`64.32` / `73.96%` @ `$10.02/1K`) and **Microsoft Azure-Model-Router** (`70.37` / `72.93%` @ `$0.75/1K`).
+In official `github-actions[bot]` CI evaluation on **[RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169#issuecomment-6585010769)** (Run `#780`, `Evaluator: main @ 44cc1ff`, `8,400 / 8,400` direct live OpenRouter API generations, `0` peer copies, `0` template rules, 2026-10-31 OpenRouter pricing), Krusch Cascade Router scored **0.7263 (72.63, `#13 / 34`)** with **74.44% accuracy** at **$0.3802 / 1K queries** (`$3.193850` total) and **91.43% robustness**, outperforming both **OpenAI GPT-5** (`64.32` / `73.96%` @ `$10.02/1K`) and **Microsoft Azure-Model-Router** (`70.37` / `72.93%` @ `$0.75/1K`).
 
-Our clean-room rebuild ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) was evaluated across all 8,400 regular benchmark queries plus 420 robustness perturbations:
+Our clean-room rebuild ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169#issuecomment-6585010769)) was evaluated across all 8,400 regular benchmark queries plus 420 robustness perturbations:
 
 | Evaluation Run | Acc-Cost Score ($S_{i,\beta}$) | Benchmark Accuracy | Cost / 1K Queries | Robustness Score | Status & Notes |
 |:---|:---:|:---:|:---:|:---:|:---|
-| **Clean Live OpenRouter Rebuild (PR #169)** | **72.67 (0.7267)** | **74.49%** | **$0.3802** | **91.43%** | **5/5 Provenance Gates**: 8,400 unique live OpenRouter `gen-...` receipts (`$3.1939` total), zero template rules, 2026-10-31 pricing |
+| **Official `github-actions[bot]` Eval ([PR #169](https://github.com/RouteWorks/RouterArena/pull/169#issuecomment-6585010769))** | **72.63 (0.7263)** | **74.44%** | **$0.3802** | **91.43%** | **Run #780 (`main @ 44cc1ff`)**: 8,400 unique live OpenRouter `gen-...` receipts (`$3.193850` total, `0` abnormal), 2026-10-31 pricing |
 
 > [!NOTE]
 > **Verified Live OpenRouter Provenance (`5/5` Gates)**: Every one of the `8,400` answers was generated directly from live `https://openrouter.ai/api/v1/chat/completions` calls (`receipts_sha256: bede6659ebc8513d7f13fb7588b4ca2ec4df91c71d1accad8b9795b60d3db45e`) at a blended cost of **$0.3802 / 1K queries** (`$3.1939` total cost across 8,400 queries; `0` abnormal failures; `91.43%` robustness score).
 
 | Metric | Krusch Cascade (Clean Live 8.4K) | Divyam (#1) | KT-ModelRouter (#5) | OrcaRouter-Adaptive (#13) | Azure-Model-Router (#17) | OpenAI GPT-5 (#25) |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **RouterArena Score ($S_{i,\beta}$)** | **72.67 (0.7267)** | 77.19 | 76.08 | 72.48 | 70.37 | 64.32 |
-| **Benchmark Accuracy** | **74.49%** | 80.83% | 78.24% | 75.63% | 72.93% | 73.96% |
+| **RouterArena Score ($S_{i,\beta}$)** | **72.63 (0.7263)** | 77.19 | 76.08 | 72.48 | 70.37 | 64.32 |
+| **Benchmark Accuracy** | **74.44%** | 80.83% | 78.24% | 75.63% | 72.93% | 73.96% |
 | **Cost / 1K Queries** | **$0.3802** | $0.6600 | $0.3400 | $0.8300 | $0.7500 | $10.0200 |
 | **Total Benchmark Cost (8,400 Qs)**| **$3.1939** | $5.5440 | $2.8560 | $6.9720 | $6.3000 | $84.1680 |
 | **Robustness Score** | **91.43%** | 75.71% | 80.48% | 22.62% | 71.43% | — |
@@ -75,7 +75,7 @@ Our empirical investigation revealed four key root causes and refinements:
   - `google/gemini-3.1-flash-lite` for multilingual translation, clinical/medical, geography, and open-ended trivia (`1,161` queries, `69.25%` accuracy).
   - `Qwen/Qwen3-Coder-Next` for code, algorithms, and chess (`570` queries, `70.34%` accuracy).
   - `deepseek/deepseek-v4-pro` for complex financial statements (FinQA), balance sheets, and formal proofs (`33` queries, `51.52%` accuracy).
-* **Result**: Scored **0.7267 (`72.67`)** at `2026-10-31` OpenRouter pricing (`origin/main` `44cc1ff`) with **74.49% accuracy**, **$0.3802 / 1K queries** (`$3.1939` total), **91.43% robustness**, and **0 abnormal predictions** (`#13 / 34` overall, ahead of Microsoft `Azure-Model-Router` `70.37` and OpenAI `GPT-5` `64.32`).
+* **Result**: Scored **0.7263 (`72.63`)** in official `github-actions[bot]` CI evaluation ([PR #169](https://github.com/RouteWorks/RouterArena/pull/169#issuecomment-6585010769), `Evaluator: main @ 44cc1ff`, `2026-10-31` pricing) with **74.44% accuracy**, **$0.3802 / 1K queries** (`$3.193850` / `$3.1939` total), **91.43% robustness**, and **0 abnormal predictions** (`#13 / 34` overall, ahead of Microsoft `Azure-Model-Router` `70.37` and OpenAI `GPT-5` `64.32`).
 
 ### 4. Empirical Domain Allocation Across the Specialist Models (`2026-10-31` OpenRouter Pricing)
 
@@ -107,7 +107,7 @@ Rank  Router                              Acc-Cost Score   Accuracy   Cost / 1K 
  10   vLLM-SR                                   74.24        77.30%          $0.67           67.62%     Published
  11   BARouter                                  73.67        76.22%          $0.54           68.81%     Published
  12   NuRoute Artemis                           73.63        76.19%          $0.54           80.00%     Published
- 13*  Krusch Cascade Router (Live OpenRouter)   72.67        74.49%          $0.38           91.43%     PR #169 (8,400/8,400 gen-... Verified)
+ 13*  Krusch Cascade Router (Live OpenRouter)   72.63        74.44%          $0.38           91.43%     PR #169 Official CI (#issuecomment-6585010769)
  13   OrcaRouter-Adaptive                       72.48        75.63%          $0.83           22.62%     Published
  14   Nadir Router                              72.25        74.96%          $0.67           25.48%     Published
  15   Hybrid Router                             71.20        71.46%          $0.13           96.67%     Published
@@ -141,7 +141,7 @@ RouterArena's robustness split injects adversarial and conversational perturbati
 * **Krusch Cascade Invariance Guarantees**:
   1. **Noise-Tolerant Option Detection**: Regex `\b(?:options|selections|choices|alternatives|optrions):\s*\n?\s*[a-d]\.` handles multi-token variations and OCR typos.
   2. **Stem-Based Morphological Matching**: Stem patterns (`geograph`, `translat`, `clinic`, `diagnos`) match across inflected grammatical variants.
-  3. **Multi-Model Noise Absorption**: Achieves **92.62% robustness** (389/420 queries identical under perturbation), ensuring resilient production operation.
+  3. **Multi-Model Noise Absorption**: Achieves **91.43% robustness** (384/420 queries identical under perturbation), ensuring resilient production operation.
 
 ---
 
@@ -427,7 +427,7 @@ The table below synthesizes the complete empirical evaluation of **Krusch Cascad
 
 | Benchmark | Sponsoring Organization / Publication | Dataset Size & Scope | Baseline Target | Krusch Cascade Router Performance | Primary Efficiency Metric | Cost Reduction vs Frontier | Routing Overhead / Latency |
 |:---|:---|:---|:---|:---|:---:|:---:|:---:|
-| **1. RouterArena**<br>*(Live OpenRouter)* | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries + 420 Robustness (`8,400` live `gen-...` receipts) | Multi-Model Frontier Pool (`2026-10-31` Pricing) | **PR #169 Live OpenRouter**:<br>Arena Score: **0.7267 (`72.67`, `#13/34`)**<br>Accuracy: **74.49%**<br>Robustness: **91.43%** | **0.7267**<br>([PR #169](https://github.com/RouteWorks/RouterArena/pull/169)) | **$0.3802 / 1K queries**<br>(`26.4x` cheaper vs $10.02 GPT-5, vs $4.83 Martian, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
+| **1. RouterArena**<br>*(Live OpenRouter)* | RouterArena Consortium (Rice Univ) | 8,400 Benchmark Queries + 420 Robustness (`8,400` live `gen-...` receipts) | Multi-Model Frontier Pool (`2026-10-31` Pricing) | **PR #169 Official `github-actions[bot]`**:<br>Arena Score: **0.7263 (`72.63`, `#13/34`)**<br>Accuracy: **74.44%**<br>Robustness: **91.43%** | **0.7263**<br>([PR #169](https://github.com/RouteWorks/RouterArena/pull/169#issuecomment-6585010769)) | **$0.3802 / 1K queries**<br>(`26.4x` cheaper vs $10.02 GPT-5, vs $4.83 Martian, $4.10 NotDiamond) | < 0.15 ms<br>(6,600+ QPS) |
 | **2. ACL 2026 LLMRouterBench**<br>*(Hermetic G4 Live)* | NPULH (`ACL 2026` / `arXiv:2601.07206`) | 12,566 Prompts × 13 Frontier LLMs (`8` ID `n=3,005` + `2` Unseen OOD `HLE` & `ARC-AGI` `n=2,558`) | 9 Baselines (`RouteLLM`, `RouterDC`, `KNN`, `MLP`, `Avengers-Pro`, `gpt-5`) | **`#1` Lowest Pareto Dist (`0.4269`)** on `all_test` (`n=5,563`)<br>Micro / Macro: **42.78% / 57.78%**<br>OOD: **15.17% / 19.27%** (`25.25%` `ARC-AGI`) | **0.4269 Pareto Dist**<br>`AIQ = 0.3274` | **83.95% Savings**<br>($14.39/1K vs $89.62/1K `best_single`) | 42.5 µs (L1)<br>1.27 ms (L1+L2) |
 | **3. RouterArena Live Cascade**<br>*(Hermetic G4 Live)* | RouteWorks `sub_10` + `robustness` (Live 3-Model Generation) | 809 `sub_10` + 420 `robustness` Queries (`gemma4:e4b`, `qwen2.5-coder:7b`, `gpt-oss:120b` in 96GB VRAM) | `always_qwen25_coder_7b` (48.36%) & `always_gpt_oss_120b` ($0.1624/1K, 1,694.5ms TTFT) | **Path B SSE Logprob Abort**: **60.29% Acc** (`+11.93 pp` vs `7B`), **880.7ms TTFT** (`325` aborts billed)<br>**Path A L1+L2**: **59.45% Acc**, **73.33% Robustness** | **0.6111 Arena**<br>**-48.0% TTFT** | **37.4% (Path B)**<br>**60.2% (Path A)**<br>vs `gpt-oss:120b` | < 0.05 ms (Path B)<br>~1.2 ms (Path A) |
 | **4. Aider Polyglot Agentic**<br>*(Hermetic G4 Live)* | Aider Polyglot (`6` Languages: C++, Go, Java, JS, Python, Rust) | 60 Stratified Exercism Tasks × 4 Policies = 240 Sandboxed Trajectories | `static_heavy_120b` (51.67%) & `llm_router_preflight` `gemma4:e4b` (21.67%, 569.5ms) | **`Pass@2 = 51.67%` (`31/60`, `+20` healed)** — **100% parity with `120B`** & **+30.00 pp over LLM preflight** | **51.67% Pass@2**<br>**+7.32% `Pass@2/$`** | **6.82% Cost Save**<br>**-16.2% TTFT** vs `120B` | **0.395 ms**<br>(`1,442x` faster than LLM Router) |
@@ -444,7 +444,7 @@ All raw audit logs and SHA-256 digests below are verified by deterministic anti-
 
 | Track & Raw Audit Log | Verified `SHA-256` Digest | Key Empirical Proof |
 | :--- | :--- | :--- |
-| **`openrouter_8400_receipts.jsonl`** (`8,400` Live OpenRouter Qs + `420` Robustness) | `bede6659ebc8513d7f13fb7588b4ca2ec4df91c71d1accad8b9795b60d3db45e` | **`0.7267` Arena Score (`74.49%` Acc @ `$0.3802/1K`, `91.43%` Robustness, `0` Abnormal)** across `8,400 / 8,400` unique `gen-...` OpenRouter completion receipts (`0` template leaks across `41` blank configs, `99.66%` unseen `>= 200`-char answers). |
+| **`openrouter_8400_receipts.jsonl`** (`8,400` Live OpenRouter Qs + `420` Robustness) | `bede6659ebc8513d7f13fb7588b4ca2ec4df91c71d1accad8b9795b60d3db45e` | **`0.7263` Official CI Arena Score (`74.44%` Acc @ `$0.3802/1K`, `91.43%` Robustness, `0` Abnormal)** across `8,400 / 8,400` unique `gen-...` OpenRouter completion receipts ([PR #169](https://github.com/RouteWorks/RouterArena/pull/169#issuecomment-6585010769), `0` template leaks across `41` blank configs, `99.66%` unseen `>= 200`-char answers). |
 | **`routerbench_audit_log.json`** (`36,497` `0-shot` + `36,483` `5-shot` × `11` LLMs) | `007874e72e4126083ff0f1f8c5307d2dad0a295f31d9525d22583629d98e6b7e` | **`#1` ID Micro `AIQ` (`0.7488` `0-shot`, `0.7695` `5-shot`)** & **`-72.63%` cost @ `98%` `GPT-4`** (`$9.89` vs. `$36.15`); **breaks Martian's OOD `ZeroRouter` ceiling** across both `0-shot` (`0.7268` ZS / `0.7083` Cascade vs. `0.6941`) and `5-shot` (`0.7455` / `0.7389` vs. `0.7387`). |
 | **`llmrouterbench_audit_log.json`** (`12,566` Qs × `13` Frontier LLMs) | `73c85a9fbbb94163c18ac0612cbd501b0616278438c0b91437f18ce44a11ba4f` | **`#1` Pareto Distance (`0.4269`)** across all 10 policies on `all_test` (`n=5,563`, `-83.95%` cost vs `best_single`); beats `RouteLLM` (`8.75%`), `MLP` (`9.25%`), `KNN` (`17.25%`) on unseen `ARC-AGI` (**`25.25%`**) and overall OOD accuracy (**`15.17%` Micro / `19.27%` Macro**). |
 | **`live_cascade_audit_log.json`** (`809` `sub_10` + `420` `robustness`) | `58405c428ef0284a17e2a2dbf238228ae0e49cfc70bcb1c8051b46c4a310fc92` | Path B (`7B -> 120B` SSE Logprob/Loop Abort) lifts `7B` accuracy **`+11.93 pp`** (`48.36% -> 60.29%`) while cutting `120B` TTFT **`-48.0%`** (`1,694.5ms -> 880.7ms`) and cost **`-37.4%`** with all `325` SSE aborts (`58,743` wasted tokens) billed. |

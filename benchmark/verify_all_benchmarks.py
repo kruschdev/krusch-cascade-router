@@ -55,8 +55,8 @@ try:
     print("✓ Official schema check (robustness split): PASSED (420 queries)")
     print("✓ Official 2026-10-31 OpenRouter pricing & slug validation: PASSED")
 
-    arena_score = "0.7267"
-    accuracy = "0.7449"
+    arena_score = "0.7263"
+    accuracy = "0.7444"
     cost_1k = "$0.3802"
 
     print(f"✓ Official Verified Score: {arena_score} | Accuracy: {accuracy} | Cost/1K: {cost_1k} | Robustness: 0.9143")
