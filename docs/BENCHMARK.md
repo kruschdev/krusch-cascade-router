@@ -10,7 +10,7 @@ This evaluation analyzes the **Krusch Cascade Router** across multiple configura
 
 In official `github-actions[bot]` CI evaluation on **[RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169#issuecomment-6585010769)** (Run `#780`, `Evaluator: main @ 44cc1ff`, `8,400 / 8,400` direct live OpenRouter API generations, `0` peer copies, `0` template rules, 2026-10-31 OpenRouter pricing), Krusch Cascade Router scored **0.7263 (72.63, `#13 / 34`)** with **74.44% accuracy** at **$0.3802 / 1K queries** (`$3.193850` total) and **91.43% robustness**, outperforming both **OpenAI GPT-5** (`64.32` / `73.96%` @ `$10.02/1K`) and **Microsoft Azure-Model-Router** (`70.37` / `72.93%` @ `$0.75/1K`).
 
-Our clean-room rebuild ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169#issuecomment-6585010769)) was evaluated across all 8,400 regular benchmark queries plus 420 robustness perturbations:
+My clean-room rebuild ([RouteWorks/RouterArena PR #169](https://github.com/RouteWorks/RouterArena/pull/169#issuecomment-6585010769)) was evaluated across all 8,400 regular benchmark queries plus 420 robustness perturbations:
 
 | Evaluation Run | Acc-Cost Score ($S_{i,\beta}$) | Benchmark Accuracy | Cost / 1K Queries | Robustness Score | Status & Notes |
 |:---|:---:|:---:|:---:|:---:|:---|
@@ -57,7 +57,7 @@ $$\text{Arena Score } S_{i,\beta} = \frac{(1 + \beta) \cdot A_i \cdot C_i}{\beta
 
 ## 3. Heuristic Optimizations & Root-Stem Disambiguation
 
-Our empirical investigation revealed four key root causes and refinements:
+My empirical investigation revealed four key root causes and refinements:
 
 ### 1. Elimination of the `\boxed` Short-Circuit Trap
 * **Problem**: 8,015 of the 8,400 benchmark queries (95.4%) terminate with `"Provide the correct letter choice in \boxed{X}"`. The previous adapter had included `"\\boxed"` inside `is_math`.
@@ -69,7 +69,7 @@ Our empirical investigation revealed four key root causes and refinements:
 * **Fix**: Context-gated chess detection requiring explicit game markers (`chess move`, `chess game`, `board position`, `\b(?:fen|pgn|checkmate|castling)\b`). Precision jumped from 47.3% to **100.0%** (148/148 matches on ChessInstruct, 0 false positives).
 
 ### 3. Clean-Room Live OpenRouter Regeneration & Template-Free Conformance (`5/5` Gates)
-* **Problem**: Upstream maintainer review required zero reliance on RouterArena wrapper templates (`"0.0 for entailment"`, `"options:"`) and 100% genuine model calls originating directly from our router across all 8,400 queries rather than cross-submission prediction caches.
+* **Problem**: Upstream maintainer review required zero reliance on RouterArena wrapper templates (`"0.0 for entailment"`, `"options:"`) and 100% genuine model calls originating directly from my router across all 8,400 queries rather than cross-submission prediction caches.
 * **Fix**: Removed all template-coupled heuristics (`is_entailment`, `SuperGLUE-RC` triggers, `"options:"` substring checks replaced by line-anchored `CHOICE_LINE_RE`), verified `0 / 41` blank-template triggers across every `eval_config`, and regenerated all `8,400` answers live via OpenRouter (`8,400` unique `gen-...` completion IDs, `SHA-256: bede6659ebc8513d7f13fb7588b4ca2ec4df91c71d1accad8b9795b60d3db45e`):
   - `deepseek/deepseek-v4-flash` for high-throughput STEM, logic, and factual questions (`6,636` queries, `75.88%` accuracy).
   - `google/gemini-3.1-flash-lite` for multilingual translation, clinical/medical, geography, and open-ended trivia (`1,161` queries, `69.25%` accuracy).
@@ -302,7 +302,7 @@ Unlike RouterBench's reference neural routers (MLP and KNN) which require dense 
 
 ### D. Full 4-Regime Official `AbstractRouter` Head-to-Head Evaluation (`0-Shot` & `5-Shot`, ID & Leave-One-Suite-Out OOD — `5 / 5` SHA-256 Gates)
 
-In addition to the pure-CPU heuristic simulation above, we implemented **`KruschCascadeRouter`** (`L1` 31-feature tail-preserving structural gate + `L2` calibrated `snowflake-arctic-embed2:latest` `1024d` hybrid with epistemic `z_id` OOD gating) and **`KruschZeroShotRouter`** (`0` training labels, `0` embeddings) inside Martian's official `AbstractRouter` framework (`kruschdev/routerbench`, branch `feat/krusch-cascade-router`) and evaluated them on the exact same `seed=42` `70/30` ID splits and Leave-One-Suite-Out OOD splits against all four upstream `arXiv:2403.12031` baselines (`ZeroRouter`, `KNNRouter`, `SVMRouter`, `MLPRouter`):
+In addition to the pure-CPU heuristic simulation above, I implemented **`KruschCascadeRouter`** (`L1` 31-feature tail-preserving structural gate + `L2` calibrated `snowflake-arctic-embed2:latest` `1024d` hybrid with epistemic `z_id` OOD gating) and **`KruschZeroShotRouter`** (`0` training labels, `0` embeddings) inside Martian's official `AbstractRouter` framework (`kruschdev/routerbench`, branch `feat/krusch-cascade-router`) and evaluated them on the exact same `seed=42` `70/30` ID splits and Leave-One-Suite-Out OOD splits against all four upstream `arXiv:2403.12031` baselines (`ZeroRouter`, `KNNRouter`, `SVMRouter`, `MLPRouter`):
 
 | Regime (`n_eval`) | `ZeroRouter` *(Static Hull)* | `MLPRouter` | `SVMRouter` | `KNNRouter` (`k=40`) | **`KruschZeroShotRouter`** *(0 labels)* | **`KruschCascadeRouter`** *(L1+L2)* |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -363,7 +363,7 @@ Krusch Cascade Router was evaluated across the official **[LMSYS Arena-Hard-Auto
 
 Arena-Hard-Auto evaluates LLM routing and performance on high-complexity, multi-step, open-ended real-world prompts sampled from Chatbot Arena battles, evaluated using automated LLM-as-a-judge against calibrated baseline anchors.
 
-We evaluated Krusch Cascade Router across two distinct configurations:
+I evaluated Krusch Cascade Router across two distinct configurations:
 1. **Arena-Hard-Auto v0.1 (500 Prompts)**: Binary gating between `gpt-3.5-turbo-0125` (weak/fast tier) and `gpt-4-0613` (frontier tier), anchored against baseline `gpt-4-0314` (50.0% win-rate anchor) judged by `gpt-4-1106-preview`.
 2. **Arena-Hard-Auto v2.0 (750 Prompts)**: Reasoning cascade between open-weight reasoning model `QwQ-32B` ($0.15/$0.60 per 1M) and frontier reasoning model `DeepSeek-R1` ($0.55/$2.19 per 1M), anchored against baseline `o3-mini-2025-01-31` judged by `gpt-4.1`.
 
@@ -423,7 +423,7 @@ Krusch Cascade Router's deterministic heuristic engine automatically maps the 50
 
 ## 11. Universal Multi-Benchmark Leaderboard Matrix
 
-The table below synthesizes the complete empirical evaluation of **Krusch Cascade Router** across official CI evaluation, our **3-Track Hermetic 96GB Blackwell G4 Suite** ([`krush420/sovereign-g4-benchmarks`](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks)), and established LLM routing/cascading benchmarks:
+The table below synthesizes the complete empirical evaluation of **Krusch Cascade Router** across official CI evaluation, my **3-Track Hermetic 96GB Blackwell G4 Suite** ([`krush420/sovereign-g4-benchmarks`](https://huggingface.co/datasets/krush420/sovereign-g4-benchmarks)), and established LLM routing/cascading benchmarks:
 
 | Benchmark | Sponsoring Organization / Publication | Dataset Size & Scope | Baseline Target | Krusch Cascade Router Performance | Primary Efficiency Metric | Cost Reduction vs Frontier | Routing Overhead / Latency |
 |:---|:---|:---|:---|:---|:---:|:---:|:---:|
